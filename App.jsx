@@ -159,20 +159,28 @@ function AppMain({ user, userName }) {
   const handlePost = async () => {
     if (!newPost.trim()) return;
     setLoadingPost(true);
-    await supabase.from("posts").insert({ user_id: user.id, text: newPost });
-    setNewPost("");
-    await loadPosts();
+    const { error } = await supabase.from("posts").insert({ user_id: user.id, text: newPost });
+    if (error) {
+      alert("Erro ao publicar: " + error.message);
+    } else {
+      setNewPost("");
+      await loadPosts();
+    }
     setLoadingPost(false);
   };
 
   const handleActivity = async () => {
     if (!actForm.distance) return;
-    await supabase.from("activities").insert({
+    const { error } = await supabase.from("activities").insert({
       user_id: user.id,
       distance: parseFloat(actForm.distance),
       duration: actForm.duration,
       pace: actForm.pace,
     });
+    if (error) {
+      alert("Erro ao salvar atividade: " + error.message);
+      return;
+    }
     const newKm = (profile?.total_km || 0) + parseFloat(actForm.distance);
     const newCount = (profile?.races_count || 0) + 1;
     const newLevel = getLevel(newCount).name;
