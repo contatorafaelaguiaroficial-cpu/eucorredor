@@ -136,6 +136,7 @@ function AppMain({ user, userName }) {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const [actForm, setActForm] = useState({ distance: "", duration: "", pace: "" });
   const [loadingPost, setLoadingPost] = useState(false);
 
@@ -209,7 +210,14 @@ function AppMain({ user, userName }) {
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview({ file, previewUrl });
+  };
+
+  const confirmAvatarUpload = async () => {
+    if (!avatarPreview) return;
     setUploadingAvatar(true);
+    const { file } = avatarPreview;
     const ext = file.name.split(".").pop();
     const path = `${user.id}/avatar.${ext}`;
     const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
@@ -218,6 +226,7 @@ function AppMain({ user, userName }) {
     await supabase.from("profiles").update({ avatar_url: data.publicUrl }).eq("id", user.id);
     await loadProfile();
     setUploadingAvatar(false);
+    setAvatarPreview(null);
   };
 
   const races = profile?.races_count || 0;
@@ -452,22 +461,41 @@ function AppMain({ user, userName }) {
           {tab === "perfil" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, paddingTop: 8 }}>
-                {/* Avatar com upload */}
+                {/* Avatar com upload e preview */}
                 <div style={{ position: "relative" }}>
                   <label htmlFor="avatar-upload" style={{ cursor: "pointer" }}>
                     {profile?.avatar_url ? (
-                      <img src={profile.avatar_url} alt="avatar" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "3px solid #1e1e2e" }} />
+                      <img src={profile.avatar_url} alt="avatar" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid #1e1e2e" }} />
                     ) : (
-                      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, border: "3px solid #1e1e2e" }}>
+                      <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, border: "3px solid #1e1e2e" }}>
                         {level.icon}
                       </div>
                     )}
-                    <div style={{ position: "absolute", bottom: 0, right: 0, background: "#e11d48", borderRadius: "50%", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
+                    <div style={{ position: "absolute", bottom: 2, right: 2, background: "#e11d48", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, boxShadow: "0 2px 8px #00000060" }}>
                       {uploadingAvatar ? "⏳" : "📷"}
                     </div>
                   </label>
                   <input id="avatar-upload" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
                 </div>
+
+                {/* Modal de preview da foto */}
+                {avatarPreview && (
+                  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
+                    <p style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>Nova foto de perfil</p>
+                    <img src={avatarPreview.previewUrl} alt="preview" style={{ width: 180, height: 180, borderRadius: "50%", objectFit: "cover", border: "4px solid #e11d48", boxShadow: "0 0 40px #e11d4840" }} />
+                    <p style={{ fontSize: 13, color: "#555", textAlign: "center" }}>Essa foto vai aparecer no seu perfil e nos posts da comunidade.</p>
+                    <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 300 }}>
+                      <button onClick={() => setAvatarPreview(null)}
+                        style={{ flex: 1, border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 12, padding: 14, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
+                        Cancelar
+                      </button>
+                      <button onClick={confirmAvatarUpload} disabled={uploadingAvatar}
+                        style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                        {uploadingAvatar ? "Enviando..." : "Usar essa foto"}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div style={{ textAlign: "center" }}>
                   <p style={{ fontWeight: 700, fontSize: 18 }}>{profile?.name || userName}</p>
                   <p style={{ fontSize: 13, color: level.color, fontWeight: 700, marginTop: 2 }}>{level.name}</p>
