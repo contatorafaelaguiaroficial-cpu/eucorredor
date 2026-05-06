@@ -151,12 +151,12 @@ function AppMain({ user, userName }) {
   };
 
   const loadPosts = async () => {
-    const { data } = await supabase.from("posts").select("*, profiles(name, level, races_count)").order("created_at", { ascending: false }).limit(20);
+    const { data } = await supabase.from("posts").select("*, profiles(name, level, races_count, avatar_url)").order("created_at", { ascending: false }).limit(20);
     setPosts(data || []);
   };
 
   const loadActivities = async () => {
-    const { data } = await supabase.from("activities").select("*, profiles(name)").order("created_at", { ascending: false }).limit(20);
+    const { data } = await supabase.from("activities").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false }).limit(20);
     setActivities(data || []);
   };
 
@@ -227,6 +227,18 @@ function AppMain({ user, userName }) {
 
   const getLevelColor = (levelName) => LEVELS.find(l => l.name === levelName)?.color || "#888";
   const getLevelIcon = (levelName) => LEVELS.find(l => l.name === levelName)?.icon || "🏃";
+
+  const getAvatar = (profile, size = 38) => {
+    if (profile?.avatar_url) {
+      return <img src={profile.avatar_url} alt="avatar" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "2px solid #1e1e2e" }} />;
+    }
+    return (
+      <div style={{ width: size, height: size, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.32, fontWeight: 700, color: "#fff", border: `2px solid ${getLevelColor(profile?.level)}`, flexShrink: 0 }}>
+        {profile?.name?.charAt(0) || "?"}
+      </div>
+    );
+  };
+
 
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", display: "flex", justifyContent: "center" }}>
@@ -355,9 +367,7 @@ function AppMain({ user, userName }) {
                   {posts.map((p) => (
                     <div key={p.id} className="card">
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${getLevelColor(p.profiles?.level)}`, flexShrink: 0 }}>
-                          {p.profiles?.name?.charAt(0) || "?"}
-                        </div>
+                        {getAvatar(p.profiles, 38)}
                         <div>
                           <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
                           <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>
@@ -414,9 +424,7 @@ function AppMain({ user, userName }) {
               {activities.map((a) => (
                 <div key={a.id} className="card">
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                      {a.profiles?.name?.charAt(0) || "?"}
-                    </div>
+                    {getAvatar(a.profiles, 36)}
                     <div>
                       <p style={{ fontWeight: 700, fontSize: 14 }}>{a.profiles?.name || "Corredor"}</p>
                     </div>
