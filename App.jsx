@@ -201,13 +201,19 @@ function AppMain({ user, userName }) {
       setRealFollowing(f => ({ ...f, [targetId]: true }));
     }
     await loadFollowCounts();
+    await loadNotifications();
   };
 
   const handleLikePost = async (postId, postOwnerId) => {
     const isLiked = liked[postId];
-    setLiked(l => ({ ...l, [postId]: !l[postId] }));
-    if (!isLiked && postOwnerId !== user.id) {
-      await supabase.from("notifications").insert({ user_id: postOwnerId, from_user_id: user.id, type: "like", post_id: postId });
+    setLiked(l => ({ ...l, [postId]: !isLiked }));
+    if (!isLiked) {
+      await supabase.from("posts").update({ likes: (posts.find(p => p.id === postId)?.likes || 0) + 1 }).eq("id", postId);
+      if (postOwnerId !== user.id) {
+        await supabase.from("notifications").insert({ user_id: postOwnerId, from_user_id: user.id, type: "like", post_id: postId });
+      }
+    } else {
+      await supabase.from("posts").update({ likes: Math.max((posts.find(p => p.id === postId)?.likes || 1) - 1, 0) }).eq("id", postId);
     }
   };
 
@@ -294,8 +300,13 @@ function AppMain({ user, userName }) {
   const handleComment = async (postId) => {
     if (!newComment.trim()) return;
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
+    const post = posts.find(p => p.id === postId);
+    if (post && post.user_id !== user.id) {
+      await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
+    }
     setNewComment("");
     await loadComments(postId);
+    await loadNotifications();
   };
 
   const handleSearch = async (query) => {
