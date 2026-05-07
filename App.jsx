@@ -29,7 +29,7 @@ const events = [
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", handle: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -38,18 +38,23 @@ function AuthScreen({ onLogin }) {
   const handleSubmit = async () => {
     setError("");
     if (mode === "register" && !form.name.trim()) return setError("Informe seu nome.");
+    if (mode === "register" && !form.handle.trim()) return setError("Informe seu @handle.");
     if (!form.email.includes("@")) return setError("E-mail inválido.");
     if (form.password.length < 6) return setError("Senha com no mínimo 6 caracteres.");
     setLoading(true);
     try {
       if (mode === "register") {
+        if (!form.handle.trim()) throw new Error("Informe seu @handle.");
+        if (form.handle.length < 3) throw new Error("O handle precisa ter no mínimo 3 caracteres.");
+        const { data: existing } = await supabase.from("profiles").select("id").eq("handle", form.handle).single();
+        if (existing) throw new Error("Esse @handle já está em uso. Tente outro.");
         const { data, error: err } = await supabase.auth.signUp({
           email: form.email, password: form.password,
           options: { data: { name: form.name } },
         });
         if (err) throw err;
         if (data.user) {
-          await supabase.from("profiles").insert({ id: data.user.id, name: form.name, level: "Iniciante", races_count: 0, total_km: 0 });
+          await supabase.from("profiles").insert({ id: data.user.id, name: form.name, handle: form.handle, level: "Iniciante", races_count: 0, total_km: 0 });
           onLogin(data.user, form.name);
         }
       } else {
@@ -91,6 +96,16 @@ function AuthScreen({ onLogin }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {mode === "register" && <input className="ai" placeholder="Seu nome" value={form.name} onChange={set("name")} />}
+          {mode === "register" && (
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#555", fontSize: 14 }}>@</span>
+              <input className="ai" style={{ paddingLeft: 28 }} placeholder="seuhandle" value={form.handle}
+                onChange={(e) => setForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} />
+            </div>
+          )}
+          {mode === "register" && form.handle.length > 0 && (
+            <p style={{ fontSize: 11, color: "#555", marginTop: -6 }}>Somente letras minúsculas, números e _</p>
+          )}
           <input className="ai" placeholder="E-mail" type="email" value={form.email} onChange={set("email")} />
           <input className="ai" placeholder="Senha" type="password" value={form.password} onChange={set("password")} />
         </div>
@@ -130,6 +145,9 @@ function AppMain({ user, userName }) {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
 
@@ -184,8 +202,20 @@ function AppMain({ user, userName }) {
     await loadActivities();
   };
 
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    if (!query.trim()) { setSearchResults([]); return; }
+    const { data } = await supabase.from("profiles")
+      .select("id, name, handle, level, avatar_url, races_count")
+      .or(`name.ilike.%${query}%,handle.ilike.%${query}%`)
+      .neq("id", user.id)
+      .limit(10);
+    setSearchResults(data || []);
+  };
+
   const handleEditProfile = async () => {
-    await supabase.from("profiles").update({ name: editForm.name, bio: editForm.bio }).eq("id", user.id);
+    const handle = editForm.handle?.toLowerCase().replace(/[^a-z0-9_]/g, "") || (editForm.name || "").toLowerCase().replace(/\s/g, "");
+    await supabase.from("profiles").update({ name: editForm.name, bio: editForm.bio, handle }).eq("id", user.id);
     await loadProfile();
     setShowEditProfile(false);
   };
@@ -318,10 +348,44 @@ function AppMain({ user, userName }) {
                 ))}
               </div>
 
-              {/* Publicar */}
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+              {/* Barra de ações */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <button onClick={() => setShowSearch(!showSearch)}
+                  style={{ background: showSearch ? "#13131a" : "none", border: showSearch ? "1px solid #e11d48" : "1px solid #1e1e2e", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", color: showSearch ? "#e11d48" : "#888", display: "flex", alignItems: "center", gap: 6 }}>
+                  🔍 Buscar
+                </button>
                 <button className="jbtn" onClick={() => setShowPublish(true)}>+ Publicar</button>
               </div>
+
+              {/* Campo de busca */}
+              {showSearch && (
+                <div style={{ marginBottom: 14 }}>
+                  <input className="tinput" placeholder="Buscar por nome ou @handle..." value={searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    style={{ marginBottom: searchResults.length > 0 ? 10 : 0 }} />
+                  {searchResults.map((u) => (
+                    <div key={u.id} style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, flexShrink: 0 }}>
+                        {u.avatar_url
+                          ? <img src={u.avatar_url} alt="av" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
+                          : u.name?.charAt(0) || "?"
+                        }
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</p>
+                        <p style={{ fontSize: 11, color: "#555" }}>{u.handle ? `@${u.handle}` : ""} · <span style={{ color: getLevelColor(u.level) }}>{getLevelIcon(u.level)} {u.level}</span></p>
+                      </div>
+                      <button onClick={() => setFollowing(f => ({ ...f, [u.id]: !f[u.id] }))}
+                        style={{ border: `1.5px solid ${following[u.id] ? "#1e1e2e" : "#e11d48"}`, color: following[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                        {following[u.id] ? "Seguindo" : "Seguir"}
+                      </button>
+                    </div>
+                  ))}
+                  {searchQuery.length > 0 && searchResults.length === 0 && (
+                    <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "16px 0" }}>Nenhum corredor encontrado.</p>
+                  )}
+                </div>
+              )}
 
               {/* Feed */}
               {commFeed === "amigos" ? (
@@ -519,7 +583,7 @@ function AppMain({ user, userName }) {
                   </div>
                   <div style={{ flex: 1 }}>
                     <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{profile?.name || userName}</h2>
-                    <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{(profile?.name || userName).toLowerCase().replace(/\s/g, "")}</p>
+                    <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "")}</p>
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
                       <span style={{ fontSize: 11, color: level.color, fontWeight: 700 }}>{level.icon} {level.name}</span>
                     </div>
@@ -541,7 +605,7 @@ function AppMain({ user, userName }) {
                   <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "" }); setAvatarPreview(null); }}
+                  <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
                     style={{ flex: 1, background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                     ✏️ Editar perfil
                   </button>
@@ -586,6 +650,14 @@ function AppMain({ user, userName }) {
                       <div>
                         <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Nome</p>
                         <input className="tinput" value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} placeholder="Seu nome" />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>@ Handle</p>
+                        <div style={{ position: "relative" }}>
+                          <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#555", fontSize: 14 }}>@</span>
+                          <input className="tinput" style={{ paddingLeft: 28 }} value={editForm.handle} onChange={(e) => setEditForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="seuhandle" />
+                        </div>
+                        <p style={{ fontSize: 10, color: "#555", marginTop: 4 }}>Somente letras minúsculas, números e _</p>
                       </div>
                       <div>
                         <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Bio</p>
