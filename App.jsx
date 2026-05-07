@@ -39,7 +39,8 @@ function AuthScreen({ onLogin }) {
     setError("");
     if (mode === "register" && !form.name.trim()) return setError("Informe seu nome.");
     if (mode === "register" && !form.handle.trim()) return setError("Informe seu @handle.");
-    if (!form.email.includes("@")) return setError("E-mail inválido.");
+    const isHandle = !form.email.includes("@") || form.email.startsWith("@");
+    if (!isHandle && !form.email.includes("@")) return setError("E-mail ou @handle inválido.");
     if (form.password.length < 6) return setError("Senha com no mínimo 6 caracteres.");
     setLoading(true);
     try {
@@ -58,10 +59,22 @@ function AuthScreen({ onLogin }) {
           onLogin(data.user, form.name);
         }
       } else {
-        const { data, error: err } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password });
+        let emailToUse = form.email.trim();
+        // Se não contém @ ou começa com @, trata como handle
+        if (!emailToUse.includes("@") || emailToUse.startsWith("@")) {
+          const handle = emailToUse.replace("@", "").toLowerCase();
+          const { data: profileData } = await supabase.from("profiles").select("id").eq("handle", handle).single();
+          if (!profileData) throw new Error("Usuário @" + handle + " não encontrado.");
+          const { data: userData } = await supabase.auth.admin?.getUserById(profileData.id);
+          // fallback: busca o email pelo handle via profiles join auth
+          const { data: authData } = await supabase.rpc("get_email_by_handle", { p_handle: handle });
+          if (!authData) throw new Error("Não foi possível autenticar com esse @handle. Use seu e-mail.");
+          emailToUse = authData;
+        }
+        const { data, error: err } = await supabase.auth.signInWithPassword({ email: emailToUse, password: form.password });
         if (err) throw err;
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
-        onLogin(data.user, profile?.name || form.email.split("@")[0]);
+        onLogin(data.user, profile?.name || emailToUse.split("@")[0]);
       }
     } catch (err) {
       setError(err.message || "Erro ao autenticar.");
@@ -106,7 +119,7 @@ function AuthScreen({ onLogin }) {
           {mode === "register" && form.handle.length > 0 && (
             <p style={{ fontSize: 11, color: "#555", marginTop: -6 }}>Somente letras minúsculas, números e _</p>
           )}
-          <input className="ai" placeholder="E-mail" type="email" value={form.email} onChange={set("email")} />
+          <input className="ai" placeholder="E-mail ou @handle" value={form.email} onChange={set("email")} />
           <input className="ai" placeholder="Senha" type="password" value={form.password} onChange={set("password")} />
         </div>
         {error && <p style={{ color: "#e11d48", fontSize: 12, marginTop: 10 }}>{error}</p>}
