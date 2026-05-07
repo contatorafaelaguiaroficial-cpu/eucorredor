@@ -352,7 +352,7 @@ function AppMain({ user, userName }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <button onClick={() => setShowSearch(!showSearch)}
                   style={{ background: showSearch ? "#13131a" : "none", border: showSearch ? "1px solid #e11d48" : "1px solid #1e1e2e", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", color: showSearch ? "#e11d48" : "#888", display: "flex", alignItems: "center", gap: 6 }}>
-                  🔍 Buscar
+                  Buscar
                 </button>
                 <button className="jbtn" onClick={() => setShowPublish(true)}>+ Publicar</button>
               </div>
