@@ -172,6 +172,18 @@ function AppMain({ user, userName }) {
     await loadActivities();
   };
 
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm("Excluir esta publicação?")) return;
+    await supabase.from("posts").delete().eq("id", postId);
+    await loadPosts();
+  };
+
+  const handleDeleteActivity = async (actId) => {
+    if (!window.confirm("Excluir esta atividade?")) return;
+    await supabase.from("activities").delete().eq("id", actId);
+    await loadActivities();
+  };
+
   const handleEditProfile = async () => {
     await supabase.from("profiles").update({ name: editForm.name, bio: editForm.bio }).eq("id", user.id);
     await loadProfile();
@@ -351,6 +363,11 @@ function AppMain({ user, userName }) {
                         </button>
                         <button className="lbtn"><span style={{ fontSize: 16 }}>💬</span><span>{p.comments || 0}</span></button>
                         <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
+                        {p.user_id === user.id && (
+                          <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}>
+                            <span style={{ fontSize: 16 }}>🗑️</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -618,7 +635,13 @@ function AppMain({ user, userName }) {
                         </div>
                       )}
                       {p.text && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 8 }}>{p.text}</p>}
-                      <span style={{ fontSize: 11, color: "#555" }}>❤️ {p.likes || 0}</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "#555" }}>❤️ {p.likes || 0}</span>
+                        <button onClick={() => handleDeletePost(p.id)}
+                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                          🗑️ Excluir
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {posts.filter(p => p.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
@@ -629,11 +652,15 @@ function AppMain({ user, userName }) {
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   {activities.filter(a => a.user_id === user.id).map((a) => (
                     <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                         <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
                         {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
                         {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
                       </div>
+                      <button onClick={() => handleDeleteActivity(a.id)}
+                        style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                        🗑️ Excluir atividade
+                      </button>
                     </div>
                   ))}
                   {activities.filter(a => a.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
