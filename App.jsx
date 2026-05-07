@@ -133,6 +133,8 @@ function AppMain({ user, userName }) {
   const [liked, setLiked] = useState({});
   const [newPost, setNewPost] = useState("");
   const [showActivityForm, setShowActivityForm] = useState(false);
+  const [showPublish, setShowPublish] = useState(false);
+  const [publishType, setPublishType] = useState(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -346,59 +348,172 @@ function AppMain({ user, userName }) {
 
           {/* COMUNIDADE */}
           {tab === "comunidade" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "flex", gap: 8, background: "#13131a", borderRadius: 12, padding: 4 }}>
-                {[{ id: "feed", label: "Feed" }, { id: "pessoas", label: "Pessoas" }].map((s) => (
-                  <button key={s.id} className="sub-tab" onClick={() => setCommunityTab(s.id)}
-                    style={{ flex: 1, background: communityTab === s.id ? "#1e1e2e" : "none", color: communityTab === s.id ? "#fff" : "#555" }}>
-                    {s.label}
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+
+              {/* Tabs Comunidade / Amigos */}
+              <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", marginBottom: 0 }}>
+                {[{ id: "todos", label: "Comunidade" }, { id: "amigos", label: "Amigos" }].map((t) => (
+                  <button key={t.id} onClick={() => setCommunityTab(t.id)}
+                    style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, padding: "10px 0", color: communityTab === t.id ? "#f0f0f0" : "#555" }}>
+                    {t.label}
+                    {communityTab === t.id && <div style={{ width: 28, height: 2, background: "#e11d48", borderRadius: 2, margin: "6px auto 0" }} />}
                   </button>
                 ))}
               </div>
 
-              {communityTab === "feed" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {/* Caixa de novo post */}
-                  <div className="card">
-                    <textarea className="text-input" placeholder="Compartilhe algo com a comunidade..." rows={3}
-                      value={newPost} onChange={(e) => setNewPost(e.target.value)} />
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                      <button className="join-btn" onClick={handlePost} disabled={loadingPost}>
-                        {loadingPost ? "Publicando..." : "Publicar"}
+              {/* Botão publicar */}
+              <div style={{ display: "flex", justifyContent: "flex-end", padding: "12px 0 8px" }}>
+                <button onClick={() => setShowPublish(true)}
+                  style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                  + Publicar
+                </button>
+              </div>
+
+              {/* Feed */}
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {(communityTab === "amigos" ? posts.filter(p => p.friend) : posts).length === 0 && communityTab === "amigos" && (
+                  <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                    <p style={{ fontSize: 28, marginBottom: 10 }}>🏃</p>
+                    <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Nenhuma publicação ainda</p>
+                    <p style={{ fontSize: 13, color: "#555" }}>Siga corredores para ver o feed de amigos.</p>
+                  </div>
+                )}
+
+                {(communityTab === "amigos"
+                  ? posts.filter(p => false)
+                  : posts
+                ).map((p) => (
+                  <div key={p.id} style={{ borderBottom: "1px solid #1e1e2e" }}>
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 0 10px" }}>
+                      <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, border: `2px solid ${getLevelColor(p.profiles?.level)}`, flexShrink: 0 }}>
+                        {p.profiles?.avatar_url
+                          ? <img src={p.profiles.avatar_url} style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }} />
+                          : p.profiles?.name?.charAt(0) || "?"
+                        }
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</span>
+                          <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{getLevelIcon(p.profiles?.level)}</span>
+                        </div>
+                        <p style={{ fontSize: 11, color: "#555" }}>há {Math.floor(Math.random() * 5 + 1)}h</p>
+                      </div>
+                      {!p.friend && (
+                        <button onClick={() => setFollowing(f => ({ ...f, [p.id]: !f[p.id] }))}
+                          style={{ border: `1.5px solid ${following[p.id] ? "#1e1e2e" : "#e11d48"}`, color: following[p.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                          {following[p.id] ? "Seguindo" : "Seguir"}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Conteúdo */}
+                    <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>
+
+                    {/* Ações */}
+                    <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10, marginBottom: 14 }}>
+                      <button onClick={() => setCommunityLiked(l => ({ ...l, [p.id]: !l[p.id] }))}
+                        style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, color: communityLiked[p.id] ? "#e11d48" : "#555", fontFamily: "inherit", fontSize: 13, padding: 0 }}>
+                        <span style={{ fontSize: 18 }}>{communityLiked[p.id] ? "❤️" : "🤍"}</span>
+                        <span>{p.likes + (communityLiked[p.id] ? 1 : 0)}</span>
                       </button>
+                      <button style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, color: "#555", fontFamily: "inherit", fontSize: 13, padding: 0 }}>
+                        <span style={{ fontSize: 18 }}>💬</span>
+                        <span>{p.comments}</span>
+                      </button>
+                      <button style={{ background: "none", border: "none", cursor: "pointer", color: "#555", fontFamily: "inherit", fontSize: 18, padding: 0, marginLeft: "auto" }}>↗️</button>
                     </div>
                   </div>
+                ))}
 
-                  {posts.length === 0 && (
-                    <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhum post ainda. Seja o primeiro!</p>
-                  )}
+                {posts.length === 0 && communityTab === "todos" && (
+                  <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda. Seja o primeiro!</p>
+                )}
+              </div>
 
-                  {posts.map((p) => (
-                    <div key={p.id} className="card">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        {getAvatar(p.profiles, 38)}
-                        <div>
-                          <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
-                          <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>
-                            {getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}
-                          </span>
+              {/* Modal publicar */}
+              {showPublish && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                      <p style={{ fontWeight: 700, fontSize: 16 }}>
+                        {publishType ? (publishType === "foto" ? "Nova foto" : publishType === "post" ? "Novo post" : "Nova atividade") : "O que quer publicar?"}
+                      </p>
+                      <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); }}
+                        style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                    </div>
+
+                    {!publishType && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {[
+                          { id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" },
+                          { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" },
+                          { id: "atividade", label: "Atividade", desc: "Registre um treino com métricas", icon: "⚡" },
+                        ].map((t) => (
+                          <button key={t.id} onClick={() => setPublishType(t.id)}
+                            style={{ background: "#0a0a0f", border: "1px solid #1e1e2e", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 14 }}>
+                            <span style={{ fontSize: 24 }}>{t.icon}</span>
+                            <div style={{ textAlign: "left" }}>
+                              <p style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f0" }}>{t.label}</p>
+                              <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{t.desc}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {publishType === "post" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <textarea className="text-input" rows={4} placeholder="O que está pensando?" value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
+                          <button onClick={() => { handlePost(); setShowPublish(false); setPublishType(null); }}
+                            style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                            Publicar
+                          </button>
                         </div>
                       </div>
-                      <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 10 }}>{p.text}</p>
-                      <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10 }}>
-                        <button className="like-btn" onClick={() => setLiked(l => ({ ...l, [p.id]: !l[p.id] }))}
-                          style={{ color: liked[p.id] ? "#e11d48" : "#555" }}>
-                          <span>{liked[p.id] ? "❤️" : "🤍"}</span>
-                          <span>{p.likes + (liked[p.id] ? 1 : 0)}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    )}
 
-              {communityTab === "pessoas" && (
-                <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Em breve — lista de corredores para seguir.</p>
+                    {publishType === "foto" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div style={{ background: "#0a0a0f", border: "2px dashed #1e1e2e", borderRadius: 14, height: 140, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 8 }}>
+                          <span style={{ fontSize: 32 }}>🖼️</span>
+                          <p style={{ fontSize: 13, color: "#555" }}>Toque para selecionar uma foto</p>
+                        </div>
+                        <textarea className="text-input" rows={3} placeholder="Adicione uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
+                          <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); }}
+                            style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                            Publicar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {publishType === "atividade" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {[
+                          { key: "distance", placeholder: "Distância (ex: 10,5 km)" },
+                          { key: "duration", placeholder: "Tempo (ex: 52min)" },
+                          { key: "pace", placeholder: "Pace (ex: 5'12"/km)" },
+                        ].map((f) => (
+                          <input key={f.key} className="text-input" placeholder={f.placeholder}
+                            value={actForm[f.key]} onChange={(e) => setActForm(a => ({ ...a, [f.key]: e.target.value }))} />
+                        ))}
+                        <textarea className="text-input" rows={2} placeholder="Legenda opcional..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
+                          <button onClick={() => { handleActivity(); setShowPublish(false); setPublishType(null); setNewPost(""); }}
+                            style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                            Publicar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           )}
