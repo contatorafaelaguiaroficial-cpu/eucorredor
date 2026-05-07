@@ -39,8 +39,13 @@ function AuthScreen({ onLogin }) {
   // Detectar se voltou do link de reset
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      setMode("reset");
+    if (hash.includes("type=recovery") || hash.includes("access_token")) {
+      // Supabase troca o token automaticamente via onAuthStateChange
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setMode("reset");
+        }
+      });
     }
   }, []);
 
