@@ -147,6 +147,8 @@ function AppMain({ user, userName }) {
   const [loadingPost, setLoadingPost] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [showFollowModal, setShowFollowModal] = useState(null);
+  const [followList, setFollowList] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
   const [openComments, setOpenComments] = useState(null);
   const [comments, setComments] = useState({});
@@ -157,6 +159,22 @@ function AppMain({ user, userName }) {
   const [photoPreview, setPhotoPreview] = useState(null);
 
   useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); }, []);
+
+  const loadFollowList = async (type) => {
+    setShowFollowModal(type);
+    setFollowList([]);
+    if (type === "seguidores") {
+      const { data } = await supabase.from("follows")
+        .select("profiles!follows_follower_id_fkey(id, name, handle, level, avatar_url, races_count)")
+        .eq("following_id", user.id);
+      setFollowList((data || []).map(d => d.profiles).filter(Boolean));
+    } else {
+      const { data } = await supabase.from("follows")
+        .select("profiles!follows_following_id_fkey(id, name, handle, level, avatar_url, races_count)")
+        .eq("follower_id", user.id);
+      setFollowList((data || []).map(d => d.profiles).filter(Boolean));
+    }
+  };
 
   const loadFollowCounts = async () => {
     const { count: fc } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", user.id);
@@ -679,15 +697,56 @@ function AppMain({ user, userName }) {
 
                 {/* Seguidores e seguindo */}
                 <div style={{ display: "flex", gap: 20, marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid #1e1e2e" }}>
-                  <div style={{ textAlign: "center", cursor: "pointer" }}>
+                  <button onClick={() => loadFollowList("seguidores")}
+                    style={{ textAlign: "center", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit" }}>
                     <p style={{ fontWeight: 700, fontSize: 18, color: "#f0f0f0" }}>{followersCount}</p>
                     <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p>
-                  </div>
-                  <div style={{ textAlign: "center", cursor: "pointer" }}>
+                  </button>
+                  <button onClick={() => loadFollowList("seguindo")}
+                    style={{ textAlign: "center", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit" }}>
                     <p style={{ fontWeight: 700, fontSize: 18, color: "#f0f0f0" }}>{followingCount}</p>
                     <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p>
-                  </div>
+                  </button>
                 </div>
+
+                {/* Modal seguidores/seguindo */}
+                {showFollowModal && (
+                  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                    <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                        <p style={{ fontWeight: 700, fontSize: 16, textTransform: "capitalize" }}>{showFollowModal}</p>
+                        <button onClick={() => setShowFollowModal(null)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                      </div>
+
+                      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
+                        {followList.length === 0 && (
+                          <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>
+                            {showFollowModal === "seguidores" ? "Nenhum seguidor ainda." : "Você não segue ninguém ainda."}
+                          </p>
+                        )}
+                        {followList.map((u) => (
+                          <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid #1e1e2e" }}>
+                            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, flexShrink: 0, overflow: "hidden" }}>
+                              {u.avatar_url
+                                ? <img src={u.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                : u.name?.charAt(0) || "?"
+                              }
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontWeight: 700, fontSize: 15 }}>{u.name}</p>
+                              <p style={{ fontSize: 12, color: "#555" }}>{u.handle ? `@${u.handle}` : ""}</p>
+                              <p style={{ fontSize: 11, color: getLevelColor(u.level), fontWeight: 700, marginTop: 2 }}>{getLevelIcon(u.level)} {u.level} · {u.races_count || 0} corridas</p>
+                            </div>
+                            <button onClick={() => setFollowing(f => ({ ...f, [u.id]: !f[u.id] }))}
+                              style={{ border: `1.5px solid ${following[u.id] ? "#1e1e2e" : "#e11d48"}`, color: following[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                              {following[u.id] ? "Seguindo" : "Seguir"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
                     style={{ flex: 1, background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
