@@ -28,12 +28,43 @@ const events = [
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
-  const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", email: "", password: "", handle: "" });
+  const [mode, setMode] = useState("login"); // login | register | forgot | reset
+  const [form, setForm] = useState({ name: "", email: "", password: "", handle: "", newPassword: "" });
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // Detectar se voltou do link de reset
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("type=recovery")) {
+      setMode("reset");
+    }
+  }, []);
+
+  const handleForgot = async () => {
+    setError(""); setSuccess("");
+    if (!form.email.includes("@")) return setError("Informe um e-mail válido.");
+    setLoading(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(form.email, {
+      redirectTo: "https://eucorredor.com.br/#recovery"
+    });
+    if (err) setError(err.message);
+    else setSuccess("E-mail enviado! Verifique sua caixa de entrada.");
+    setLoading(false);
+  };
+
+  const handleReset = async () => {
+    setError(""); setSuccess("");
+    if (form.newPassword.length < 6) return setError("A nova senha precisa ter no mínimo 6 caracteres.");
+    setLoading(true);
+    const { error: err } = await supabase.auth.updateUser({ password: form.newPassword });
+    if (err) setError(err.message);
+    else { setSuccess("Senha alterada com sucesso!"); setTimeout(() => setMode("login"), 2000); }
+    setLoading(false);
+  };
 
   const handleSubmit = async () => {
     setError("");
@@ -97,9 +128,11 @@ function AuthScreen({ onLogin }) {
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🏃</div>
           <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 32, fontWeight: 800 }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
-          <p style={{ color: "#555", fontSize: 13, marginTop: 8 }}>A comunidade dos corredores</p>
+          <p style={{ color: "#555", fontSize: 13, marginTop: 8 }}>
+            {mode === "forgot" ? "Recuperação de senha" : mode === "reset" ? "Nova senha" : "A comunidade dos corredores"}
+          </p>
         </div>
-        <div style={{ display: "flex", background: "#13131a", borderRadius: 12, padding: 4, marginBottom: 28 }}>
+        <div style={{ display: "flex", background: "#13131a", borderRadius: 12, padding: 4, marginBottom: 28, display: mode === "forgot" || mode === "reset" ? "none" : "flex" }}>
           {["login", "register"].map((m) => (
             <button key={m} onClick={() => { setMode(m); setError(""); }}
               style={{ flex: 1, background: mode === m ? "#1e1e2e" : "none", border: "none", borderRadius: 9, padding: "9px 0", color: mode === m ? "#fff" : "#555", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
@@ -107,7 +140,7 @@ function AuthScreen({ onLogin }) {
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: mode === "forgot" || mode === "reset" ? "none" : "flex", flexDirection: "column", gap: 12 }}>
           {mode === "register" && <input className="ai" placeholder="Seu nome" value={form.name} onChange={set("name")} />}
           {mode === "register" && (
             <div style={{ position: "relative" }}>
@@ -122,17 +155,62 @@ function AuthScreen({ onLogin }) {
           <input className="ai" placeholder="E-mail ou @handle" value={form.email} onChange={set("email")} />
           <input className="ai" placeholder="Senha" type="password" value={form.password} onChange={set("password")} />
         </div>
-        {error && <p style={{ color: "#e11d48", fontSize: 12, marginTop: 10 }}>{error}</p>}
-        <button className="ab" style={{ marginTop: 24 }} onClick={handleSubmit} disabled={loading}>
-          {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
-        </button>
-        <p style={{ textAlign: "center", fontSize: 13, color: "#555", marginTop: 24 }}>
-          {mode === "login" ? "Ainda não tem conta? " : "Já tem conta? "}
-          <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
-            style={{ background: "none", border: "none", color: "#e11d48", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-            {mode === "login" ? "Criar agora" : "Entrar"}
-          </button>
-        </p>
+        {error && (mode === "login" || mode === "register") && <p style={{ color: "#e11d48", fontSize: 12, marginTop: 10 }}>{error}</p>}
+        {/* Tela de recuperação de senha */}
+        {mode === "forgot" && (
+          <>
+            <p style={{ fontSize: 14, color: "#888", marginBottom: 16, lineHeight: 1.5 }}>
+              Digite seu e-mail e enviaremos um link para redefinir sua senha.
+            </p>
+            <input className="ai" placeholder="Seu e-mail" type="email" value={form.email} onChange={set("email")} />
+            {error && <p style={{ color: "#e11d48", fontSize: 12, marginTop: 10 }}>{error}</p>}
+            {success && <p style={{ color: "#6ee7b7", fontSize: 12, marginTop: 10 }}>{success}</p>}
+            <button className="ab" style={{ marginTop: 16 }} onClick={handleForgot} disabled={loading}>
+              {loading ? "Enviando..." : "Enviar link de recuperação"}
+            </button>
+            <button onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
+              style={{ width: "100%", background: "none", border: "none", color: "#555", fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "inherit" }}>
+              Voltar para o login
+            </button>
+          </>
+        )}
+
+        {/* Tela de nova senha */}
+        {mode === "reset" && (
+          <>
+            <p style={{ fontSize: 14, color: "#888", marginBottom: 16 }}>Digite sua nova senha.</p>
+            <input className="ai" placeholder="Nova senha" type="password" value={form.newPassword} onChange={set("newPassword")} />
+            {error && <p style={{ color: "#e11d48", fontSize: 12, marginTop: 10 }}>{error}</p>}
+            {success && <p style={{ color: "#6ee7b7", fontSize: 12, marginTop: 10 }}>{success}</p>}
+            <button className="ab" style={{ marginTop: 16 }} onClick={handleReset} disabled={loading}>
+              {loading ? "Salvando..." : "Salvar nova senha"}
+            </button>
+          </>
+        )}
+
+        {/* Botões de login/cadastro */}
+        {(mode === "login" || mode === "register") && (
+          <>
+            <button className="ab" style={{ marginTop: 24 }} onClick={handleSubmit} disabled={loading}>
+              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+            </button>
+            {mode === "login" && (
+              <div style={{ textAlign: "center", marginTop: 12 }}>
+                <button onClick={() => { setMode("forgot"); setError(""); setSuccess(""); }}
+                  style={{ background: "none", border: "none", color: "#555", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                  Esqueci minha senha
+                </button>
+              </div>
+            )}
+            <p style={{ textAlign: "center", fontSize: 13, color: "#555", marginTop: 16 }}>
+              {mode === "login" ? "Ainda não tem conta? " : "Já tem conta? "}
+              <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
+                style={{ background: "none", border: "none", color: "#e11d48", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                {mode === "login" ? "Criar agora" : "Entrar"}
+              </button>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
