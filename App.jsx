@@ -263,7 +263,7 @@ function AppMain({ user, userName }) {
     setProfile(data);
   };
   const loadPosts = async () => {
-    const { data } = await supabase.from("posts").select("*, profiles(name, level, avatar_url)").order("created_at", { ascending: false }).limit(20);
+    const { data } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").order("created_at", { ascending: false }).limit(20);
     setPosts(data || []);
   };
   const loadActivities = async () => {
@@ -1222,6 +1222,35 @@ function PublicProfilePage({ handle }) {
   const [activities, setActivities] = useState([]);
   const [tab, setTab] = useState("fotos");
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setCurrentUser(session.user);
+    });
+  }, []);
+
+  useEffect(() => {
+    const checkFollow = async () => {
+      if (!currentUser || !profile) return;
+      const { data } = await supabase.from("follows").select("*").eq("follower_id", currentUser.id).eq("following_id", profile.id).single();
+      setIsFollowing(!!data);
+    };
+    checkFollow();
+  }, [currentUser, profile]);
+
+  const handleFollowToggle = async () => {
+    if (!currentUser) { window.location.href = "/"; return; }
+    if (isFollowing) {
+      await supabase.from("follows").delete().eq("follower_id", currentUser.id).eq("following_id", profile.id);
+      setIsFollowing(false);
+    } else {
+      await supabase.from("follows").insert({ follower_id: currentUser.id, following_id: profile.id });
+      await supabase.from("notifications").insert({ user_id: profile.id, from_user_id: currentUser.id, type: "follow" });
+      setIsFollowing(true);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -1301,9 +1330,22 @@ function PublicProfilePage({ handle }) {
               <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{profile.followersCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p></div>
               <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{profile.followingCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p></div>
             </div>
-            <a href="/" style={{ display: "block", textAlign: "center", background: "#e11d48", color: "#fff", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
-              Entrar no eucorredor para seguir
-            </a>
+            {currentUser ? (
+              currentUser.id !== profile.id ? (
+                <button onClick={handleFollowToggle}
+                  style={{ width: "100%", background: isFollowing ? "none" : "#e11d48", color: isFollowing ? "#666" : "#fff", border: isFollowing ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                  {isFollowing ? "Seguindo" : "Seguir"}
+                </button>
+              ) : (
+                <a href="/" style={{ display: "block", textAlign: "center", background: "#13131a", color: "#888", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none", border: "1px solid #1e1e2e" }}>
+                  Seu perfil — voltar ao app
+                </a>
+              )
+            ) : (
+              <a href="/" style={{ display: "block", textAlign: "center", background: "#e11d48", color: "#fff", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
+                Entrar no eucorredor para seguir
+              </a>
+            )}
           </div>
 
           {/* Tabs */}
