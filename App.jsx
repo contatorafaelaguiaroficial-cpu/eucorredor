@@ -130,6 +130,8 @@ function AppMain({ user, userName }) {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   useEffect(() => { loadProfile(); loadPosts(); loadActivities(); }, []);
 
@@ -336,7 +338,10 @@ function AppMain({ user, userName }) {
                           </button>
                         )}
                       </div>
-                      <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>
+                      {p.photo_url && (
+                        <img src={p.photo_url} alt="post" style={{ width: "100%", borderRadius: 12, marginBottom: 10, objectFit: "cover", maxHeight: 300 }} />
+                      )}
+                      {p.text && <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>}
                       <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10 }}>
                         <button className="lbtn" onClick={() => setLiked(l => ({ ...l, [p.id]: !l[p.id] }))} style={{ color: liked[p.id] ? "#e11d48" : "#555" }}>
                           <span style={{ fontSize: 16 }}>{liked[p.id] ? "❤️" : "🤍"}</span>
@@ -390,14 +395,36 @@ function AppMain({ user, userName }) {
 
                     {publishType === "foto" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <div style={{ background: "#0a0a0f", border: "2px dashed #1e1e2e", borderRadius: 14, height: 140, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 8 }}>
-                          <span style={{ fontSize: 32 }}>🖼️</span>
-                          <p style={{ fontSize: 13, color: "#555" }}>Toque para selecionar uma foto</p>
-                        </div>
+                        <label htmlFor="post-photo" style={{ cursor: "pointer" }}>
+                          <div style={{ background: "#0a0a0f", border: `2px dashed ${photoPreview ? "#e11d48" : "#1e1e2e"}`, borderRadius: 14, height: 180, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                            {photoPreview
+                              ? <img src={photoPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              : <><span style={{ fontSize: 32 }}>🖼️</span><p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>Toque para selecionar uma foto</p></>
+                            }
+                          </div>
+                        </label>
+                        <input id="post-photo" type="file" accept="image/*" style={{ display: "none" }}
+                          onChange={(e) => {
+                            const f = e.target.files[0];
+                            if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); }
+                          }} />
                         <textarea className="tinput" rows={3} placeholder="Adicione uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
                         <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); }} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
+                          <button onClick={() => { setPublishType(null); setPhotoFile(null); setPhotoPreview(null); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
+                          <button onClick={async () => {
+                            if (photoFile) {
+                              const ext = photoFile.name.split(".").pop();
+                              const path = `${user.id}/${Date.now()}.${ext}`;
+                              const { error } = await supabase.storage.from("posts").upload(path, photoFile);
+                              if (error) { alert("Erro ao enviar foto: " + error.message); return; }
+                              const { data } = supabase.storage.from("posts").getPublicUrl(path);
+                              await supabase.from("posts").insert({ user_id: user.id, text: newPost, photo_url: data.publicUrl });
+                            } else {
+                              await supabase.from("posts").insert({ user_id: user.id, text: newPost });
+                            }
+                            await loadPosts();
+                            setShowPublish(false); setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null);
+                          }} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
                         </div>
                       </div>
                     )}
