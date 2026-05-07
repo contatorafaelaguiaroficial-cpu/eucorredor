@@ -546,13 +546,13 @@ function AppMain({ user, userName }) {
                     style={{ marginBottom: searchResults.length > 0 ? 10 : 0 }} />
                   {searchResults.map((u) => (
                     <div key={u.id} style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, flexShrink: 0 }}>
+                      <div onClick={() => openProfile(u.id)} style={{ width: 40, height: 40, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, flexShrink: 0, cursor: "pointer", overflow: "hidden" }}>
                         {u.avatar_url
                           ? <img src={u.avatar_url} alt="av" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
                           : u.name?.charAt(0) || "?"
                         }
                       </div>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(u.id)}>
                         <p style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</p>
                         <p style={{ fontSize: 11, color: "#555" }}>{u.handle ? `@${u.handle}` : ""} · <span style={{ color: getLevelColor(u.level) }}>{getLevelIcon(u.level)} {u.level}</span></p>
                       </div>
@@ -582,7 +582,7 @@ function AppMain({ user, userName }) {
                     <div key={p.id} className="card">
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                         {getAvatar(p.profiles, 38)}
-                        <div style={{ flex: 1 }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)} style={{ cursor: "pointer" }}>
+                        <div style={{ flex: 1, cursor: "pointer" }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)}>
                           <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
                           <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>
                             {getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}
