@@ -146,6 +146,9 @@ function AppMain({ user, userName }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [openComments, setOpenComments] = useState(null);
+  const [comments, setComments] = useState({});
+  const [newComment, setNewComment] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [photoFile, setPhotoFile] = useState(null);
@@ -200,6 +203,21 @@ function AppMain({ user, userName }) {
     if (!window.confirm("Excluir esta atividade?")) return;
     await supabase.from("activities").delete().eq("id", actId);
     await loadActivities();
+  };
+
+  const loadComments = async (postId) => {
+    const { data } = await supabase.from("comments")
+      .select("*, profiles(name, avatar_url, level)")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+    setComments(c => ({ ...c, [postId]: data || [] }));
+  };
+
+  const handleComment = async (postId) => {
+    if (!newComment.trim()) return;
+    await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
+    setNewComment("");
+    await loadComments(postId);
   };
 
   const handleSearch = async (query) => {
@@ -357,6 +375,51 @@ function AppMain({ user, userName }) {
                 <button className="jbtn" onClick={() => setShowPublish(true)}>+ Publicar</button>
               </div>
 
+              {/* Modal de comentários */}
+              {openComments && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                      <p style={{ fontWeight: 700, fontSize: 16 }}>Comentários</p>
+                      <button onClick={() => { setOpenComments(null); setNewComment(""); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                    </div>
+
+                    {/* Lista de comentários */}
+                    <div style={{ flex: 1, overflowY: "auto", marginBottom: 16 }}>
+                      {(comments[openComments] || []).length === 0 && (
+                        <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhum comentário ainda. Seja o primeiro!</p>
+                      )}
+                      {(comments[openComments] || []).map((c) => (
+                        <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, border: `2px solid ${getLevelColor(c.profiles?.level)}`, flexShrink: 0 }}>
+                            {c.profiles?.avatar_url
+                              ? <img src={c.profiles.avatar_url} alt="av" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                              : c.profiles?.name?.charAt(0) || "?"
+                            }
+                          </div>
+                          <div style={{ flex: 1, background: "#0a0a0f", borderRadius: 12, padding: "8px 12px" }}>
+                            <p style={{ fontWeight: 700, fontSize: 12, marginBottom: 3 }}>{c.profiles?.name || "Corredor"}</p>
+                            <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.4 }}>{c.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Campo de novo comentário */}
+                    <div style={{ display: "flex", gap: 10, paddingBottom: 32, borderTop: "1px solid #1e1e2e", paddingTop: 14 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+                        {level.icon}
+                      </div>
+                      <input className="tinput" placeholder="Adicione um comentário..." value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleComment(openComments)}
+                        style={{ flex: 1, padding: "8px 14px", borderRadius: 20 }} />
+                      <button onClick={() => handleComment(openComments)} className="jbtn" style={{ borderRadius: 20, padding: "8px 16px" }}>↑</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Campo de busca */}
               {showSearch && (
                 <div style={{ marginBottom: 14 }}>
@@ -425,7 +488,7 @@ function AppMain({ user, userName }) {
                           <span style={{ fontSize: 16 }}>{liked[p.id] ? "❤️" : "🤍"}</span>
                           <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
                         </button>
-                        <button className="lbtn"><span style={{ fontSize: 16 }}>💬</span><span>{p.comments || 0}</span></button>
+                        <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
                         <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
                         {p.user_id === user.id && (
                           <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}>
