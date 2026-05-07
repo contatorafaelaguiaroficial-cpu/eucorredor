@@ -459,117 +459,244 @@ function AppMain({ user, userName }) {
 
           {/* PERFIL */}
           {tab === "perfil" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, paddingTop: 8 }}>
-                {/* Avatar com upload e preview */}
-                <div style={{ position: "relative" }}>
-                  <label htmlFor="avatar-upload" style={{ cursor: "pointer" }}>
-                    {profile?.avatar_url ? (
-                      <img src={profile.avatar_url} alt="avatar" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid #1e1e2e" }} />
-                    ) : (
-                      <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, border: "3px solid #1e1e2e" }}>
-                        {level.icon}
-                      </div>
-                    )}
-                    <div style={{ position: "absolute", bottom: 2, right: 2, background: "#e11d48", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, boxShadow: "0 2px 8px #00000060" }}>
-                      {uploadingAvatar ? "⏳" : "📷"}
-                    </div>
-                  </label>
-                  <input id="avatar-upload" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
-                </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
 
-                {/* Modal de preview da foto */}
-                {avatarPreview && (
-                  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
-                    <p style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>Nova foto de perfil</p>
-                    <img src={avatarPreview.previewUrl} alt="preview" style={{ width: 180, height: 180, borderRadius: "50%", objectFit: "cover", border: "4px solid #e11d48", boxShadow: "0 0 40px #e11d4840" }} />
-                    <p style={{ fontSize: 13, color: "#555", textAlign: "center" }}>Essa foto vai aparecer no seu perfil e nos posts da comunidade.</p>
-                    <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 300 }}>
-                      <button onClick={() => setAvatarPreview(null)}
-                        style={{ flex: 1, border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 12, padding: 14, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
-                        Cancelar
-                      </button>
-                      <button onClick={confirmAvatarUpload} disabled={uploadingAvatar}
-                        style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                        {uploadingAvatar ? "Enviando..." : "Usar essa foto"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontWeight: 700, fontSize: 18 }}>{profile?.name || userName}</p>
-                  <p style={{ fontSize: 13, color: level.color, fontWeight: 700, marginTop: 2 }}>{level.name}</p>
-                  {profile?.bio && <p style={{ fontSize: 12, color: "#555", marginTop: 4 }}>{profile.bio}</p>}
-                </div>
-                {/* Botão editar perfil */}
-                <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "" }); }}
-                  style={{ border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 10, padding: "6px 18px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                  Editar perfil
-                </button>
+              {/* Card do perfil */}
+              <div style={{ background: "#13131a", borderRadius: 20, padding: "20px", border: "1px solid #1e1e2e", margin: "0 0 2px", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4820 0%, transparent 70%)", pointerEvents: "none" }} />
 
-                {/* Modal edição */}
-                {showEditProfile && (
-                  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-                    <div style={{ background: "#13131a", borderRadius: 20, padding: 24, width: "100%", maxWidth: 360, border: "1px solid #1e1e2e" }}>
-                      <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Editar perfil</p>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <input className="text-input" placeholder="Nome" value={editForm.name}
-                          onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} />
-                        <textarea className="text-input" placeholder="Bio (opcional)" rows={3} value={editForm.bio}
-                          onChange={(e) => setEditForm(f => ({ ...f, bio: e.target.value }))} />
-                      </div>
-                      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                        <button onClick={() => setShowEditProfile(false)}
-                          style={{ flex: 1, border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 10, padding: 12, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-                          Cancelar
-                        </button>
-                        <button onClick={handleEditProfile} className="join-btn" style={{ flex: 1, borderRadius: 10, padding: 12, fontSize: 13 }}>
-                          Salvar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <div className="stat-box">
-                    <p style={{ fontSize: 22, fontWeight: 700, color: "#e11d48" }}>{profile?.total_km?.toFixed(1) || 0} km</p>
-                    <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>total</p>
-                  </div>
-                  <div className="stat-box">
-                    <p style={{ fontSize: 22, fontWeight: 700 }}>{races}</p>
-                    <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>corridas</p>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e" }}>
-                <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Jornada de níveis</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {LEVELS.map((l, i) => {
-                    const isActive = l.name === level.name;
-                    const isPast = races > l.max;
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: !isActive && !isPast ? 0.3 : 1 }}>
-                        <span style={{ fontSize: 20, width: 28, textAlign: "center" }}>{l.icon}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
-                            <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0–${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}–${l.max}`} corridas</span>
-                          </div>
-                          <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4, marginTop: 5 }}>
-                            <div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${progress}%` : "0%", height: 4, borderRadius: 99 }} />
-                          </div>
+                {/* Avatar + info */}
+                <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    <label htmlFor="avatar-upload" style={{ cursor: "pointer" }}>
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="avatar" style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "cover", border: "3px solid #1e1e2e" }} />
+                      ) : (
+                        <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e" }}>
+                          {level.icon}
                         </div>
-                        {(isPast || isActive) && <span style={{ fontSize: 14 }}>{isPast ? "✅" : "▶"}</span>}
+                      )}
+                      <div style={{ position: "absolute", bottom: -1, right: -1, background: "#e11d48", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, border: "2px solid #13131a" }}>
+                        {uploadingAvatar ? "⏳" : "📷"}
                       </div>
-                    );
-                  })}
+                    </label>
+                    <input id="avatar-upload" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{profile?.name || userName}</h2>
+                    <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{(profile?.name || userName).toLowerCase().replace(" ", "")}</p>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
+                      <span style={{ fontSize: 11, color: level.color, fontWeight: 700 }}>{level.icon} {level.name}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {profile?.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{profile.bio}</p>}
+
+                {/* Progresso */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                    <span style={{ fontSize: 10, color: "#555" }}>Próximo: {next?.name}</span>
+                    <span style={{ fontSize: 10, color: level.color, fontWeight: 700 }}>{races}/{next?.min} corridas</span>
+                  </div>
+                  <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
+                    <div style={{ background: level.color, width: `${progress}%`, height: 4, borderRadius: 99 }} />
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
+                  <div className="stat-box">
+                    <p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{races}</p>
+                    <p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p>
+                  </div>
+                  <div className="stat-box">
+                    <p style={{ fontSize: 16, fontWeight: 700 }}>{profile?.total_km?.toFixed(1) || 0} km</p>
+                    <p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p>
+                  </div>
+                  <div className="stat-box">
+                    <p style={{ fontSize: 14, fontWeight: 700 }}>5'18"</p>
+                    <p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p>
+                  </div>
+                </div>
+
+                {/* Botões */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "" }); setAvatarPreview(null); }}
+                    style={{ flex: 1, background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    ✏️ Editar perfil
+                  </button>
+                  <button onClick={() => { navigator.clipboard?.writeText(`eucorredor.com.br/${(profile?.name || userName).toLowerCase().replace(" ", "")}`); }}
+                    style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    ↗
+                  </button>
                 </div>
               </div>
 
-              {next && (
-                <div style={{ background: "#13131a", borderRadius: 12, padding: "12px 16px", border: "1px solid #1e1e2e", textAlign: "center" }}>
-                  <p style={{ fontSize: 12, color: "#555" }}>Faltam <span style={{ color: "#f0f0f0", fontWeight: 700 }}>{next.min - races} corridas</span> para {next.name} {next.icon}</p>
+              {/* Modal de preview da foto */}
+              {avatarPreview && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
+                  <p style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>Nova foto de perfil</p>
+                  <img src={avatarPreview.previewUrl} alt="preview" style={{ width: 180, height: 180, borderRadius: "50%", objectFit: "cover", border: "4px solid #e11d48", boxShadow: "0 0 40px #e11d4840" }} />
+                  <p style={{ fontSize: 13, color: "#555", textAlign: "center" }}>Essa foto vai aparecer no seu perfil e nos posts da comunidade.</p>
+                  <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 300 }}>
+                    <button onClick={() => setAvatarPreview(null)} style={{ flex: 1, border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 12, padding: 14, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+                    <button onClick={confirmAvatarUpload} disabled={uploadingAvatar} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      {uploadingAvatar ? "Enviando..." : "Usar essa foto"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal editar perfil - sheet deslizante */}
+              {showEditProfile && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 24px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+                      <p style={{ fontWeight: 700, fontSize: 16 }}>Editar perfil</p>
+                      <button onClick={() => setShowEditProfile(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                    </div>
+
+                    {/* Avatar editável */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+                      <label htmlFor="edit-avatar-modal" style={{ cursor: "pointer", position: "relative" }}>
+                        {profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt="avatar" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid #e11d48" }} />
+                        ) : (
+                          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, border: "3px solid #1e1e2e" }}>
+                            {level.icon}
+                          </div>
+                        )}
+                        <div style={{ position: "absolute", bottom: 0, right: 0, background: "#e11d48", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, border: "2px solid #13131a" }}>📷</div>
+                      </label>
+                      <input id="edit-avatar-modal" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
+                      <p style={{ fontSize: 12, color: "#555", marginTop: 10 }}>Toque para alterar a foto</p>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+                      <div>
+                        <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Nome</p>
+                        <input className="text-input" value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} placeholder="Seu nome" />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Bio</p>
+                        <textarea className="text-input" rows={3} value={editForm.bio} onChange={(e) => setEditForm(f => ({ ...f, bio: e.target.value }))} placeholder="Conte um pouco sobre você..." />
+                      </div>
+                    </div>
+
+                    <button onClick={handleEditProfile}
+                      style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      Salvar alterações
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-tabs do perfil */}
+              <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 0, zIndex: 10 }}>
+                {[
+                  { id: "fotos", label: "Fotos" },
+                  { id: "posts_perfil", label: "Posts" },
+                  { id: "ativ_perfil", label: "Atividades" },
+                  { id: "niveis_perfil", label: "Níveis" },
+                ].map((t) => (
+                  <button key={t.id} onClick={() => setProfileTab(t.id)}
+                    style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: profileTab === t.id ? "#e11d48" : "#555" }}>
+                    {t.label}
+                    {profileTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
+                  </button>
+                ))}
+              </div>
+
+              {/* Fotos 3x3 */}
+              {profileTab === "fotos" && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
+                  {[
+                    { c1: "#e11d48", c2: "#f97316", e: "🏅" },
+                    { c1: "#60a5fa", c2: "#6ee7b7", e: "🌄" },
+                    { c1: "#f59e0b", c2: "#f97316", e: "👟" },
+                    { c1: "#6ee7b7", c2: "#60a5fa", e: "☀️" },
+                    { c1: "#f97316", c2: "#e11d48", e: "🏁" },
+                    { c1: "#e11d48", c2: "#60a5fa", e: "💪" },
+                  ].map((p, i) => (
+                    <div key={i} style={{ aspectRatio: "1", background: `linear-gradient(135deg, ${p.c1}, ${p.c2})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, cursor: "pointer" }}>
+                      {p.e}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Posts do perfil */}
+              {profileTab === "posts_perfil" && (
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {posts.map((p) => (
+                    <div key={p.id} style={{ padding: "16px 20px", borderBottom: "1px solid #1e1e2e" }}>
+                      <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 10 }}>{p.text}</p>
+                      <span style={{ fontSize: 11, color: "#555" }}>❤️ {p.likes} · 💬 {p.comments}</span>
+                    </div>
+                  ))}
+                  {posts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
+                </div>
+              )}
+
+              {/* Atividades do perfil */}
+              {profileTab === "ativ_perfil" && (
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {activities.map((a) => (
+                    <div key={a.id} style={{ padding: "14px 20px", borderBottom: "1px solid #1e1e2e" }}>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                        <div className="stat-box">
+                          <p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p>
+                          <p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p>
+                        </div>
+                        {a.duration && <div className="stat-box">
+                          <p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p>
+                          <p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p>
+                        </div>}
+                        {a.pace && <div className="stat-box">
+                          <p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p>
+                          <p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p>
+                        </div>}
+                      </div>
+                    </div>
+                  ))}
+                  {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
+                </div>
+              )}
+
+              {/* Níveis do perfil */}
+              {profileTab === "niveis_perfil" && (
+                <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div className="card">
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {LEVELS.map((l, i) => {
+                        const isActive = l.name === level.name;
+                        const isPast = races > l.max;
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: !isActive && !isPast ? 0.3 : 1 }}>
+                            <div style={{ width: 38, height: 38, borderRadius: 10, background: isActive || isPast ? `${l.color}22` : "#1e1e2e", border: `1.5px solid ${isActive || isPast ? l.color : "#1e1e2e"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                              {l.icon}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
+                                <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0–${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}–${l.max}`} corridas</span>
+                              </div>
+                              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
+                                <div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${progress}%` : "0%", height: 4, borderRadius: 99 }} />
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 14 }}>{isPast ? "✅" : isActive ? "▶" : ""}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {next && (
+                    <div style={{ background: "#13131a", borderRadius: 12, padding: "12px 16px", border: "1px solid #1e1e2e", textAlign: "center" }}>
+                      <p style={{ fontSize: 12, color: "#555" }}>Faltam <span style={{ color: "#f0f0f0", fontWeight: 700 }}>{next.min - races} corridas</span> para {next.name} {next.icon}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
