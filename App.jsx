@@ -497,7 +497,7 @@ function AppMain({ user, userName }) {
                         {[
                           { key: "distance", placeholder: "Distância (ex: 10,5 km)" },
                           { key: "duration", placeholder: "Tempo (ex: 52min)" },
-                          { key: "pace", placeholder: "Pace (ex: 5'12"/km)" },
+                          { key: "pace", placeholder: "Pace (ex: 5min12s/km)" },
                         ].map((f) => (
                           <input key={f.key} className="text-input" placeholder={f.placeholder}
                             value={actForm[f.key]} onChange={(e) => setActForm(a => ({ ...a, [f.key]: e.target.value }))} />
