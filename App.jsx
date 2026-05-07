@@ -49,7 +49,7 @@ function AuthScreen({ onLogin }) {
     if (!form.email.includes("@")) return setError("Informe um e-mail válido.");
     setLoading(true);
     const { error: err } = await supabase.auth.resetPasswordForEmail(form.email, {
-      redirectTo: "https://eucorredor.com.br/#recovery"
+      redirectTo: `${window.location.origin}/#recovery`
     });
     if (err) setError(err.message);
     else setSuccess("E-mail enviado! Verifique sua caixa de entrada.");
