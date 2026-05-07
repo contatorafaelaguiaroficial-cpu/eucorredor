@@ -145,6 +145,8 @@ function AppMain({ user, userName }) {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [openComments, setOpenComments] = useState(null);
   const [comments, setComments] = useState({});
@@ -154,7 +156,14 @@ function AppMain({ user, userName }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); }, []);
+
+  const loadFollowCounts = async () => {
+    const { count: fc } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", user.id);
+    const { count: ing } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", user.id);
+    setFollowersCount(fc || 0);
+    setFollowingCount(ing || 0);
+  };
 
   const loadProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
@@ -664,8 +673,20 @@ function AppMain({ user, userName }) {
                 </div>
                 <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
                   <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{races}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
-                  <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{profile?.total_km?.toFixed(1) || 0} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
+                  <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{profile?.total_km?.toFixed(1) || 0} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>km total</p></div>
                   <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
+                </div>
+
+                {/* Seguidores e seguindo */}
+                <div style={{ display: "flex", gap: 20, marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid #1e1e2e" }}>
+                  <div style={{ textAlign: "center", cursor: "pointer" }}>
+                    <p style={{ fontWeight: 700, fontSize: 18, color: "#f0f0f0" }}>{followersCount}</p>
+                    <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p>
+                  </div>
+                  <div style={{ textAlign: "center", cursor: "pointer" }}>
+                    <p style={{ fontWeight: 700, fontSize: 18, color: "#f0f0f0" }}>{followingCount}</p>
+                    <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p>
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
