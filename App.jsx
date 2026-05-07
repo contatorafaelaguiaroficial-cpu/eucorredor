@@ -135,6 +135,9 @@ function AppMain({ user, userName }) {
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [publishType, setPublishType] = useState(null);
+  const [actForm, setActForm] = useState({ distance: "", duration: "", pace: "" });
+  const [showPublish, setShowPublish] = useState(false);
+  const [publishType, setPublishType] = useState(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -380,7 +383,7 @@ function AppMain({ user, userName }) {
                 )}
 
                 {(communityTab === "amigos"
-                  ? posts.filter(p => false)
+                  ? []
                   : posts
                 ).map((p) => (
                   <div key={p.id} style={{ borderBottom: "1px solid #1e1e2e" }}>
@@ -415,11 +418,11 @@ function AppMain({ user, userName }) {
                       <button onClick={() => setCommunityLiked(l => ({ ...l, [p.id]: !l[p.id] }))}
                         style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, color: communityLiked[p.id] ? "#e11d48" : "#555", fontFamily: "inherit", fontSize: 13, padding: 0 }}>
                         <span style={{ fontSize: 18 }}>{communityLiked[p.id] ? "❤️" : "🤍"}</span>
-                        <span>{p.likes + (communityLiked[p.id] ? 1 : 0)}</span>
+                        <span>{(p.likes || 0) + (communityLiked[p.id] ? 1 : 0)}</span>
                       </button>
                       <button style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, color: "#555", fontFamily: "inherit", fontSize: 13, padding: 0 }}>
                         <span style={{ fontSize: 18 }}>💬</span>
-                        <span>{p.comments}</span>
+                        <span>{p.comments || 0}</span>
                       </button>
                       <button style={{ background: "none", border: "none", cursor: "pointer", color: "#555", fontFamily: "inherit", fontSize: 18, padding: 0, marginLeft: "auto" }}>↗️</button>
                     </div>
