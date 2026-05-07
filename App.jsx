@@ -339,7 +339,9 @@ function AppMain({ user, userName }) {
                         )}
                       </div>
                       {p.photo_url && (
-                        <img src={p.photo_url} alt="post" style={{ width: "100%", borderRadius: 12, marginBottom: 10, objectFit: "cover", maxHeight: 300 }} />
+                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+                          <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        </div>
                       )}
                       {p.text && <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>}
                       <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10 }}>
@@ -396,10 +398,10 @@ function AppMain({ user, userName }) {
                     {publishType === "foto" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                         <label htmlFor="post-photo" style={{ cursor: "pointer" }}>
-                          <div style={{ background: "#0a0a0f", border: `2px dashed ${photoPreview ? "#e11d48" : "#1e1e2e"}`, borderRadius: 14, height: 180, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                          <div style={{ background: "#0a0a0f", border: `2px dashed ${photoPreview ? "#e11d48" : "#1e1e2e"}`, borderRadius: 14, aspectRatio: "4/5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                             {photoPreview
                               ? <img src={photoPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                              : <><span style={{ fontSize: 32 }}>🖼️</span><p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>Toque para selecionar uma foto</p></>
+                              : <><span style={{ fontSize: 32 }}>🖼️</span><p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>Toque para selecionar (formato 4:5)</p></>
                             }
                           </div>
                         </label>
@@ -593,9 +595,16 @@ function AppMain({ user, userName }) {
 
               {profileTab === "fotos" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
-                  {[{ c1: "#e11d48", c2: "#f97316", e: "🏅" }, { c1: "#60a5fa", c2: "#6ee7b7", e: "🌄" }, { c1: "#f59e0b", c2: "#f97316", e: "👟" }, { c1: "#6ee7b7", c2: "#60a5fa", e: "☀️" }, { c1: "#f97316", c2: "#e11d48", e: "🏁" }, { c1: "#e11d48", c2: "#60a5fa", e: "💪" }].map((p, i) => (
-                    <div key={i} style={{ aspectRatio: "1", background: `linear-gradient(135deg, ${p.c1}, ${p.c2})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, cursor: "pointer" }}>{p.e}</div>
+                  {posts.filter(p => p.user_id === user.id && p.photo_url).map((p) => (
+                    <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden", cursor: "pointer" }}>
+                      <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </div>
                   ))}
+                  {posts.filter(p => p.user_id === user.id && p.photo_url).length === 0 && (
+                    <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>
+                      Nenhuma foto publicada ainda.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -603,7 +612,12 @@ function AppMain({ user, userName }) {
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   {posts.filter(p => p.user_id === user.id).map((p) => (
                     <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
-                      <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 8 }}>{p.text}</p>
+                      {p.photo_url && (
+                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+                          <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        </div>
+                      )}
+                      {p.text && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 8 }}>{p.text}</p>}
                       <span style={{ fontSize: 11, color: "#555" }}>❤️ {p.likes || 0}</span>
                     </div>
                   ))}
