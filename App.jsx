@@ -161,6 +161,10 @@ function AppMain({ user, userName }) {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [showFollowModal, setShowFollowModal] = useState(null);
+  const [viewingProfile, setViewingProfile] = useState(null);
+  const [viewPosts, setViewPosts] = useState([]);
+  const [viewActivities, setViewActivities] = useState([]);
+  const [viewTab, setViewTab] = useState("fotos");
   const [followList, setFollowList] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -215,6 +219,20 @@ function AppMain({ user, userName }) {
     } else {
       await supabase.from("posts").update({ likes: Math.max((posts.find(p => p.id === postId)?.likes || 1) - 1, 0) }).eq("id", postId);
     }
+  };
+
+  const openProfile = async (profileId) => {
+    if (profileId === user.id) return;
+    const { data: p } = await supabase.from("profiles").select("*").eq("id", profileId).single();
+    if (!p) return;
+    const { data: posts } = await supabase.from("posts").select("*").eq("user_id", profileId).order("created_at", { ascending: false });
+    const { data: acts } = await supabase.from("activities").select("*").eq("user_id", profileId).order("created_at", { ascending: false });
+    const { count: fc } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", profileId);
+    const { count: ing } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profileId);
+    setViewingProfile({ ...p, followersCount: fc || 0, followingCount: ing || 0 });
+    setViewPosts(posts || []);
+    setViewActivities(acts || []);
+    setViewTab("fotos");
   };
 
   const loadFollowList = async (type) => {
@@ -564,7 +582,7 @@ function AppMain({ user, userName }) {
                     <div key={p.id} className="card">
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                         {getAvatar(p.profiles, 38)}
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: 1 }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)} style={{ cursor: "pointer" }}>
                           <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
                           <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>
                             {getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}
@@ -991,6 +1009,164 @@ function AppMain({ user, userName }) {
           )}
         </div>
       </div>
+
+
+        {/* Perfil público de outro usuário */}
+        {viewingProfile && (() => {
+          const vLevel = getLevel(viewingProfile.races_count || 0);
+          const vNext = getNextLevel(viewingProfile.races_count || 0);
+          const vProgress = vNext ? ((viewingProfile.races_count - vLevel.min) / (vNext.min - vLevel.min)) * 100 : 100;
+          const isFollowingView = realFollowing[viewingProfile.id];
+          return (
+            <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 400, overflowY: "auto" }}>
+              {/* Header */}
+              <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                  <button onClick={() => setViewingProfile(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
+                  <p style={{ fontWeight: 700, fontSize: 16 }}>{viewingProfile.name}</p>
+                </div>
+              </div>
+
+              <div style={{ padding: "0 20px 100px" }}>
+                {/* Card perfil */}
+                <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4820 0%, transparent 70%)", pointerEvents: "none" }} />
+
+                  <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+                    <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
+                      {viewingProfile.avatar_url
+                        ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        : vLevel.icon
+                      }
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{viewingProfile.name}</h2>
+                      <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{viewingProfile.handle || viewingProfile.name?.toLowerCase().replace(/\s/g, "")}</p>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
+                        <span style={{ fontSize: 11, color: vLevel.color, fontWeight: 700 }}>{vLevel.icon} {vLevel.name}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {viewingProfile.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{viewingProfile.bio}</p>}
+
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
+                      <div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
+                    <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{viewingProfile.races_count || 0}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
+                    <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{Number(viewingProfile.total_km || 0).toFixed(1)} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
+                    <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>{viewingProfile.avg_pace || "—"}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 20, marginBottom: 14 }}>
+                    <div style={{ textAlign: "center" }}>
+                      <p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followersCount}</p>
+                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followingCount}</p>
+                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => handleFollow(viewingProfile.id)}
+                      style={{ flex: 1, background: isFollowingView ? "none" : "#e11d48", color: isFollowingView ? "#666" : "#fff", border: isFollowingView ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      {isFollowingView ? "Seguindo" : "Seguir"}
+                    </button>
+                    <button style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 100, zIndex: 9 }}>
+                  {[{ id: "fotos", label: "Fotos" }, { id: "posts_v", label: "Posts" }, { id: "ativ_v", label: "Atividades" }, { id: "niveis_v", label: "Níveis" }].map((t) => (
+                    <button key={t.id} onClick={() => setViewTab(t.id)}
+                      style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: viewTab === t.id ? "#e11d48" : "#555" }}>
+                      {t.label}
+                      {viewTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Fotos */}
+                {viewTab === "fotos" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
+                    {viewPosts.filter(p => p.photo_url).map((p) => (
+                      <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}>
+                        <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                    ))}
+                    {viewPosts.filter(p => p.photo_url).length === 0 && (
+                      <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Posts */}
+                {viewTab === "posts_v" && (
+                  <div>
+                    {viewPosts.filter(p => p.text).map((p) => (
+                      <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
+                        {p.photo_url && <div style={{ aspectRatio: "4/5", borderRadius: 12, overflow: "hidden", marginBottom: 10 }}><img src={p.photo_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
+                        <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6 }}>{p.text}</p>
+                        <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
+                      </div>
+                    ))}
+                    {viewPosts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
+                  </div>
+                )}
+
+                {/* Atividades */}
+                {viewTab === "ativ_v" && (
+                  <div>
+                    {viewActivities.map((a) => (
+                      <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
+                          {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
+                          {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
+                        </div>
+                      </div>
+                    ))}
+                    {viewActivities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
+                  </div>
+                )}
+
+                {/* Níveis */}
+                {viewTab === "niveis_v" && (
+                  <div style={{ paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div className="card">
+                      {LEVELS.map((l, i) => {
+                        const isActive = l.name === vLevel.name;
+                        const isPast = (viewingProfile.races_count || 0) > l.max;
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: !isActive && !isPast ? 0.3 : 1, marginBottom: i < LEVELS.length - 1 ? 12 : 0 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: isActive || isPast ? `${l.color}22` : "#1e1e2e", border: `1.5px solid ${isActive || isPast ? l.color : "#1e1e2e"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{l.icon}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
+                                <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0-${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}-${l.max}`}</span>
+                              </div>
+                              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
+                                <div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${vProgress}%` : "0%", height: 4, borderRadius: 99 }} />
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 13 }}>{isPast ? "✅" : isActive ? "▶" : ""}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Modal notificações */}
         {showNotifications && (
