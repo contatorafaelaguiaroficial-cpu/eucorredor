@@ -136,13 +136,10 @@ function AppMain({ user, userName }) {
   const [showPublish, setShowPublish] = useState(false);
   const [publishType, setPublishType] = useState(null);
   const [actForm, setActForm] = useState({ distance: "", duration: "", pace: "" });
-  const [showPublish, setShowPublish] = useState(false);
-  const [publishType, setPublishType] = useState(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [actForm, setActForm] = useState({ distance: "", duration: "", pace: "" });
   const [loadingPost, setLoadingPost] = useState(false);
 
   useEffect(() => {
