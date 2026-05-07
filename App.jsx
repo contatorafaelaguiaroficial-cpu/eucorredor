@@ -162,6 +162,9 @@ function AppMain({ user, userName }) {
   const [followingCount, setFollowingCount] = useState(0);
   const [showFollowModal, setShowFollowModal] = useState(null);
   const [followList, setFollowList] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [realFollowing, setRealFollowing] = useState({});
   const [showSearch, setShowSearch] = useState(false);
   const [openComments, setOpenComments] = useState(null);
   const [comments, setComments] = useState({});
@@ -171,7 +174,42 @@ function AppMain({ user, userName }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); }, []);
+
+  const loadNotifications = async () => {
+    const { data } = await supabase.from("notifications")
+      .select("*, from_user:profiles!notifications_from_user_id_fkey(name, avatar_url, handle)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    setNotifications(data || []);
+  };
+
+  const markAllRead = async () => {
+    await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+    await loadNotifications();
+  };
+
+  const handleFollow = async (targetId) => {
+    const isFollowing = realFollowing[targetId];
+    if (isFollowing) {
+      await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", targetId);
+      setRealFollowing(f => ({ ...f, [targetId]: false }));
+    } else {
+      await supabase.from("follows").insert({ follower_id: user.id, following_id: targetId });
+      await supabase.from("notifications").insert({ user_id: targetId, from_user_id: user.id, type: "follow" });
+      setRealFollowing(f => ({ ...f, [targetId]: true }));
+    }
+    await loadFollowCounts();
+  };
+
+  const handleLikePost = async (postId, postOwnerId) => {
+    const isLiked = liked[postId];
+    setLiked(l => ({ ...l, [postId]: !l[postId] }));
+    if (!isLiked && postOwnerId !== user.id) {
+      await supabase.from("notifications").insert({ user_id: postOwnerId, from_user_id: user.id, type: "like", post_id: postId });
+    }
+  };
 
   const loadFollowList = async (type) => {
     setShowFollowModal(type);
@@ -338,7 +376,18 @@ function AppMain({ user, userName }) {
               <p style={{ color: "#555", fontSize: 12, marginBottom: 2 }}>Bom dia, {userName.split(" ")[0]} 👋</p>
               <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#fff" }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
             </div>
-            <button onClick={handleSignOut} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "6px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={() => { setShowNotifications(true); markAllRead(); }}
+                style={{ position: "relative", background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "6px 10px", color: "#888", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
+                🔔
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span style={{ position: "absolute", top: -4, right: -4, background: "#e11d48", borderRadius: "50%", width: 16, height: 16, fontSize: 9, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {notifications.filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+              <button onClick={handleSignOut} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "6px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
+            </div>
           </div>
           <div style={{ marginTop: 16, background: "#13131a", borderRadius: 12, padding: "10px 14px", border: "1px solid #1e1e2e" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -478,9 +527,9 @@ function AppMain({ user, userName }) {
                         <p style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</p>
                         <p style={{ fontSize: 11, color: "#555" }}>{u.handle ? `@${u.handle}` : ""} · <span style={{ color: getLevelColor(u.level) }}>{getLevelIcon(u.level)} {u.level}</span></p>
                       </div>
-                      <button onClick={() => setFollowing(f => ({ ...f, [u.id]: !f[u.id] }))}
-                        style={{ border: `1.5px solid ${following[u.id] ? "#1e1e2e" : "#e11d48"}`, color: following[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                        {following[u.id] ? "Seguindo" : "Seguir"}
+                      <button onClick={() => handleFollow(u.id)}
+                        style={{ border: `1.5px solid ${realFollowing[u.id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                        {realFollowing[u.id] ? "Seguindo" : "Seguir"}
                       </button>
                     </div>
                   ))}
@@ -511,9 +560,9 @@ function AppMain({ user, userName }) {
                           </span>
                         </div>
                         {p.user_id !== user.id && (
-                          <button onClick={() => setFollowing(f => ({ ...f, [p.id]: !f[p.id] }))}
-                            style={{ border: `1.5px solid ${following[p.id] ? "#1e1e2e" : "#e11d48"}`, color: following[p.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                            {following[p.id] ? "Seguindo" : "Seguir"}
+                          <button onClick={() => handleFollow(p.profiles?.id || p.user_id)}
+                            style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                            {realFollowing[p.profiles?.id || p.user_id] ? "Seguindo" : "Seguir"}
                           </button>
                         )}
                       </div>
@@ -524,7 +573,7 @@ function AppMain({ user, userName }) {
                       )}
                       {p.text && <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>}
                       <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10 }}>
-                        <button className="lbtn" onClick={() => setLiked(l => ({ ...l, [p.id]: !l[p.id] }))} style={{ color: liked[p.id] ? "#e11d48" : "#555" }}>
+                        <button className="lbtn" onClick={() => handleLikePost(p.id, p.user_id)} style={{ color: liked[p.id] ? "#e11d48" : "#555" }}>
                           <span style={{ fontSize: 16 }}>{liked[p.id] ? "❤️" : "🤍"}</span>
                           <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
                         </button>
@@ -750,9 +799,9 @@ function AppMain({ user, userName }) {
                               <p style={{ fontSize: 12, color: "#555" }}>{u.handle ? `@${u.handle}` : ""}</p>
                               <p style={{ fontSize: 11, color: getLevelColor(u.level), fontWeight: 700, marginTop: 2 }}>{getLevelIcon(u.level)} {u.level} · {u.races_count || 0} corridas</p>
                             </div>
-                            <button onClick={() => setFollowing(f => ({ ...f, [u.id]: !f[u.id] }))}
-                              style={{ border: `1.5px solid ${following[u.id] ? "#1e1e2e" : "#e11d48"}`, color: following[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                              {following[u.id] ? "Seguindo" : "Seguir"}
+                            <button onClick={() => handleFollow(u.id)}
+                              style={{ border: `1.5px solid ${realFollowing[u.id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                              {realFollowing[u.id] ? "Seguindo" : "Seguir"}
                             </button>
                           </div>
                         ))}
@@ -931,6 +980,49 @@ function AppMain({ user, userName }) {
           )}
         </div>
       </div>
+
+        {/* Modal notificações */}
+        {showNotifications && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+            <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <p style={{ fontWeight: 700, fontSize: 16 }}>Notificações</p>
+                <button onClick={() => setShowNotifications(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
+                {notifications.length === 0 && (
+                  <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma notificação ainda.</p>
+                )}
+                {notifications.map((n) => (
+                  <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #1e1e2e", opacity: n.read ? 0.6 : 1 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0, overflow: "hidden" }}>
+                      {n.from_user?.avatar_url
+                        ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        : n.from_user?.name?.charAt(0) || "?"
+                      }
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
+                        <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
+                        {n.type === "follow" && " começou a te seguir"}
+                        {n.type === "like" && " curtiu sua publicação"}
+                        {n.type === "comment" && " comentou na sua publicação"}
+                      </p>
+                      <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>
+                        {new Date(n.created_at).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: 20 }}>
+                      {n.type === "follow" && "👤"}
+                      {n.type === "like" && "❤️"}
+                      {n.type === "comment" && "💬"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }
