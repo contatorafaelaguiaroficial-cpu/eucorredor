@@ -538,61 +538,6 @@ function AppMain({ user, userName }) {
 
   const handleSignOut = async () => { await supabase.auth.signOut(); window.location.reload(); };
 
-  const gpsIntervalRef = useRef(null);
-
-  // GPS countdown effect
-  useEffect(() => {
-    if (gpsScreen === "countdown") {
-      let c = 3;
-      setGpsCountdown(3);
-      const t = setInterval(() => {
-        c--;
-        if (c <= 0) { clearInterval(t); setGpsScreen("tracking"); }
-        else setGpsCountdown(c);
-      }, 800);
-      return () => clearInterval(t);
-    }
-  }, [gpsScreen]);
-
-  // GPS tracking simulation
-  useEffect(() => {
-    if (gpsScreen === "tracking" && !gpsPaused) {
-      gpsIntervalRef.current = setInterval(() => {
-        setGpsElapsed(e => e + 1);
-        setGpsDistance(d => d + 0.00278);
-        setGpsRouteProgress(p => Math.min(p + 1, mockRoute.length - 1));
-        setGpsHeartRate(h => Math.max(135, Math.min(175, h + (Math.random() > 0.5 ? 1 : -1))));
-      }, 1000);
-    } else {
-      clearInterval(gpsIntervalRef.current);
-    }
-    return () => clearInterval(gpsIntervalRef.current);
-  }, [gpsScreen, gpsPaused]);
-
-  const startGpsRun = () => {
-    setGpsElapsed(0); setGpsDistance(0); setGpsRouteProgress(0);
-    setGpsPaused(false); setGpsHeartRate(142);
-    setGpsScreen("countdown");
-  };
-
-  const finishGpsRun = async () => {
-    clearInterval(gpsIntervalRef.current);
-    setGpsScreen("summary");
-    // Save to DB
-    const cals = Math.floor(gpsDistance * 65);
-    await supabase.from("activities").insert({
-      user_id: user.id,
-      distance: parseFloat(gpsDistance.toFixed(2)),
-      duration: formatTime(gpsElapsed),
-      pace: calcPace(gpsDistance, gpsElapsed),
-    });
-    const newKm = (profile?.total_km || 0) + gpsDistance;
-    const newCount = (profile?.races_count || 0) + 1;
-    await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
-    await loadProfile();
-    await loadActivities();
-  };
-
   const races = profile?.races_count || 0;
   const level = getLevel(races);
   const next = getNextLevel(races);
