@@ -1,5 +1,5 @@
 // eucorredor v3.0
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
@@ -12,6 +12,26 @@ const LEVELS = [
   { name: "Avançado", min: 15, max: 29, color: "#f59e0b", icon: "⚡" },
   { name: "Semi-profissional", min: 30, max: 59, color: "#f97316", icon: "🔥" },
   { name: "Profissional", min: 60, max: Infinity, color: "#e11d48", icon: "🏅" },
+];
+
+function formatTime(s) {
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  if (h > 0) return `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+}
+function calcPace(km, secs) {
+  if (!km || km === 0) return '--'--"';
+  const mPerKm = secs / 60 / km;
+  const min = Math.floor(mPerKm);
+  const sec = Math.round((mPerKm - min) * 60);
+  return `${min}'${String(sec).padStart(2,"0")}"`;
+}
+const mockRoute = [
+  {x:60,y:180},{x:80,y:160},{x:110,y:145},{x:140,y:130},{x:165,y:140},
+  {x:180,y:165},{x:195,y:185},{x:210,y:170},{x:230,y:150},{x:250,y:135},
+  {x:265,y:145},{x:275,y:165},{x:270,y:185},{x:255,y:200},{x:235,y:210},
+  {x:210,y:205},{x:190,y:215},{x:170,y:230},{x:150,y:225},{x:130,y:215},
+  {x:110,y:210},{x:90,y:220},{x:70,y:215},{x:55,y:200},
 ];
 
 const getLevel = (n) => LEVELS.find((l) => n >= l.min && n <= l.max) || LEVELS[0];
@@ -236,6 +256,22 @@ function AppMain({ user, userName }) {
   const [publishType, setPublishType] = useState(null);
   const [actForm, setActForm] = useState({ distance: "", duration: "", pace: "" });
   const [showActivityForm, setShowActivityForm] = useState(false);
+  const [hubScreen, setHubScreen] = useState("hub");
+  const [gpsElapsed, setGpsElapsed] = useState(0);
+  const [gpsDistance, setGpsDistance] = useState(0);
+  const [gpsRoute, setGpsRoute] = useState([]);
+  const [gpsPaused, setGpsPaused] = useState(false);
+  const [gpsHR, setGpsHR] = useState(142);
+  const gpsIntervalRef = useRef(null);
+  const [gpsScreen, setGpsScreen] = useState("hub"); // hub | countdown | tracking | summary
+  const [gpsCountdown, setGpsCountdown] = useState(3);
+  const [gpsElapsed, setGpsElapsed] = useState(0);
+  const [gpsDistance, setGpsDistance] = useState(0);
+  const [gpsPaused, setGpsPaused] = useState(false);
+  const [gpsHeartRate, setGpsHeartRate] = useState(142);
+  const [gpsRouteProgress, setGpsRouteProgress] = useState(0);
+  const [gpsWatchId, setGpsWatchId] = useState(null);
+  const [gpsCoords, setGpsCoords] = useState([]);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -378,6 +414,72 @@ function AppMain({ user, userName }) {
     await loadActivities();
   };
 
+  const formatRunTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const formatGpsPace = (km, secs) => {
+    if (!km || km === 0 || secs === 0) return "--'--"";
+    const minPerKm = (secs / 60) / km;
+    const min = Math.floor(minPerKm);
+    const sec = Math.round((minPerKm - min) * 60);
+    return `${min}'${String(sec).padStart(2, "0")}"`;
+  };
+
+  const startGpsRun = () => {
+    setGpsElapsed(0);
+    setGpsDistance(0);
+    setGpsRoute([{ x: 195, y: 300 }]);
+    setGpsPaused(false);
+    setGpsHR(142);
+    setHubScreen("tracking");
+  };
+
+  const finishGpsRun = async () => {
+    clearInterval(gpsIntervalRef.current);
+    if (gpsDistance > 0) {
+      const pace = formatGpsPace(gpsDistance, gpsElapsed);
+      const duration = formatRunTime(gpsElapsed);
+      await supabase.from("activities").insert({
+        user_id: user.id,
+        distance: parseFloat(gpsDistance.toFixed(2)),
+        duration,
+        pace,
+      });
+      const newKm = (profile?.total_km || 0) + gpsDistance;
+      const newCount = (profile?.races_count || 0) + 1;
+      await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
+      await loadProfile();
+      await loadActivities();
+    }
+    setHubScreen("summary");
+  };
+
+  // GPS simulation interval
+  useEffect(() => {
+    if (hubScreen === "tracking" && !gpsPaused) {
+      gpsIntervalRef.current = setInterval(() => {
+        setGpsElapsed(e => e + 1);
+        setGpsDistance(d => d + 0.00278);
+        setGpsRoute(r => {
+          const last = r[r.length - 1];
+          const angle = (Date.now() / 800) % (Math.PI * 2);
+          const nx = Math.max(30, Math.min(360, last.x + Math.cos(angle) * 3));
+          const ny = Math.max(100, Math.min(500, last.y + Math.sin(angle) * 2.5));
+          return [...r.slice(-60), { x: nx, y: ny }];
+        });
+        setGpsHR(h => Math.max(135, Math.min(175, h + (Math.random() > 0.5 ? 1 : -1))));
+      }, 1000);
+    } else {
+      clearInterval(gpsIntervalRef.current);
+    }
+    return () => clearInterval(gpsIntervalRef.current);
+  }, [hubScreen, gpsPaused]);
+
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Excluir esta publicação?")) return;
     await supabase.from("posts").delete().eq("id", postId);
@@ -451,6 +553,61 @@ function AppMain({ user, userName }) {
   };
 
   const handleSignOut = async () => { await supabase.auth.signOut(); window.location.reload(); };
+
+  const gpsIntervalRef = useRef(null);
+
+  // GPS countdown effect
+  useEffect(() => {
+    if (gpsScreen === "countdown") {
+      let c = 3;
+      setGpsCountdown(3);
+      const t = setInterval(() => {
+        c--;
+        if (c <= 0) { clearInterval(t); setGpsScreen("tracking"); }
+        else setGpsCountdown(c);
+      }, 800);
+      return () => clearInterval(t);
+    }
+  }, [gpsScreen]);
+
+  // GPS tracking simulation
+  useEffect(() => {
+    if (gpsScreen === "tracking" && !gpsPaused) {
+      gpsIntervalRef.current = setInterval(() => {
+        setGpsElapsed(e => e + 1);
+        setGpsDistance(d => d + 0.00278);
+        setGpsRouteProgress(p => Math.min(p + 1, mockRoute.length - 1));
+        setGpsHeartRate(h => Math.max(135, Math.min(175, h + (Math.random() > 0.5 ? 1 : -1))));
+      }, 1000);
+    } else {
+      clearInterval(gpsIntervalRef.current);
+    }
+    return () => clearInterval(gpsIntervalRef.current);
+  }, [gpsScreen, gpsPaused]);
+
+  const startGpsRun = () => {
+    setGpsElapsed(0); setGpsDistance(0); setGpsRouteProgress(0);
+    setGpsPaused(false); setGpsHeartRate(142);
+    setGpsScreen("countdown");
+  };
+
+  const finishGpsRun = async () => {
+    clearInterval(gpsIntervalRef.current);
+    setGpsScreen("summary");
+    // Save to DB
+    const cals = Math.floor(gpsDistance * 65);
+    await supabase.from("activities").insert({
+      user_id: user.id,
+      distance: parseFloat(gpsDistance.toFixed(2)),
+      duration: formatTime(gpsElapsed),
+      pace: calcPace(gpsDistance, gpsElapsed),
+    });
+    const newKm = (profile?.total_km || 0) + gpsDistance;
+    const newCount = (profile?.races_count || 0) + 1;
+    await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
+    await loadProfile();
+    await loadActivities();
+  };
 
   const races = profile?.races_count || 0;
   const level = getLevel(races);
@@ -795,34 +952,185 @@ function AppMain({ user, userName }) {
 
           {/* HUB */}
           {tab === "hub" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700 }}>Atividades recentes</h2>
-                <button className="jbtn" onClick={() => setShowActivityForm(!showActivityForm)}>+ Registrar</button>
-              </div>
-              {showActivityForm && (
-                <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <p style={{ fontWeight: 700, fontSize: 14 }}>Nova atividade</p>
-                  <input className="tinput" type="number" placeholder="Distância (km)" value={actForm.distance} onChange={(e) => setActForm(a => ({ ...a, distance: e.target.value }))} />
-                  <input className="tinput" placeholder="Tempo (ex: 45min)" value={actForm.duration} onChange={(e) => setActForm(a => ({ ...a, duration: e.target.value }))} />
-                  <input className="tinput" placeholder="Pace (ex: 5min30s/km)" value={actForm.pace} onChange={(e) => setActForm(a => ({ ...a, pace: e.target.value }))} />
-                  <button className="jbtn" onClick={handleActivity}>Salvar</button>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+
+              {/* Rastreamento ativo */}
+              {hubScreen === "tracking" && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, display: "flex", flexDirection: "column", maxWidth: 390, margin: "0 auto" }}>
+                  {/* Mapa simulado */}
+                  <div style={{ flex: 1, background: "#0d0d18", position: "relative", overflow: "hidden" }}>
+                    <svg width="100%" height="100%" style={{ position: "absolute", top: 0, left: 0 }}>
+                      <defs>
+                        <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+                          <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e1e2e" strokeWidth="0.5" />
+                        </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill="url(#grid)" />
+                      <line x1="0" y1="180" x2="390" y2="180" stroke="#1a1a2e" strokeWidth="14" />
+                      <line x1="0" y1="260" x2="390" y2="260" stroke="#1a1a2e" strokeWidth="8" />
+                      <line x1="130" y1="0" x2="130" y2="600" stroke="#1a1a2e" strokeWidth="14" />
+                      <line x1="270" y1="0" x2="270" y2="600" stroke="#1a1a2e" strokeWidth="8" />
+                      {gpsRoute.length > 1 && (
+                        <polyline points={gpsRoute.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#e11d48" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px #e11d4880)" }} />
+                      )}
+                      {gpsRoute.length > 0 && (() => {
+                        const pos = gpsRoute[gpsRoute.length - 1];
+                        return (
+                          <>
+                            <circle cx={pos.x} cy={pos.y} r="18" fill="#e11d48" fillOpacity="0.2" />
+                            <circle cx={pos.x} cy={pos.y} r="9" fill="#e11d48" style={{ filter: "drop-shadow(0 0 8px #e11d48)" }} />
+                            <circle cx={pos.x} cy={pos.y} r="3" fill="#fff" />
+                          </>
+                        );
+                      })()}
+                    </svg>
+
+                    {/* Stats no mapa */}
+                    <div style={{ position: "absolute", top: 52, left: 16, right: 16 }}>
+                      <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "14px 16px", border: "1px solid #1e1e2e" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ textAlign: "center" }}>
+                            <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
+                            <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km</p>
+                          </div>
+                          <div style={{ textAlign: "center" }}>
+                            <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatRunTime(gpsElapsed)}</p>
+                            <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>tempo</p>
+                          </div>
+                          <div style={{ textAlign: "center" }}>
+                            <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p>
+                            <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace/km</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* HR e calorias */}
+                    <div style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>❤️</span>
+                      <div>
+                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsHR}</p>
+                        <p style={{ fontSize: 9, color: "#555" }}>bpm</p>
+                      </div>
+                    </div>
+                    <div style={{ position: "absolute", bottom: 16, left: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e" }}>
+                      <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#f97316", lineHeight: 1 }}>{Math.floor(gpsDistance * 65)}</p>
+                      <p style={{ fontSize: 9, color: "#555" }}>kcal</p>
+                    </div>
+                  </div>
+
+                  {/* Controles */}
+                  <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16 }}>
+                    <button onClick={() => setGpsPaused(p => !p)}
+                      style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#888", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {gpsPaused ? "▶" : "⏸"}
+                    </button>
+                    <button onClick={finishGpsRun}
+                      style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 16, padding: "16px 0", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      Finalizar corrida
+                    </button>
+                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: gpsPaused ? "#555" : "#e11d48" }} />
+                    </div>
+                  </div>
                 </div>
               )}
-              {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhuma atividade ainda.</p>}
-              {activities.map((a) => (
-                <div key={a.id} className="card">
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    {getAvatar(a.profiles, 36)}
-                    <p style={{ fontWeight: 700, fontSize: 14 }}>{a.profiles?.name || "Corredor"}</p>
+
+              {/* Resumo pós-corrida GPS */}
+              {hubScreen === "summary" && (
+                <div style={{ paddingBottom: 40 }}>
+                  <div style={{ textAlign: "center", marginBottom: 24 }}>
+                    <p style={{ fontSize: 48, marginBottom: 8 }}>🏅</p>
+                    <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Corrida finalizada!</h2>
+                    <p style={{ fontSize: 13, color: "#555" }}>Seus dados foram salvos.</p>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div className="sbox"><p style={{ fontSize: 18, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>distância</p></div>
-                    {a.duration && <div className="sbox"><p style={{ fontSize: 18, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>tempo</p></div>}
-                    {a.pace && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace</p></div>}
+                  <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 24, border: "1px solid #e11d4833", textAlign: "center", marginBottom: 14 }}>
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 64, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
+                    <p style={{ fontSize: 16, color: "#888", marginTop: 4 }}>quilômetros</p>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                    {[
+                      { v: formatRunTime(gpsElapsed), l: "Tempo total", icon: "⏱" },
+                      { v: formatGpsPace(gpsDistance, gpsElapsed), l: "Pace médio", icon: "⚡" },
+                      { v: `${gpsHR} bpm`, l: "FC média", icon: "❤️" },
+                      { v: `${Math.floor(gpsDistance * 65)} kcal`, l: "Calorias", icon: "🔥" },
+                    ].map((s, i) => (
+                      <div key={i} className="card" style={{ textAlign: "center" }}>
+                        <p style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</p>
+                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{s.v}</p>
+                        <p style={{ fontSize: 11, color: "#555" }}>{s.l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => setHubScreen("hub")}
+                      style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      Ver hub
+                    </button>
+                    <button style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      Compartilhar
+                    </button>
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* HUB PRINCIPAL */}
+              {hubScreen === "hub" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {/* Card iniciar corrida */}
+                  <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 20, border: "1px solid #e11d4833", position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4825 0%, transparent 70%)", pointerEvents: "none" }} />
+                    <p style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Pronto para correr?</p>
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 16 }}>
+                      Registre com <span style={{ color: "#e11d48" }}>GPS</span>
+                    </p>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+                      {["📍 GPS", "❤️ FC", "⚡ Pace", "🔥 Calorias"].map((f, i) => (
+                        <div key={i} style={{ background: "#0a0a0f", borderRadius: 8, padding: "4px 10px", fontSize: 10, color: "#888", fontWeight: 700 }}>{f}</div>
+                      ))}
+                    </div>
+                    <button onClick={startGpsRun}
+                      style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      Iniciar corrida
+                    </button>
+                  </div>
+
+                  {/* Stats do mês */}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700, color: "#e11d48" }}>{(profile?.total_km || 0).toFixed(1)}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km total</p></div>
+                    <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700 }}>{races}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>corridas</p></div>
+                    <div className="sbox"><p style={{ fontSize: 18, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace médio</p></div>
+                  </div>
+
+                  {/* Atividades recentes */}
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginTop: 4 }}>Atividades recentes</p>
+                  {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhuma atividade ainda. Inicie sua primeira corrida!</p>}
+                  {activities.map((a) => (
+                    <div key={a.id} className="card">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          {getAvatar(a.profiles, 36)}
+                          <div>
+                            <p style={{ fontWeight: 700, fontSize: 14 }}>{a.profiles?.name || "Corredor"}</p>
+                            <p style={{ fontSize: 11, color: "#555" }}>Corrida ao ar livre</p>
+                          </div>
+                        </div>
+                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 800, color: "#e11d48" }}>{a.distance} km</p>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {a.duration && <div className="sbox" style={{ padding: "6px 8px" }}><p style={{ fontSize: 12, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
+                        {a.pace && <div className="sbox" style={{ padding: "6px 8px" }}><p style={{ fontSize: 12, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
+                        {a.user_id === user.id && (
+                          <button onClick={() => handleDeleteActivity(a.id)}
+                            style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "6px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
