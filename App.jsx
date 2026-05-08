@@ -256,15 +256,6 @@ function AppMain({ user, userName }) {
   const [gpsPaused, setGpsPaused] = useState(false);
   const [gpsHR, setGpsHR] = useState(142);
   const gpsIntervalRef = useRef(null);
-  const [gpsScreen, setGpsScreen] = useState("hub"); // hub | countdown | tracking | summary
-  const [gpsCountdown, setGpsCountdown] = useState(3);
-  const [gpsElapsed, setGpsElapsed] = useState(0);
-  const [gpsDistance, setGpsDistance] = useState(0);
-  const [gpsPaused, setGpsPaused] = useState(false);
-  const [gpsHeartRate, setGpsHeartRate] = useState(142);
-  const [gpsRouteProgress, setGpsRouteProgress] = useState(0);
-  const [gpsWatchId, setGpsWatchId] = useState(null);
-  const [gpsCoords, setGpsCoords] = useState([]);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -416,7 +407,7 @@ function AppMain({ user, userName }) {
   };
 
   const formatGpsPace = (km, secs) => {
-    if (!km || km === 0 || secs === 0) return "--'--"";
+    if (!km || km === 0 || secs === 0) return "--";
     const minPerKm = (secs / 60) / km;
     const min = Math.floor(minPerKm);
     const sec = Math.round((minPerKm - min) * 60);
