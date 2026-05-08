@@ -807,7 +807,17 @@ ${url}`;
                           <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
                         </button>
                         <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
-                        <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
+                        <button className="lbtn" onClick={() => {
+                          const handle = p.profiles?.handle || (p.profiles?.name || "").toLowerCase().replace(/\s/g, "");
+                          const url = `https://eucorredor.com.br/@${handle}`;
+                          const text = p.text ? `"${p.text.slice(0, 80)}" — ${p.profiles?.name || "Corredor"} no eucorredor 🏃` : `Veja essa publicação no eucorredor 🏃`;
+                          const shareData = { title: "eucorredor", text, url };
+                          if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+                            navigator.share(shareData).catch(() => {});
+                          } else {
+                            navigator.clipboard?.writeText(`${text}\n${url}`).then(() => alert("Link copiado!"));
+                          }
+                        }} style={{ marginLeft: "auto", color: "#555", fontSize: 12, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>Compartilhar</button>
                       </div>
                     </div>
                   ))}
