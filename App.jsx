@@ -20,19 +20,12 @@ function formatTime(s) {
   return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
 }
 function calcPace(km, secs) {
-  if (!km || km === 0) return '--'--"';
+  if (!km || km === 0) return "--";
   const mPerKm = secs / 60 / km;
   const min = Math.floor(mPerKm);
   const sec = Math.round((mPerKm - min) * 60);
-  return `${min}'${String(sec).padStart(2,"0")}"`;
+  return min + "'" + String(sec).padStart(2,"0") + "/km";
 }
-const mockRoute = [
-  {x:60,y:180},{x:80,y:160},{x:110,y:145},{x:140,y:130},{x:165,y:140},
-  {x:180,y:165},{x:195,y:185},{x:210,y:170},{x:230,y:150},{x:250,y:135},
-  {x:265,y:145},{x:275,y:165},{x:270,y:185},{x:255,y:200},{x:235,y:210},
-  {x:210,y:205},{x:190,y:215},{x:170,y:230},{x:150,y:225},{x:130,y:215},
-  {x:110,y:210},{x:90,y:220},{x:70,y:215},{x:55,y:200},
-];
 
 const getLevel = (n) => LEVELS.find((l) => n >= l.min && n <= l.max) || LEVELS[0];
 const getNextLevel = (n) => LEVELS.find((l) => l.min > n);
@@ -427,7 +420,7 @@ function AppMain({ user, userName }) {
     const minPerKm = (secs / 60) / km;
     const min = Math.floor(minPerKm);
     const sec = Math.round((minPerKm - min) * 60);
-    return `${min}'${String(sec).padStart(2, "0")}"`;
+    return min + "'" + String(sec).padStart(2, '0') + '"';
   };
 
   const startGpsRun = () => {
