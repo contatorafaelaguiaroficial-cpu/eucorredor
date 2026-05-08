@@ -749,14 +749,14 @@ function AppMain({ user, userName }) {
               {/* Feed */}
               {commFeed === "amigos" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {posts.filter(p => realFollowing[p.user_id] || p.user_id === user.id).length === 0 && (
+                  {posts.filter(p => realFollowing[p.user_id]).length === 0 && (
                     <div style={{ textAlign: "center", padding: "40px 20px" }}>
                       <p style={{ fontSize: 28, marginBottom: 10 }}>🏃</p>
                       <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Feed de amigos</p>
                       <p style={{ fontSize: 13, color: "#555" }}>Siga corredores para ver as publicações deles aqui.</p>
                     </div>
                   )}
-                  {posts.filter(p => realFollowing[p.user_id] || p.user_id === user.id).map((p) => (
+                  {posts.filter(p => realFollowing[p.user_id]).map((p) => (
                     <div key={p.id} className="card">
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                         <div onClick={() => openProfile(p.user_id)} style={{ cursor: "pointer" }}>{getAvatar(p.profiles, 38)}</div>
