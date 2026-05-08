@@ -473,6 +473,33 @@ function AppMain({ user, userName }) {
     return () => clearInterval(gpsIntervalRef.current);
   }, [hubScreen, gpsPaused]);
 
+  const handleShare = async (type = "perfil", data = {}) => {
+    let text = "";
+    let url = `https://eucorredor.com.br/@${profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "")}`;
+
+    if (type === "atividade") {
+      text = `Acabei de correr ${data.distance} km em ${data.duration} com pace de ${data.pace}! 🏃\n\nVeja meu perfil no eucorredor:`;
+    } else if (type === "perfil") {
+      text = `Me siga no eucorredor, a comunidade dos corredores! 🏃\nEstou no nível ${level.name} com ${races} corridas.`;
+    } else if (type === "resumo_gps") {
+      text = `Finalizei uma corrida de ${data.distance} km em ${data.time}! 🏅\nPace: ${data.pace} | ${data.calories} kcal\n\nVeja meu perfil:`;
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "eucorredor", text, url });
+      } catch (e) {
+        if (e.name !== "AbortError") {
+          await navigator.clipboard?.writeText(`${text}\n${url}`);
+          alert("Link copiado!");
+        }
+      }
+    } else {
+      await navigator.clipboard?.writeText(`${text}\n${url}`);
+      alert("Link copiado para a área de transferência!");
+    }
+  };
+
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Excluir esta publicação?")) return;
     await supabase.from("posts").delete().eq("id", postId);
@@ -1034,8 +1061,9 @@ function AppMain({ user, userName }) {
                       style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                       Ver hub
                     </button>
-                    <button style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Compartilhar
+                    <button onClick={() => handleShare("resumo_gps", { distance: gpsDistance.toFixed(2), time: formatRunTime(gpsElapsed), pace: formatGpsPace(gpsDistance, gpsElapsed), calories: Math.floor(gpsDistance * 65) })}
+                      style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      Compartilhar corrida
                     </button>
                   </div>
                 </div>
@@ -1201,7 +1229,7 @@ function AppMain({ user, userName }) {
                     style={{ flex: 1, background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                     ✏️ Editar perfil
                   </button>
-                  <button style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
+                  <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
                 </div>
               </div>
 
@@ -1321,10 +1349,16 @@ function AppMain({ user, userName }) {
                         {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
                         {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
                       </div>
-                      <button onClick={() => handleDeleteActivity(a.id)}
-                        style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
-                        🗑️ Excluir atividade
-                      </button>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <button onClick={() => handleShare("atividade", { distance: a.distance, duration: a.duration, pace: a.pace })}
+                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                          ↗ Compartilhar
+                        </button>
+                        <button onClick={() => handleDeleteActivity(a.id)}
+                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                          🗑️ Excluir
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {activities.filter(a => a.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
@@ -1436,7 +1470,7 @@ function AppMain({ user, userName }) {
                       style={{ flex: 1, background: realFollowing[viewingProfile.id] ? "none" : "#e11d48", color: realFollowing[viewingProfile.id] ? "#666" : "#fff", border: realFollowing[viewingProfile.id] ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                       {realFollowing[viewingProfile.id] ? "Seguindo" : "Seguir"}
                     </button>
-                    <button style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
+                    <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
                   </div>
                 </div>
 
