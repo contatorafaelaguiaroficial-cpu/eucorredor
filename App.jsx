@@ -281,7 +281,7 @@ function AppMain({ user, userName }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); }, []);
 
   const loadNotifications = async () => {
     const { data } = await supabase.from("notifications")
@@ -351,6 +351,15 @@ function AppMain({ user, userName }) {
         .select("profiles!follows_following_id_fkey(id, name, handle, level, avatar_url, races_count)")
         .eq("follower_id", user.id);
       setFollowList((data || []).map(d => d.profiles).filter(Boolean));
+    }
+  };
+
+  const loadRealFollowingList = async () => {
+    const { data } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
+    if (data) {
+      const map = {};
+      data.forEach(f => { map[f.following_id] = true; });
+      setRealFollowing(map);
     }
   };
 
@@ -739,10 +748,39 @@ function AppMain({ user, userName }) {
 
               {/* Feed */}
               {commFeed === "amigos" ? (
-                <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                  <p style={{ fontSize: 28, marginBottom: 10 }}>🏃</p>
-                  <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Feed de amigos</p>
-                  <p style={{ fontSize: 13, color: "#555" }}>Siga corredores na aba Comunidade para ver o feed de amigos aqui.</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {posts.filter(p => realFollowing[p.user_id] || p.user_id === user.id).length === 0 && (
+                    <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                      <p style={{ fontSize: 28, marginBottom: 10 }}>🏃</p>
+                      <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Feed de amigos</p>
+                      <p style={{ fontSize: 13, color: "#555" }}>Siga corredores para ver as publicações deles aqui.</p>
+                    </div>
+                  )}
+                  {posts.filter(p => realFollowing[p.user_id] || p.user_id === user.id).map((p) => (
+                    <div key={p.id} className="card">
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                        <div onClick={() => openProfile(p.user_id)} style={{ cursor: "pointer" }}>{getAvatar(p.profiles, 38)}</div>
+                        <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(p.user_id)}>
+                          <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
+                          <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}</span>
+                        </div>
+                      </div>
+                      {p.photo_url && (
+                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+                          <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        </div>
+                      )}
+                      {p.text && <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>}
+                      <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10 }}>
+                        <button className="lbtn" onClick={() => handleLikePost(p.id, p.user_id)} style={{ color: liked[p.id] ? "#e11d48" : "#555" }}>
+                          <span style={{ fontSize: 16 }}>{liked[p.id] ? "❤️" : "🤍"}</span>
+                          <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
+                        </button>
+                        <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
+                        <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1394,9 +1432,9 @@ function AppMain({ user, userName }) {
                   </div>
 
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => handleFollow(viewingProfile.id)}
-                      style={{ flex: 1, background: isFollowingView ? "none" : "#e11d48", color: isFollowingView ? "#666" : "#fff", border: isFollowingView ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      {isFollowingView ? "Seguindo" : "Seguir"}
+                    <button onClick={async () => { await handleFollow(viewingProfile.id); setViewingProfile(v => ({ ...v, followersCount: realFollowing[viewingProfile.id] ? v.followersCount - 1 : v.followersCount + 1 })); }}
+                      style={{ flex: 1, background: realFollowing[viewingProfile.id] ? "none" : "#e11d48", color: realFollowing[viewingProfile.id] ? "#666" : "#fff", border: realFollowing[viewingProfile.id] ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      {realFollowing[viewingProfile.id] ? "Seguindo" : "Seguir"}
                     </button>
                     <button style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
                   </div>
@@ -1554,8 +1592,12 @@ function PublicProfilePage({ handle }) {
   useEffect(() => {
     const checkFollow = async () => {
       if (!currentUser || !profile) return;
-      const { data } = await supabase.from("follows").select("*").eq("follower_id", currentUser.id).eq("following_id", profile.id).single();
-      setIsFollowing(!!data);
+      try {
+        const { data } = await supabase.from("follows").select("*").eq("follower_id", currentUser.id).eq("following_id", profile.id).single();
+        setIsFollowing(!!data);
+      } catch {
+        setIsFollowing(false);
+      }
     };
     checkFollow();
   }, [currentUser, profile]);
