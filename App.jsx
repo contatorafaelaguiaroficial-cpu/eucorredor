@@ -473,30 +473,33 @@ function AppMain({ user, userName }) {
     return () => clearInterval(gpsIntervalRef.current);
   }, [hubScreen, gpsPaused]);
 
-  const handleShare = async (type = "perfil", data = {}) => {
+  const handleShare = (type = "perfil", data = {}) => {
+    const handle = profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "");
+    const url = `https://eucorredor.com.br/@${handle}`;
     let text = "";
-    let url = `https://eucorredor.com.br/@${profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "")}`;
 
     if (type === "atividade") {
-      text = `Acabei de correr ${data.distance} km em ${data.duration} com pace de ${data.pace}! 🏃\n\nVeja meu perfil no eucorredor:`;
+      text = `Acabei de correr ${data.distance} km em ${data.duration} com pace de ${data.pace}! 🏃`;
     } else if (type === "perfil") {
-      text = `Me siga no eucorredor, a comunidade dos corredores! 🏃\nEstou no nível ${level.name} com ${races} corridas.`;
+      text = `Me siga no eucorredor! Estou no nível ${level.name} com ${races} corridas. 🏃`;
     } else if (type === "resumo_gps") {
-      text = `Finalizei uma corrida de ${data.distance} km em ${data.time}! 🏅\nPace: ${data.pace} | ${data.calories} kcal\n\nVeja meu perfil:`;
+      text = `Finalizei ${data.distance} km em ${data.time}! 🏅 Pace: ${data.pace} | ${data.calories} kcal`;
+    } else {
+      text = `Confira no eucorredor, a comunidade dos corredores! 🏃`;
     }
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "eucorredor", text, url });
-      } catch (e) {
-        if (e.name !== "AbortError") {
-          await navigator.clipboard?.writeText(`${text}\n${url}`);
-          alert("Link copiado!");
-        }
-      }
+    const shareData = { title: "eucorredor", text, url };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      navigator.share(shareData).catch(() => {});
     } else {
-      await navigator.clipboard?.writeText(`${text}\n${url}`);
-      alert("Link copiado para a área de transferência!");
+      const full = `${text}
+${url}`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(full).then(() => alert("Link copiado!"));
+      } else {
+        prompt("Copie o link:", full);
+      }
     }
   };
 
