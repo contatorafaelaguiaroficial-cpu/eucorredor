@@ -445,12 +445,13 @@ function AppMain({ user, userName }) {
   const loadProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     setProfile(data);
-    // Se usuario entrou pelo Google e nao tem handle personalizado ainda
-    if (data && (!data.handle || !data.name)) {
+    // Detecta usuario sem handle (entrou pelo Google)
+    const hasHandle = data?.handle && data.handle.trim() !== "";
+    if (!hasHandle) {
       const suggestedHandle = user.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9_]/g, "") || "";
-      const suggestedName = user.user_metadata?.full_name || user.user_metadata?.name || "";
-      setOnboardingForm({ name: suggestedName || data.name || "", handle: data.handle || suggestedHandle });
-      if (!data.handle) setShowOnboarding(true);
+      const suggestedName = user.user_metadata?.full_name || user.user_metadata?.name || data?.name || "";
+      setOnboardingForm({ name: suggestedName, handle: suggestedHandle });
+      setShowOnboarding(true);
     }
   };
   const loadPosts = async () => {
