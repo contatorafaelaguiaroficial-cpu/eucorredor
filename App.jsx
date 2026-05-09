@@ -531,6 +531,13 @@ function AppMain({ user, userName }) {
 
   const finishGpsRun = async () => {
     clearInterval(gpsIntervalRef.current);
+    if (leafletMapRef.current?._watchId !== undefined) {
+      navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
+    }
+    if (leafletMapRef.current) {
+      leafletMapRef.current.remove();
+      leafletMapRef.current = null;
+    }
     if (gpsDistance > 0) {
       const pace = formatGpsPace(gpsDistance, gpsElapsed);
       const duration = formatRunTime(gpsElapsed);
@@ -549,26 +556,116 @@ function AppMain({ user, userName }) {
     setHubScreen("summary");
   };
 
-  // GPS simulation interval
+  // Leaflet map + GPS real
+  const leafletMapRef = useRef(null);
+  const leafletMarkerRef = useRef(null);
+  const leafletPolylineRef = useRef(null);
+  const leafletCoordsRef = useRef([]);
+
   useEffect(() => {
-    if (hubScreen === "tracking" && !gpsPaused) {
+    if (hubScreen !== "tracking") return;
+
+    // Carregar Leaflet dinamicamente
+    const loadLeaflet = async () => {
+      if (!window.L) {
+        const script = document.createElement("script");
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+        script.onload = initMap;
+        document.head.appendChild(script);
+      } else {
+        initMap();
+      }
+    };
+
+    const initMap = () => {
+      const mapEl = document.getElementById("leaflet-map");
+      if (!mapEl || leafletMapRef.current) return;
+
+      const map = window.L.map("leaflet-map", { zoomControl: false, attributionControl: false });
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+      const markerIcon = window.L.divIcon({
+        html: `<div style="width:18px;height:18px;background:#e11d48;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px #e11d4880;"></div>`,
+        iconSize: [18, 18], iconAnchor: [9, 9], className: ""
+      });
+
+      const marker = window.L.marker([0, 0], { icon: markerIcon }).addTo(map);
+      const polyline = window.L.polyline([], { color: "#e11d48", weight: 4, opacity: 0.9 }).addTo(map);
+
+      leafletMapRef.current = map;
+      leafletMarkerRef.current = marker;
+      leafletPolylineRef.current = polyline;
+      leafletCoordsRef.current = [];
+
+      // Timer
       gpsIntervalRef.current = setInterval(() => {
         setGpsElapsed(e => e + 1);
-        setGpsDistance(d => d + 0.00278);
-        setGpsRoute(r => {
-          const last = r[r.length - 1];
-          const angle = (Date.now() / 800) % (Math.PI * 2);
-          const nx = Math.max(30, Math.min(360, last.x + Math.cos(angle) * 3));
-          const ny = Math.max(100, Math.min(500, last.y + Math.sin(angle) * 2.5));
-          return [...r.slice(-60), { x: nx, y: ny }];
-        });
         setGpsHR(h => Math.max(135, Math.min(175, h + (Math.random() > 0.5 ? 1 : -1))));
       }, 1000);
-    } else {
+
+      // GPS real
+      let lastCoord = null;
+      if (navigator.geolocation) {
+        const watchId = navigator.geolocation.watchPosition((pos) => {
+          const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+          if (accuracy > 30) return; // ignora leituras imprecisas
+
+          const latlng = [lat, lng];
+          marker.setLatLng(latlng);
+          map.setView(latlng, 17);
+
+          if (lastCoord) {
+            const R = 6371;
+            const dLat = (lat - lastCoord[0]) * Math.PI / 180;
+            const dLng = (lng - lastCoord[1]) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lastCoord[0]*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLng/2)**2;
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            if (dist > 0.005 && dist < 0.3) {
+              setGpsDistance(d => d + dist);
+              leafletCoordsRef.current.push(latlng);
+              polyline.setLatLngs(leafletCoordsRef.current);
+            }
+          } else {
+            leafletCoordsRef.current = [latlng];
+            map.setView(latlng, 17);
+          }
+          lastCoord = latlng;
+        }, (err) => {
+          console.log("GPS erro:", err.message);
+        }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 });
+
+        leafletMapRef.current._watchId = watchId;
+      }
+    };
+
+    loadLeaflet();
+
+    return () => {
       clearInterval(gpsIntervalRef.current);
+      if (leafletMapRef.current) {
+        if (leafletMapRef.current._watchId !== undefined) {
+          navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
+        }
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
+        leafletMarkerRef.current = null;
+        leafletPolylineRef.current = null;
+      }
+    };
+  }, [hubScreen]);
+
+  // Pausar GPS
+  useEffect(() => {
+    if (hubScreen === "tracking") {
+      if (gpsPaused) clearInterval(gpsIntervalRef.current);
+      else {
+        gpsIntervalRef.current = setInterval(() => {
+          setGpsElapsed(e => e + 1);
+          setGpsHR(h => Math.max(135, Math.min(175, h + (Math.random() > 0.5 ? 1 : -1))));
+        }, 1000);
+      }
     }
-    return () => clearInterval(gpsIntervalRef.current);
-  }, [hubScreen, gpsPaused]);
+  }, [gpsPaused]);
 
   const handleShare = (type = "perfil", data = {}) => {
     const handle = profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "");
@@ -1198,70 +1295,48 @@ ${url}`;
               {/* Rastreamento ativo */}
               {hubScreen === "tracking" && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, display: "flex", flexDirection: "column", maxWidth: 390, margin: "0 auto" }}>
-                  {/* Mapa simulado */}
-                  <div style={{ flex: 1, background: "#0d0d18", position: "relative", overflow: "hidden" }}>
-                    <svg width="100%" height="100%" style={{ position: "absolute", top: 0, left: 0 }}>
-                      <defs>
-                        <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
-                          <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e1e2e" strokeWidth="0.5" />
-                        </pattern>
-                      </defs>
-                      <rect width="100%" height="100%" fill="url(#grid)" />
-                      <line x1="0" y1="180" x2="390" y2="180" stroke="#1a1a2e" strokeWidth="14" />
-                      <line x1="0" y1="260" x2="390" y2="260" stroke="#1a1a2e" strokeWidth="8" />
-                      <line x1="130" y1="0" x2="130" y2="600" stroke="#1a1a2e" strokeWidth="14" />
-                      <line x1="270" y1="0" x2="270" y2="600" stroke="#1a1a2e" strokeWidth="8" />
-                      {gpsRoute.length > 1 && (
-                        <polyline points={gpsRoute.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#e11d48" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px #e11d4880)" }} />
-                      )}
-                      {gpsRoute.length > 0 && (() => {
-                        const pos = gpsRoute[gpsRoute.length - 1];
-                        return (
-                          <>
-                            <circle cx={pos.x} cy={pos.y} r="18" fill="#e11d48" fillOpacity="0.2" />
-                            <circle cx={pos.x} cy={pos.y} r="9" fill="#e11d48" style={{ filter: "drop-shadow(0 0 8px #e11d48)" }} />
-                            <circle cx={pos.x} cy={pos.y} r="3" fill="#fff" />
-                          </>
-                        );
-                      })()}
-                    </svg>
 
-                    {/* Stats no mapa */}
-                    <div style={{ position: "absolute", top: 52, left: 16, right: 16 }}>
-                      <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "14px 16px", border: "1px solid #1e1e2e" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ textAlign: "center" }}>
-                            <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
-                            <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km</p>
-                          </div>
-                          <div style={{ textAlign: "center" }}>
-                            <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatRunTime(gpsElapsed)}</p>
-                            <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>tempo</p>
-                          </div>
-                          <div style={{ textAlign: "center" }}>
-                            <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p>
-                            <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace/km</p>
-                          </div>
+                  {/* Leaflet CSS */}
+                  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+                  {/* Mapa Leaflet */}
+                  <div id="leaflet-map" style={{ flex: 1, position: "relative", zIndex: 1 }} />
+
+                  {/* Stats sobrepostos */}
+                  <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
+                    <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "14px 16px", border: "1px solid #1e1e2e" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ textAlign: "center" }}>
+                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
+                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km</p>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatRunTime(gpsElapsed)}</p>
+                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>tempo</p>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p>
+                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace/km</p>
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* HR e calorias */}
-                    <div style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 18 }}>❤️</span>
-                      <div>
-                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsHR}</p>
-                        <p style={{ fontSize: 9, color: "#555" }}>bpm</p>
-                      </div>
+                  {/* HR e calorias */}
+                  <div style={{ position: "absolute", bottom: 100, right: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 8, zIndex: 1000 }}>
+                    <span style={{ fontSize: 18 }}>❤️</span>
+                    <div>
+                      <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsHR}</p>
+                      <p style={{ fontSize: 9, color: "#555" }}>bpm</p>
                     </div>
-                    <div style={{ position: "absolute", bottom: 16, left: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e" }}>
-                      <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#f97316", lineHeight: 1 }}>{Math.floor(gpsDistance * 65)}</p>
-                      <p style={{ fontSize: 9, color: "#555" }}>kcal</p>
-                    </div>
+                  </div>
+                  <div style={{ position: "absolute", bottom: 100, left: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", zIndex: 1000 }}>
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#f97316", lineHeight: 1 }}>{Math.floor(gpsDistance * 65)}</p>
+                    <p style={{ fontSize: 9, color: "#555" }}>kcal</p>
                   </div>
 
                   {/* Controles */}
-                  <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16, position: "relative", zIndex: 1000 }}>
                     <button onClick={() => setGpsPaused(p => !p)}
                       style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#888", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {gpsPaused ? "▶" : "⏸"}
