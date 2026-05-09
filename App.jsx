@@ -579,7 +579,8 @@ function AppMain({ user, userName }) {
 
     const initMap = () => {
       const mapEl = document.getElementById("leaflet-map");
-      if (!mapEl || leafletMapRef.current) return;
+      if (!mapEl) { console.log("Map element not found"); return; }
+      if (leafletMapRef.current) return;
 
       const map = window.L.map("leaflet-map", { zoomControl: false, attributionControl: false });
       window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
@@ -1297,7 +1298,7 @@ ${url}`;
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, display: "flex", flexDirection: "column", maxWidth: 390, margin: "0 auto" }}>
 
                   {/* Mapa Leaflet */}
-                  <div id="leaflet-map" style={{ flex: 1, position: "relative", zIndex: 1 }} />
+                  <div id="leaflet-map" style={{ flex: 1, position: "relative", zIndex: 1, minHeight: "400px" }}></div>
 
                   {/* Stats sobrepostos */}
                   <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
