@@ -116,7 +116,7 @@ function AuthScreen({ onLogin }) {
         });
         if (err) throw err;
         if (data.user) {
-          await supabase.from("profiles").insert({ id: data.user.id, name: form.name, handle: form.handle, level: "Iniciante", races_count: 0, total_km: 0 });
+          await supabase.from("profiles").insert({ id: data.user.id, name: form.name, handle: form.handle, level: "Iniciante", races_count: 0, total_km: 0, terms_accepted_at: new Date().toISOString(), terms_version: "1.0" });
           onLogin(data.user, form.name);
         }
       } else {
@@ -419,7 +419,7 @@ function AppMain({ user, userName }) {
     if (!onboardingForm.handle.trim() || onboardingForm.handle.length < 3) return alert("Handle precisa ter no mínimo 3 caracteres.");
     const { data: existing } = await supabase.from("profiles").select("id").eq("handle", onboardingForm.handle).neq("id", user.id).single();
     if (existing) return alert("Esse @handle já está em uso. Tente outro.");
-    await supabase.from("profiles").upsert({ id: user.id, name: onboardingForm.name, handle: onboardingForm.handle, level: "Iniciante", races_count: 0, total_km: 0 });
+    await supabase.from("profiles").upsert({ id: user.id, name: onboardingForm.name, handle: onboardingForm.handle, level: "Iniciante", races_count: 0, total_km: 0, terms_accepted_at: new Date().toISOString(), terms_version: "1.0" });
     await loadProfile();
     setShowOnboarding(false);
   };
