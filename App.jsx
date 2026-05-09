@@ -299,6 +299,7 @@ function AppMain({ user, userName }) {
   const [gpsRoute, setGpsRoute] = useState([]);
   const [gpsPaused, setGpsPaused] = useState(false);
   const [gpsHR, setGpsHR] = useState(142);
+  const [gpsLocated, setGpsLocated] = useState(false);
   const gpsIntervalRef = useRef(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
@@ -526,6 +527,7 @@ function AppMain({ user, userName }) {
     setGpsRoute([{ x: 195, y: 300 }]);
     setGpsPaused(false);
     setGpsHR(142);
+    setGpsLocated(false);
     setHubScreen("tracking");
   };
 
@@ -622,6 +624,7 @@ function AppMain({ user, userName }) {
           const latlng = [lat, lng];
           marker.setLatLng(latlng);
           map.setView(latlng, 17);
+          setGpsLocated(true);
 
           if (lastCoord) {
             const R = 6371;
@@ -1312,8 +1315,8 @@ ${url}`;
                   {/* Status GPS */}
                   <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
                     <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 10, padding: "6px 12px", border: "1px solid #1e1e2e", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsDistance > 0 ? "#6ee7b7" : "#f59e0b" }} />
-                      <span style={{ fontSize: 11, color: "#888" }}>{gpsDistance > 0 ? "GPS ativo" : "Aguardando GPS..."}</span>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : "#f59e0b" }} />
+                      <span style={{ fontSize: 11, color: "#888" }}>{gpsLocated ? "GPS ativo" : "Aguardando GPS..."}</span>
                     </div>
                   </div>
 
