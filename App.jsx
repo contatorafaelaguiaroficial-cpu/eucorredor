@@ -617,7 +617,7 @@ function AppMain({ user, userName }) {
       if (navigator.geolocation) {
         const watchId = navigator.geolocation.watchPosition((pos) => {
           const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-          if (accuracy > 30) return; // ignora leituras imprecisas
+          if (accuracy > 100) return; // ignora leituras muito imprecisas
 
           const latlng = [lat, lng];
           marker.setLatLng(latlng);
@@ -629,15 +629,16 @@ function AppMain({ user, userName }) {
             const dLng = (lng - lastCoord[1]) * Math.PI / 180;
             const a = Math.sin(dLat/2)**2 + Math.cos(lastCoord[0]*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLng/2)**2;
             const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            if (dist > 0.005 && dist < 0.3) {
+            if (dist > 0.003 && dist < 0.5) {
               setGpsDistance(d => d + dist);
               leafletCoordsRef.current.push(latlng);
               polyline.setLatLngs(leafletCoordsRef.current);
             }
           } else {
             leafletCoordsRef.current = [latlng];
-            map.setView(latlng, 17);
           }
+          // Sempre centraliza no usuário
+          map.setView(latlng, 17);
           lastCoord = latlng;
         }, (err) => {
           console.log("GPS erro:", err.message);
