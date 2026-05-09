@@ -1309,8 +1309,16 @@ ${url}`;
                   {/* Mapa Leaflet */}
                   <div id="leaflet-map" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: "90px", zIndex: 1 }}></div>
 
-                  {/* Stats sobrepostos */}
+                  {/* Status GPS */}
                   <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
+                    <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 10, padding: "6px 12px", border: "1px solid #1e1e2e", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsDistance > 0 ? "#6ee7b7" : "#f59e0b" }} />
+                      <span style={{ fontSize: 11, color: "#888" }}>{gpsDistance > 0 ? "GPS ativo" : "Aguardando GPS..."}</span>
+                    </div>
+                  </div>
+
+                  {/* Stats sobrepostos */}
+                  <div style={{ position: "absolute", top: 110, left: 16, right: 16, zIndex: 1000 }}>
                     <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "14px 16px", border: "1px solid #1e1e2e" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ textAlign: "center" }}>
