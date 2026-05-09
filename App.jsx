@@ -289,6 +289,8 @@ function AppMain({ user, userName }) {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingForm, setOnboardingForm] = useState({ name: "", handle: "" });
   const [dbEvents, setDbEvents] = useState([]);
   const [showAdminEvents, setShowAdminEvents] = useState(false);
   const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
@@ -395,6 +397,16 @@ function AppMain({ user, userName }) {
     }
   };
 
+  const handleOnboarding = async () => {
+    if (!onboardingForm.name.trim()) return alert("Informe seu nome.");
+    if (!onboardingForm.handle.trim() || onboardingForm.handle.length < 3) return alert("Handle precisa ter no mínimo 3 caracteres.");
+    const { data: existing } = await supabase.from("profiles").select("id").eq("handle", onboardingForm.handle).neq("id", user.id).single();
+    if (existing) return alert("Esse @handle já está em uso. Tente outro.");
+    await supabase.from("profiles").upsert({ id: user.id, name: onboardingForm.name, handle: onboardingForm.handle, level: "Iniciante", races_count: 0, total_km: 0 });
+    await loadProfile();
+    setShowOnboarding(false);
+  };
+
   const loadEvents = async () => {
     const { data } = await supabase.from("events").select("*").order("created_at", { ascending: true });
     setDbEvents(data || []);
@@ -433,6 +445,13 @@ function AppMain({ user, userName }) {
   const loadProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     setProfile(data);
+    // Se usuario entrou pelo Google e nao tem handle personalizado ainda
+    if (data && (!data.handle || !data.name)) {
+      const suggestedHandle = user.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9_]/g, "") || "";
+      const suggestedName = user.user_metadata?.full_name || user.user_metadata?.name || "";
+      setOnboardingForm({ name: suggestedName || data.name || "", handle: data.handle || suggestedHandle });
+      if (!data.handle) setShowOnboarding(true);
+    }
   };
   const loadPosts = async () => {
     const { data } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").order("created_at", { ascending: false }).limit(20);
@@ -665,6 +684,41 @@ ${url}`;
       `}</style>
 
       <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
+
+        {/* Modal onboarding para novos usuarios Google */}
+        {showOnboarding && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 500, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28 }}>
+            <div style={{ width: "100%", maxWidth: 360 }}>
+              <div style={{ textAlign: "center", marginBottom: 36 }}>
+                <p style={{ fontSize: 48, marginBottom: 12 }}>🏃</p>
+                <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 8 }}>Bem-vindo ao eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
+                <p style={{ fontSize: 13, color: "#555" }}>Antes de começar, confirme seus dados.</p>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Seu nome</p>
+                  <input className="tinput" placeholder="Como quer ser chamado?" value={onboardingForm.name}
+                    onChange={(e) => setOnboardingForm(f => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Seu @handle único</p>
+                  <div style={{ position: "relative" }}>
+                    <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#555", fontSize: 14 }}>@</span>
+                    <input className="tinput" style={{ paddingLeft: 28 }} placeholder="seuhandle" value={onboardingForm.handle}
+                      onChange={(e) => setOnboardingForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} />
+                  </div>
+                  <p style={{ fontSize: 11, color: "#555", marginTop: 5 }}>Somente letras minúsculas, números e _</p>
+                </div>
+              </div>
+
+              <button onClick={handleOnboarding}
+                style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 24 }}>
+                Entrar no eucorredor
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)" }}>
