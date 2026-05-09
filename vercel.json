@@ -1,5 +1,16 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/privacidade",
+      "destination": "/privacidade.html"
+    },
+    {
+      "source": "/termos",
+      "destination": "/termos.html"
+    },
+    {
+      "source": "/((?!privacidade|termos|.*\\.html|.*\\.css|.*\\.js|.*\\.ico).*)",
+      "destination": "/"
+    }
   ]
 }
