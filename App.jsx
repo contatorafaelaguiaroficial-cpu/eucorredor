@@ -1339,91 +1339,88 @@ ${url}`).then(() => alert("Link copiado!"));
                 </div>
               )}
 
-              {/* Modal publicar */}
-              {showPublish && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                      <p style={{ fontWeight: 700, fontSize: 16 }}>{publishType ? (publishType === "post" ? "Novo post" : publishType === "foto" ? "Nova foto" : "Nova atividade") : "O que quer publicar?"}</p>
-                      <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+{/* Modal publicar */}
+        {showPublish && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+            <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <p style={{ fontWeight: 700, fontSize: 16 }}>{publishType ? (publishType === "post" ? "Novo post" : publishType === "foto" ? "Nova foto" : "Nova atividade") : "O que quer publicar?"}</p>
+                <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+              </div>
+
+              {!publishType && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[
+                    { id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" },
+                    { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" },
+                    { id: "atividade", label: "Atividade", desc: "Registre um treino com métricas", icon: "⚡" },
+                  ].map((t) => (
+                    <button key={t.id} onClick={() => setPublishType(t.id)}
+                      style={{ background: "#0a0a0f", border: "1px solid #1e1e2e", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 14 }}>
+                      <span style={{ fontSize: 24 }}>{t.icon}</span>
+                      <div style={{ textAlign: "left" }}>
+                        <p style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f0" }}>{t.label}</p>
+                        <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{t.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {publishType === "post" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <textarea className="tinput" rows={4} placeholder="O que está pensando?" value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
+                    <button onClick={() => { handlePost(); setShowPublish(false); setPublishType(null); }} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
+                  </div>
+                </div>
+              )}
+
+              {publishType === "foto" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <label htmlFor="post-photo" style={{ cursor: "pointer" }}>
+                    <div style={{ background: "#0a0a0f", border: `2px dashed ${photoPreview ? "#e11d48" : "#1e1e2e"}`, borderRadius: 14, aspectRatio: "4/5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                      {photoPreview
+                        ? <img src={photoPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        : <><span style={{ fontSize: 32 }}>🖼️</span><p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>Toque para selecionar (formato 4:5)</p></>
+                      }
                     </div>
+                  </label>
+                  <input id="post-photo" type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={(e) => {
+                      const f = e.target.files[0];
+                      if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); }
+                    }} />
+                  <textarea className="tinput" rows={3} placeholder="Adicione uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => { setPublishType(null); setPhotoFile(null); setPhotoPreview(null); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
+                    <button onClick={async () => {
+                      if (photoFile) {
+                        const ext = photoFile.name.split(".").pop();
+                        const path = `${user.id}/${Date.now()}.${ext}`;
+                        const { error } = await supabase.storage.from("posts").upload(path, photoFile);
+                        if (error) { alert("Erro ao enviar foto: " + error.message); return; }
+                        const { data } = supabase.storage.from("posts").getPublicUrl(path);
+                        await supabase.from("posts").insert({ user_id: user.id, text: newPost, photo_url: data.publicUrl });
+                      } else {
+                        await supabase.from("posts").insert({ user_id: user.id, text: newPost });
+                      }
+                      await loadPosts();
+                      setShowPublish(false); setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null);
+                    }} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
+                  </div>
+                </div>
+              )}
 
-                    {!publishType && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {[
-                          { id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" },
-                          { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" },
-                          { id: "atividade", label: "Atividade", desc: "Registre um treino com métricas", icon: "⚡" },
-                        ].map((t) => (
-                          <button key={t.id} onClick={() => setPublishType(t.id)}
-                            style={{ background: "#0a0a0f", border: "1px solid #1e1e2e", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 14 }}>
-                            <span style={{ fontSize: 24 }}>{t.icon}</span>
-                            <div style={{ textAlign: "left" }}>
-                              <p style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f0" }}>{t.label}</p>
-                              <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{t.desc}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {publishType === "post" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <textarea className="tinput" rows={4} placeholder="O que está pensando?" value={newPost} onChange={(e) => setNewPost(e.target.value)} />
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={() => { handlePost(); setShowPublish(false); setPublishType(null); }} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
-                        </div>
-                      </div>
-                    )}
-
-                    {publishType === "foto" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <label htmlFor="post-photo" style={{ cursor: "pointer" }}>
-                          <div style={{ background: "#0a0a0f", border: `2px dashed ${photoPreview ? "#e11d48" : "#1e1e2e"}`, borderRadius: 14, aspectRatio: "4/5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                            {photoPreview
-                              ? <img src={photoPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                              : <><span style={{ fontSize: 32 }}>🖼️</span><p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>Toque para selecionar (formato 4:5)</p></>
-                            }
-                          </div>
-                        </label>
-                        <input id="post-photo" type="file" accept="image/*" style={{ display: "none" }}
-                          onChange={(e) => {
-                            const f = e.target.files[0];
-                            if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); }
-                          }} />
-                        <textarea className="tinput" rows={3} placeholder="Adicione uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => { setPublishType(null); setPhotoFile(null); setPhotoPreview(null); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={async () => {
-                            if (photoFile) {
-                              const ext = photoFile.name.split(".").pop();
-                              const path = `${user.id}/${Date.now()}.${ext}`;
-                              const { error } = await supabase.storage.from("posts").upload(path, photoFile);
-                              if (error) { alert("Erro ao enviar foto: " + error.message); return; }
-                              const { data } = supabase.storage.from("posts").getPublicUrl(path);
-                              await supabase.from("posts").insert({ user_id: user.id, text: newPost, photo_url: data.publicUrl });
-                            } else {
-                              await supabase.from("posts").insert({ user_id: user.id, text: newPost });
-                            }
-                            await loadPosts();
-                            setShowPublish(false); setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null);
-                          }} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
-                        </div>
-                      </div>
-                    )}
-
-                    {publishType === "atividade" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <input className="tinput" placeholder="Distância (ex: 10.5)" type="number" value={actForm.distance} onChange={(e) => setActForm(a => ({ ...a, distance: e.target.value }))} />
-                        <input className="tinput" placeholder="Tempo (ex: 52min)" value={actForm.duration} onChange={(e) => setActForm(a => ({ ...a, duration: e.target.value }))} />
-                        <input className="tinput" placeholder="Pace (ex: 5min12s/km)" value={actForm.pace} onChange={(e) => setActForm(a => ({ ...a, pace: e.target.value }))} />
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={handleActivity} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
-                        </div>
-                      </div>
-                    )}
+              {publishType === "atividade" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <input className="tinput" placeholder="Distância (ex: 10.5)" type="number" value={actForm.distance} onChange={(e) => setActForm(a => ({ ...a, distance: e.target.value }))} />
+                  <input className="tinput" placeholder="Tempo (ex: 52min)" value={actForm.duration} onChange={(e) => setActForm(a => ({ ...a, duration: e.target.value }))} />
+                  <input className="tinput" placeholder="Pace (ex: 5min12s/km)" value={actForm.pace} onChange={(e) => setActForm(a => ({ ...a, pace: e.target.value }))} />
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
+                    <button onClick={handleActivity} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
                   </div>
                 </div>
               )}
@@ -1434,438 +1431,324 @@ ${url}`).then(() => alert("Link copiado!"));
           {tab === "hub" && (
             <div style={{ display: "flex", flexDirection: "column" }}>
 
-              {/* Rastreamento ativo */}
-              {hubScreen === "tracking" && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, maxWidth: 390, margin: "0 auto" }}>
+        {/* Rastreamento ativo */}
+        {hubScreen === "tracking" && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, maxWidth: 390, margin: "0 auto" }}>
 
-                  {/* Mapa Leaflet */}
-                  <div id="leaflet-map" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: "90px", zIndex: 1 }}></div>
+            {/* Mapa Leaflet */}
+            <div id="leaflet-map" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: "90px", zIndex: 1 }}></div>
 
-                  {/* Status GPS */}
-                  <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
-                    <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 10, padding: "6px 12px", border: "1px solid #1e1e2e", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : gpsError ? "#e11d48" : "#f59e0b" }} />
-                      <span style={{ fontSize: 11, color: "#888" }}>{gpsLocated ? "GPS ativo" : gpsError ? gpsError : "Aguardando GPS..."}</span>
-                    </div>
+            {/* Status GPS */}
+            <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
+              <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 10, padding: "6px 12px", border: "1px solid #1e1e2e", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : gpsError ? "#e11d48" : "#f59e0b" }} />
+                <span style={{ fontSize: 11, color: "#888" }}>{gpsLocated ? "GPS ativo" : gpsError ? gpsError : "Aguardando GPS..."}</span>
+              </div>
+            </div>
+
+            {/* Stats sobrepostos */}
+            <div style={{ position: "absolute", top: 110, left: 16, right: 16, zIndex: 1000 }}>
+              <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "14px 16px", border: "1px solid #1e1e2e" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
+                    <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km</p>
                   </div>
-
-                  {/* Stats sobrepostos */}
-                  <div style={{ position: "absolute", top: 110, left: 16, right: 16, zIndex: 1000 }}>
-                    <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "14px 16px", border: "1px solid #1e1e2e" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ textAlign: "center" }}>
-                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
-                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km</p>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatRunTime(gpsElapsed)}</p>
-                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>tempo</p>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p>
-                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace/km</p>
-                        </div>
-                      </div>
-                    </div>
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatRunTime(gpsElapsed)}</p>
+                    <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>tempo</p>
                   </div>
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p>
+                    <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace/km</p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                  {/* HR e calorias */}
-                  <div style={{ position: "absolute", bottom: 100, right: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 8, zIndex: 1000 }}>
-                    <span style={{ fontSize: 18 }}>❤️</span>
+            {/* HR e calorias */}
+            <div style={{ position: "absolute", bottom: 100, right: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 8, zIndex: 1000 }}>
+              <span style={{ fontSize: 18 }}>❤️</span>
+              <div>
+                <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsHR}</p>
+                <p style={{ fontSize: 9, color: "#555" }}>bpm</p>
+              </div>
+            </div>
+            <div style={{ position: "absolute", bottom: 100, left: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", zIndex: 1000 }}>
+              <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#f97316", lineHeight: 1 }}>{Math.floor(gpsDistance * 65)}</p>
+              <p style={{ fontSize: 9, color: "#555" }}>kcal</p>
+            </div>
+
+            {/* Controles */}
+            <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16, position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+              <button onClick={() => setGpsPaused(p => !p)}
+                style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#888", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {gpsPaused ? "▶" : "⏸"}
+              </button>
+              <button onClick={finishGpsRun}
+                style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 16, padding: "16px 0", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                Finalizar corrida
+              </button>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: gpsPaused ? "#555" : "#e11d48" }} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Resumo pós-corrida GPS */}
+        {hubScreen === "summary" && (
+          <div style={{ paddingBottom: 40 }}>
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
+              <p style={{ fontSize: 48, marginBottom: 8 }}>🏅</p>
+              <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Corrida finalizada!</h2>
+              <p style={{ fontSize: 13, color: "#555" }}>Seus dados foram salvos.</p>
+            </div>
+            <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 24, border: "1px solid #e11d4833", textAlign: "center", marginBottom: 14 }}>
+              <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 64, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
+              <p style={{ fontSize: 16, color: "#888", marginTop: 4 }}>quilômetros</p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+              {[
+                { v: formatRunTime(gpsElapsed), l: "Tempo total", icon: "⏱" },
+                { v: formatGpsPace(gpsDistance, gpsElapsed), l: "Pace médio", icon: "⚡" },
+                { v: `${gpsHR} bpm`, l: "FC média", icon: "❤️" },
+                { v: `${Math.floor(gpsDistance * 65)} kcal`, l: "Calorias", icon: "🔥" },
+              ].map((s, i) => (
+                <div key={i} className="card" style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</p>
+                  <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{s.v}</p>
+                  <p style={{ fontSize: 11, color: "#555" }}>{s.l}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setHubScreen("hub")}
+                style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                Ver hub
+              </button>
+              <button onClick={() => handleShare("resumo_gps", { distance: gpsDistance.toFixed(2), time: formatRunTime(gpsElapsed), pace: formatGpsPace(gpsDistance, gpsElapsed), calories: Math.floor(gpsDistance * 65) })}
+                style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                Compartilhar corrida
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* HUB PRINCIPAL */}
+        {hubScreen === "hub" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Card iniciar corrida */}
+            <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 20, border: "1px solid #e11d4833", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4825 0%, transparent 70%)", pointerEvents: "none" }} />
+              <p style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Pronto para correr?</p>
+              <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 16 }}>
+                Registre com <span style={{ color: "#e11d48" }}>GPS</span>
+              </p>
+              <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+                {["📍 GPS", "❤️ FC", "⚡ Pace", "🔥 Calorias"].map((f, i) => (
+                  <div key={i} style={{ background: "#0a0a0f", borderRadius: 8, padding: "4px 10px", fontSize: 10, color: "#888", fontWeight: 700 }}>{f}</div>
+                ))}
+              </div>
+              <button onClick={startGpsRun}
+                style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                Iniciar corrida
+              </button>
+            </div>
+
+            {/* Stats do mês */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700, color: "#e11d48" }}>{(profile?.total_km || 0).toFixed(1)}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km total</p></div>
+              <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700 }}>{races}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>corridas</p></div>
+              <div className="sbox"><p style={{ fontSize: 18, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace médio</p></div>
+            </div>
+
+            {/* Atividades recentes */}
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginTop: 4 }}>Atividades recentes</p>
+            {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhuma atividade ainda. Inicie sua primeira corrida!</p>}
+            {activities.map((a) => (
+              <div key={a.id} style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {getAvatar(a.profiles, 34)}
                     <div>
-                      <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsHR}</p>
-                      <p style={{ fontSize: 9, color: "#555" }}>bpm</p>
+                      <p style={{ fontWeight: 700, fontSize: 13 }}>{a.profiles?.name || "Corredor"}</p>
+                      <p style={{ fontSize: 10, color: "#555" }}>Corrida ao ar livre</p>
                     </div>
                   </div>
-                  <div style={{ position: "absolute", bottom: 100, left: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", zIndex: 1000 }}>
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#f97316", lineHeight: 1 }}>{Math.floor(gpsDistance * 65)}</p>
-                    <p style={{ fontSize: 9, color: "#555" }}>kcal</p>
-                  </div>
-
-                  {/* Controles */}
-                  <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16, position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
-                    <button onClick={() => setGpsPaused(p => !p)}
-                      style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#888", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {gpsPaused ? "▶" : "⏸"}
-                    </button>
-                    <button onClick={finishGpsRun}
-                      style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 16, padding: "16px 0", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Finalizar corrida
-                    </button>
-                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: gpsPaused ? "#555" : "#e11d48" }} />
-                    </div>
-                  </div>
+                  <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: "#e11d48" }}>{a.distance} km</p>
                 </div>
-              )}
-
-              {/* Resumo pós-corrida GPS */}
-              {hubScreen === "summary" && (
-                <div style={{ paddingBottom: 40 }}>
-                  <div style={{ textAlign: "center", marginBottom: 24 }}>
-                    <p style={{ fontSize: 48, marginBottom: 8 }}>🏅</p>
-                    <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Corrida finalizada!</h2>
-                    <p style={{ fontSize: 13, color: "#555" }}>Seus dados foram salvos.</p>
-                  </div>
-                  <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 24, border: "1px solid #e11d4833", textAlign: "center", marginBottom: 14 }}>
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 64, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
-                    <p style={{ fontSize: 16, color: "#888", marginTop: 4 }}>quilômetros</p>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                    {[
-                      { v: formatRunTime(gpsElapsed), l: "Tempo total", icon: "⏱" },
-                      { v: formatGpsPace(gpsDistance, gpsElapsed), l: "Pace médio", icon: "⚡" },
-                      { v: `${gpsHR} bpm`, l: "FC média", icon: "❤️" },
-                      { v: `${Math.floor(gpsDistance * 65)} kcal`, l: "Calorias", icon: "🔥" },
-                    ].map((s, i) => (
-                      <div key={i} className="card" style={{ textAlign: "center" }}>
-                        <p style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</p>
-                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{s.v}</p>
-                        <p style={{ fontSize: 11, color: "#555" }}>{s.l}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => setHubScreen("hub")}
-                      style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Ver hub
+                <div style={{ display: "flex", gap: 8 }}>
+                  {a.duration && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>tempo</p></div>}
+                  {a.pace && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>pace</p></div>}
+                  {a.user_id === user.id && (
+                    <button onClick={() => handleDeleteActivity(a.id)}
+                      style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 10, padding: "8px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                      🗑️
                     </button>
-                    <button onClick={() => handleShare("resumo_gps", { distance: gpsDistance.toFixed(2), time: formatRunTime(gpsElapsed), pace: formatGpsPace(gpsDistance, gpsElapsed), calories: Math.floor(gpsDistance * 65) })}
-                      style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Compartilhar corrida
-                    </button>
-                  </div>
+                  )}
                 </div>
-              )}
-
-              {/* HUB PRINCIPAL */}
-              {hubScreen === "hub" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {/* Card iniciar corrida */}
-                  <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 20, border: "1px solid #e11d4833", position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4825 0%, transparent 70%)", pointerEvents: "none" }} />
-                    <p style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Pronto para correr?</p>
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 16 }}>
-                      Registre com <span style={{ color: "#e11d48" }}>GPS</span>
-                    </p>
-                    <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-                      {["📍 GPS", "❤️ FC", "⚡ Pace", "🔥 Calorias"].map((f, i) => (
-                        <div key={i} style={{ background: "#0a0a0f", borderRadius: 8, padding: "4px 10px", fontSize: 10, color: "#888", fontWeight: 700 }}>{f}</div>
-                      ))}
-                    </div>
-                    <button onClick={startGpsRun}
-                      style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Iniciar corrida
-                    </button>
-                  </div>
-
-                  {/* Stats do mês */}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700, color: "#e11d48" }}>{(profile?.total_km || 0).toFixed(1)}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km total</p></div>
-                    <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700 }}>{races}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>corridas</p></div>
-                    <div className="sbox"><p style={{ fontSize: 18, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace médio</p></div>
-                  </div>
-
-                  {/* Atividades recentes */}
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginTop: 4 }}>Atividades recentes</p>
-                  {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhuma atividade ainda. Inicie sua primeira corrida!</p>}
-                  {activities.map((a) => (
-                    <div key={a.id} style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {getAvatar(a.profiles, 34)}
-                          <div>
-                            <p style={{ fontWeight: 700, fontSize: 13 }}>{a.profiles?.name || "Corredor"}</p>
-                            <p style={{ fontSize: 10, color: "#555" }}>Corrida ao ar livre</p>
-                          </div>
-                        </div>
-                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: "#e11d48" }}>{a.distance} km</p>
-                      </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {a.duration && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>tempo</p></div>}
-                        {a.pace && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>pace</p></div>}
-                        {a.user_id === user.id && (
-                          <button onClick={() => handleDeleteActivity(a.id)}
-                            style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 10, padding: "8px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-                            🗑️
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              </div>
+            ))}
+          </div>
+        )}
             </div>
           )}
 
           {/* PERFIL */}
           {tab === "perfil" && (
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {/* Card perfil */}
-              <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
-                <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4820 0%, transparent 70%)", pointerEvents: "none" }} />
-                <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-                  <div style={{ position: "relative", flexShrink: 0 }}>
-                    <label htmlFor="av-upload" style={{ cursor: "pointer" }}>
-                      {profile?.avatar_url
-                        ? <img src={profile.avatar_url} alt="av" style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "cover", border: "3px solid #1e1e2e" }} />
-                        : <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e" }}>{level.icon}</div>
-                      }
-                      <div style={{ position: "absolute", bottom: -1, right: -1, background: "#e11d48", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, border: "2px solid #13131a" }}>
-                        {uploadingAvatar ? "⏳" : "📷"}
-                      </div>
-                    </label>
-                    <input id="av-upload" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{profile?.name || userName}</h2>
-                    <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "")}</p>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
-                      <span style={{ fontSize: 11, color: level.color, fontWeight: 700 }}>{level.icon} {level.name}</span>
-                    </div>
-                  </div>
+        {/* Card perfil */}
+        <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", padding: "20px 20px 0", borderBottom: "1px solid #1e1e2e" }}>
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 14 }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <label htmlFor="av-upload" style={{ cursor: "pointer" }}>
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt="av" style={{ width: 76, height: 76, borderRadius: "50%", objectFit: "cover", border: "3px solid #1e1e2e" }} />
+                  : <div style={{ width: 76, height: 76, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, border: "3px solid #1e1e2e" }}>{level.icon}</div>
+                }
+                <div style={{ position: "absolute", bottom: 0, right: 0, width: 22, height: 22, background: "#e11d48", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, border: "2px solid #13131a" }}>
+                  {uploadingAvatar ? "⏳" : "📷"}
                 </div>
-                {profile?.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{profile.bio}</p>}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                    <span style={{ fontSize: 10, color: "#555" }}>Próximo: {next?.name}</span>
-                    <span style={{ fontSize: 10, color: level.color, fontWeight: 700 }}>{races}/{next?.min} corridas</span>
-                  </div>
-                  <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
-                    <div style={{ background: level.color, width: `${progress}%`, height: 4, borderRadius: 99 }} />
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
-                  <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{races}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
-                  <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{profile?.total_km?.toFixed(1) || 0} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>km total</p></div>
-                  <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
-                </div>
+              </label>
+              <input id="av-upload" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{profile?.name || userName}</h2>
+              <p style={{ fontSize: 12, color: "#555", marginBottom: 8 }}>@{profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "")}</p>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
+                <span style={{ fontSize: 11, color: level.color, fontWeight: 700 }}>{level.icon} {level.name}</span>
+              </div>
+            </div>
+          </div>
+          {profile?.bio && <p style={{ fontSize: 13, color: "#888", lineHeight: 1.5, marginBottom: 14 }}>{profile.bio}</p>}
+          <div style={{ display: "flex", gap: 0, marginBottom: 14 }}>
+            {[
+              { v: races, l: "corridas", color: "#e11d48" },
+              { v: `${profile?.total_km?.toFixed(1) || 0} km`, l: "total" },
+              { v: followersCount, l: "seguidores", onClick: () => loadFollowList("seguidores") },
+              { v: followingCount, l: "seguindo", onClick: () => loadFollowList("seguindo") },
+            ].map((s, i) => (
+              <div key={i} onClick={s.onClick} style={{ flex: 1, textAlign: "center", borderRight: i < 3 ? "1px solid #1e1e2e" : "none", padding: "0 4px", cursor: s.onClick ? "pointer" : "default" }}>
+                <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: i === 0 ? 20 : 15, fontWeight: 800, color: s.color || "#f0f0f0" }}>{s.v}</p>
+                <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>{s.l}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
+              style={{ flex: 1, background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              ✏️ Editar perfil
+            </button>
+            <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "10px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
+          </div>
 
-                {/* Seguidores e seguindo */}
-                <div style={{ display: "flex", gap: 20, marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid #1e1e2e" }}>
-                  <button onClick={() => loadFollowList("seguidores")}
-                    style={{ textAlign: "center", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit" }}>
-                    <p style={{ fontWeight: 700, fontSize: 18, color: "#f0f0f0" }}>{followersCount}</p>
-                    <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p>
-                  </button>
-                  <button onClick={() => loadFollowList("seguindo")}
-                    style={{ textAlign: "center", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit" }}>
-                    <p style={{ fontWeight: 700, fontSize: 18, color: "#f0f0f0" }}>{followingCount}</p>
-                    <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p>
-                  </button>
-                </div>
+{/* Sub-tabs perfil */}
+        <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 0, zIndex: 10 }}>
+          {[{ id: "fotos", label: "Fotos" }, { id: "posts_p", label: "Posts" }, { id: "ativ_p", label: "Atividades" }, { id: "niveis_p", label: "Níveis" }].map((t) => (
+            <button key={t.id} onClick={() => setProfileTab(t.id)}
+              style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: profileTab === t.id ? "#e11d48" : "#555" }}>
+              {t.label}
+              {profileTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
+            </button>
+          ))}
+        </div>
 
-                {/* Modal seguidores/seguindo */}
-                {showFollowModal && (
-                  <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-                    <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                        <p style={{ fontWeight: 700, fontSize: 16, textTransform: "capitalize" }}>{showFollowModal}</p>
-                        <button onClick={() => setShowFollowModal(null)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
-                      </div>
+        {profileTab === "fotos" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
+            {posts.filter(p => p.user_id === user.id && p.photo_url).map((p) => (
+              <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden", cursor: "pointer" }}>
+                <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            ))}
+            {posts.filter(p => p.user_id === user.id && p.photo_url).length === 0 && (
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>
+                Nenhuma foto publicada ainda.
+              </div>
+            )}
+          </div>
+        )}
 
-                      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
-                        {followList.length === 0 && (
-                          <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>
-                            {showFollowModal === "seguidores" ? "Nenhum seguidor ainda." : "Você não segue ninguém ainda."}
-                          </p>
-                        )}
-                        {followList.map((u) => (
-                          <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid #1e1e2e" }}>
-                            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, flexShrink: 0, overflow: "hidden" }}>
-                              {u.avatar_url
-                                ? <img src={u.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                                : u.name?.charAt(0) || "?"
-                              }
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <p style={{ fontWeight: 700, fontSize: 15 }}>{u.name}</p>
-                              <p style={{ fontSize: 12, color: "#555" }}>{u.handle ? `@${u.handle}` : ""}</p>
-                              <p style={{ fontSize: 11, color: getLevelColor(u.level), fontWeight: 700, marginTop: 2 }}>{getLevelIcon(u.level)} {u.level} · {u.races_count || 0} corridas</p>
-                            </div>
-                            <button onClick={() => handleFollow(u.id)}
-                              style={{ border: `1.5px solid ${realFollowing[u.id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                              {realFollowing[u.id] ? "Seguindo" : "Seguir"}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+        {profileTab === "posts_p" && (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {posts.filter(p => p.user_id === user.id).map((p) => (
+              <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
+                {p.photo_url && (
+                  <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+                    <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
-                    style={{ flex: 1, background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                    ✏️ Editar perfil
+                {p.text && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 8 }}>{p.text}</p>}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "#555" }}>❤️ {p.likes || 0}</span>
+                  <button onClick={() => handleDeletePost(p.id)}
+                    style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                    🗑️ Excluir
                   </button>
-                  <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
                 </div>
               </div>
+            ))}
+            {posts.filter(p => p.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
+          </div>
+        )}
 
-              {/* Preview avatar */}
-              {avatarPreview && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
-                  <p style={{ fontWeight: 700, fontSize: 16 }}>Nova foto de perfil</p>
-                  <img src={avatarPreview.previewUrl} alt="prev" style={{ width: 180, height: 180, borderRadius: "50%", objectFit: "cover", border: "4px solid #e11d48" }} />
-                  <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 300 }}>
-                    <button onClick={() => setAvatarPreview(null)} style={{ flex: 1, border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 12, padding: 14, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-                    <button onClick={confirmAvatarUpload} disabled={uploadingAvatar} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      {uploadingAvatar ? "Enviando..." : "Usar essa foto"}
-                    </button>
-                  </div>
+        {profileTab === "ativ_p" && (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {activities.filter(a => a.user_id === user.id).map((a) => (
+              <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                  <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
+                  {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
+                  {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
                 </div>
-              )}
-
-              {/* Modal editar perfil */}
-              {showEditProfile && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 24px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-                      <p style={{ fontWeight: 700, fontSize: 16 }}>Editar perfil</p>
-                      <button onClick={() => setShowEditProfile(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
-                      <label htmlFor="av-modal" style={{ cursor: "pointer", position: "relative" }}>
-                        {profile?.avatar_url
-                          ? <img src={profile.avatar_url} alt="av" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid #e11d48" }} />
-                          : <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, border: "3px solid #1e1e2e" }}>{level.icon}</div>
-                        }
-                        <div style={{ position: "absolute", bottom: 0, right: 0, background: "#e11d48", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, border: "2px solid #13131a" }}>📷</div>
-                      </label>
-                      <input id="av-modal" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
-                      <p style={{ fontSize: 12, color: "#555", marginTop: 10 }}>Toque para alterar a foto</p>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
-                      <div>
-                        <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Nome</p>
-                        <input className="tinput" value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} placeholder="Seu nome" />
-                      </div>
-                      <div>
-                        <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>@ Handle</p>
-                        <div style={{ position: "relative" }}>
-                          <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#555", fontSize: 14 }}>@</span>
-                          <input className="tinput" style={{ paddingLeft: 28 }} value={editForm.handle} onChange={(e) => setEditForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="seuhandle" />
-                        </div>
-                        <p style={{ fontSize: 10, color: "#555", marginTop: 4 }}>Somente letras minúsculas, números e _</p>
-                      </div>
-                      <div>
-                        <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Bio</p>
-                        <textarea className="tinput" rows={3} value={editForm.bio} onChange={(e) => setEditForm(f => ({ ...f, bio: e.target.value }))} placeholder="Conte um pouco sobre você..." />
-                      </div>
-                    </div>
-                    <button onClick={handleEditProfile} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Salvar alterações
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Sub-tabs perfil */}
-              <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 0, zIndex: 10 }}>
-                {[{ id: "fotos", label: "Fotos" }, { id: "posts_p", label: "Posts" }, { id: "ativ_p", label: "Atividades" }, { id: "niveis_p", label: "Níveis" }].map((t) => (
-                  <button key={t.id} onClick={() => setProfileTab(t.id)}
-                    style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: profileTab === t.id ? "#e11d48" : "#555" }}>
-                    {t.label}
-                    {profileTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <button onClick={() => handleShare("atividade", { distance: a.distance, duration: a.duration, pace: a.pace })}
+                    style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                    ↗ Compartilhar
                   </button>
-                ))}
+                  <button onClick={() => handleDeleteActivity(a.id)}
+                    style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+                    🗑️ Excluir
+                  </button>
+                </div>
               </div>
+            ))}
+            {activities.filter(a => a.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
+          </div>
+        )}
 
-              {profileTab === "fotos" && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
-                  {posts.filter(p => p.user_id === user.id && p.photo_url).map((p) => (
-                    <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden", cursor: "pointer" }}>
-                      <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    </div>
-                  ))}
-                  {posts.filter(p => p.user_id === user.id && p.photo_url).length === 0 && (
-                    <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>
-                      Nenhuma foto publicada ainda.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {profileTab === "posts_p" && (
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  {posts.filter(p => p.user_id === user.id).map((p) => (
-                    <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
-                      {p.photo_url && (
-                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
-                          <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        {profileTab === "niveis_p" && (
+          <div style={{ padding: "16px 0", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="card">
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {LEVELS.map((l, i) => {
+                  const isActive = l.name === level.name;
+                  const isPast = races > l.max;
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: !isActive && !isPast ? 0.3 : 1 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: isActive || isPast ? `${l.color}22` : "#1e1e2e", border: `1.5px solid ${isActive || isPast ? l.color : "#1e1e2e"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{l.icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
+                          <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0-${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}-${l.max}`} corridas</span>
                         </div>
-                      )}
-                      {p.text && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 8 }}>{p.text}</p>}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 11, color: "#555" }}>❤️ {p.likes || 0}</span>
-                        <button onClick={() => handleDeletePost(p.id)}
-                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
-                          🗑️ Excluir
-                        </button>
+                        <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
+                          <div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${progress}%` : "0%", height: 4, borderRadius: 99 }} />
+                        </div>
                       </div>
+                      <span style={{ fontSize: 14 }}>{isPast ? "✅" : isActive ? "▶" : ""}</span>
                     </div>
-                  ))}
-                  {posts.filter(p => p.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
-                </div>
-              )}
-
-              {profileTab === "ativ_p" && (
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  {activities.filter(a => a.user_id === user.id).map((a) => (
-                    <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
-                      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                        <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
-                        {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
-                        {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <button onClick={() => handleShare("atividade", { distance: a.distance, duration: a.duration, pace: a.pace })}
-                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
-                          ↗ Compartilhar
-                        </button>
-                        <button onClick={() => handleDeleteActivity(a.id)}
-                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
-                          🗑️ Excluir
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {activities.filter(a => a.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
-                </div>
-              )}
-
-              {profileTab === "niveis_p" && (
-                <div style={{ padding: "16px 0", display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div className="card">
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      {LEVELS.map((l, i) => {
-                        const isActive = l.name === level.name;
-                        const isPast = races > l.max;
-                        return (
-                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: !isActive && !isPast ? 0.3 : 1 }}>
-                            <div style={{ width: 38, height: 38, borderRadius: 10, background: isActive || isPast ? `${l.color}22` : "#1e1e2e", border: `1.5px solid ${isActive || isPast ? l.color : "#1e1e2e"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{l.icon}</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
-                                <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0-${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}-${l.max}`} corridas</span>
-                              </div>
-                              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
-                                <div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${progress}%` : "0%", height: 4, borderRadius: 99 }} />
-                              </div>
-                            </div>
-                            <span style={{ fontSize: 14 }}>{isPast ? "✅" : isActive ? "▶" : ""}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  {next && (
-                    <div style={{ background: "#13131a", borderRadius: 12, padding: "12px 16px", border: "1px solid #1e1e2e", textAlign: "center" }}>
-                      <p style={{ fontSize: 12, color: "#555" }}>Faltam <span style={{ color: "#f0f0f0", fontWeight: 700 }}>{next.min - races} corridas</span> para {next.name} {next.icon}</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                  );
+                })}
+              </div>
+            </div>
+            {next && (
+              <div style={{ background: "#13131a", borderRadius: 12, padding: "12px 16px", border: "1px solid #1e1e2e", textAlign: "center" }}>
+                <p style={{ fontSize: 12, color: "#555" }}>Faltam <span style={{ color: "#f0f0f0", fontWeight: 700 }}>{next.min - races} corridas</span> para {next.name} {next.icon}</p>
+              </div>
+            )}
+          </div>
+        )}
             </div>
           )}
         </div>
@@ -1880,151 +1763,151 @@ ${url}`).then(() => alert("Link copiado!"));
           const isFollowingView = realFollowing[viewingProfile.id];
           return (
             <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 400, overflowY: "auto" }}>
-              {/* Header */}
-              <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                  <button onClick={() => setViewingProfile(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
-                  <p style={{ fontWeight: 700, fontSize: 16 }}>{viewingProfile.name}</p>
+        {/* Header */}
+        <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <button onClick={() => setViewingProfile(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
+            <p style={{ fontWeight: 700, fontSize: 16 }}>{viewingProfile.name}</p>
+          </div>
+        </div>
+
+        <div style={{ padding: "0 20px 100px" }}>
+          {/* Card perfil */}
+          <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4820 0%, transparent 70%)", pointerEvents: "none" }} />
+
+            <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+              <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
+                {viewingProfile.avatar_url
+                  ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : vLevel.icon
+                }
+              </div>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{viewingProfile.name}</h2>
+                <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{viewingProfile.handle || viewingProfile.name?.toLowerCase().replace(/\s/g, "")}</p>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
+                  <span style={{ fontSize: 11, color: vLevel.color, fontWeight: 700 }}>{vLevel.icon} {vLevel.name}</span>
                 </div>
               </div>
+            </div>
 
-              <div style={{ padding: "0 20px 100px" }}>
-                {/* Card perfil */}
-                <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4820 0%, transparent 70%)", pointerEvents: "none" }} />
+            {viewingProfile.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{viewingProfile.bio}</p>}
 
-                  <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-                    <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
-                      {viewingProfile.avatar_url
-                        ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        : vLevel.icon
-                      }
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{viewingProfile.name}</h2>
-                      <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{viewingProfile.handle || viewingProfile.name?.toLowerCase().replace(/\s/g, "")}</p>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
-                        <span style={{ fontSize: 11, color: vLevel.color, fontWeight: 700 }}>{vLevel.icon} {vLevel.name}</span>
-                      </div>
-                    </div>
-                  </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
+                <div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} />
+              </div>
+            </div>
 
-                  {viewingProfile.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{viewingProfile.bio}</p>}
+            <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
+              <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{viewingProfile.races_count || 0}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
+              <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{Number(viewingProfile.total_km || 0).toFixed(1)} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
+              <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>{viewingProfile.avg_pace || "—"}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
+            </div>
 
-                  <div style={{ marginBottom: 14 }}>
-                    <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
-                      <div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} />
-                    </div>
-                  </div>
+            <div style={{ display: "flex", gap: 20, marginBottom: 14 }}>
+              <div style={{ textAlign: "center" }}>
+                <p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followersCount}</p>
+                <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followingCount}</p>
+                <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p>
+              </div>
+            </div>
 
-                  <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
-                    <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{viewingProfile.races_count || 0}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
-                    <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{Number(viewingProfile.total_km || 0).toFixed(1)} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
-                    <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>{viewingProfile.avg_pace || "—"}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
-                  </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={async () => { await handleFollow(viewingProfile.id); setViewingProfile(v => ({ ...v, followersCount: realFollowing[viewingProfile.id] ? v.followersCount - 1 : v.followersCount + 1 })); }}
+                style={{ flex: 1, background: realFollowing[viewingProfile.id] ? "none" : "#e11d48", color: realFollowing[viewingProfile.id] ? "#666" : "#fff", border: realFollowing[viewingProfile.id] ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                {realFollowing[viewingProfile.id] ? "Seguindo" : "Seguir"}
+              </button>
+              <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
+            </div>
+          </div>
 
-                  <div style={{ display: "flex", gap: 20, marginBottom: 14 }}>
-                    <div style={{ textAlign: "center" }}>
-                      <p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followersCount}</p>
-                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followingCount}</p>
-                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p>
-                    </div>
-                  </div>
+          {/* Tabs */}
+          <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 100, zIndex: 9 }}>
+            {[{ id: "fotos", label: "Fotos" }, { id: "posts_v", label: "Posts" }, { id: "ativ_v", label: "Atividades" }, { id: "niveis_v", label: "Níveis" }].map((t) => (
+              <button key={t.id} onClick={() => setViewTab(t.id)}
+                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: viewTab === t.id ? "#e11d48" : "#555" }}>
+                {t.label}
+                {viewTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
+              </button>
+            ))}
+          </div>
 
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={async () => { await handleFollow(viewingProfile.id); setViewingProfile(v => ({ ...v, followersCount: realFollowing[viewingProfile.id] ? v.followersCount - 1 : v.followersCount + 1 })); }}
-                      style={{ flex: 1, background: realFollowing[viewingProfile.id] ? "none" : "#e11d48", color: realFollowing[viewingProfile.id] ? "#666" : "#fff", border: realFollowing[viewingProfile.id] ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      {realFollowing[viewingProfile.id] ? "Seguindo" : "Seguir"}
-                    </button>
-                    <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
+          {/* Fotos */}
+          {viewTab === "fotos" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
+              {viewPosts.filter(p => p.photo_url).map((p) => (
+                <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}>
+                  <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </div>
+              ))}
+              {viewPosts.filter(p => p.photo_url).length === 0 && (
+                <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>
+              )}
+            </div>
+          )}
+
+          {/* Posts */}
+          {viewTab === "posts_v" && (
+            <div>
+              {viewPosts.filter(p => p.text).map((p) => (
+                <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
+                  {p.photo_url && <div style={{ aspectRatio: "4/5", borderRadius: 12, overflow: "hidden", marginBottom: 10 }}><img src={p.photo_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
+                  <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6 }}>{p.text}</p>
+                  <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
+                </div>
+              ))}
+              {viewPosts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
+            </div>
+          )}
+
+          {/* Atividades */}
+          {viewTab === "ativ_v" && (
+            <div>
+              {viewActivities.map((a) => (
+                <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
+                    {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
+                    {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
                   </div>
                 </div>
+              ))}
+              {viewActivities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
+            </div>
+          )}
 
-                {/* Tabs */}
-                <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 100, zIndex: 9 }}>
-                  {[{ id: "fotos", label: "Fotos" }, { id: "posts_v", label: "Posts" }, { id: "ativ_v", label: "Atividades" }, { id: "niveis_v", label: "Níveis" }].map((t) => (
-                    <button key={t.id} onClick={() => setViewTab(t.id)}
-                      style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: viewTab === t.id ? "#e11d48" : "#555" }}>
-                      {t.label}
-                      {viewTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Fotos */}
-                {viewTab === "fotos" && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
-                    {viewPosts.filter(p => p.photo_url).map((p) => (
-                      <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}>
-                        <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      </div>
-                    ))}
-                    {viewPosts.filter(p => p.photo_url).length === 0 && (
-                      <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>
-                    )}
-                  </div>
-                )}
-
-                {/* Posts */}
-                {viewTab === "posts_v" && (
-                  <div>
-                    {viewPosts.filter(p => p.text).map((p) => (
-                      <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
-                        {p.photo_url && <div style={{ aspectRatio: "4/5", borderRadius: 12, overflow: "hidden", marginBottom: 10 }}><img src={p.photo_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
-                        <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6 }}>{p.text}</p>
-                        <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
-                      </div>
-                    ))}
-                    {viewPosts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
-                  </div>
-                )}
-
-                {/* Atividades */}
-                {viewTab === "ativ_v" && (
-                  <div>
-                    {viewActivities.map((a) => (
-                      <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
-                          {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
-                          {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
+          {/* Níveis */}
+          {viewTab === "niveis_v" && (
+            <div style={{ paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="card">
+                {LEVELS.map((l, i) => {
+                  const isActive = l.name === vLevel.name;
+                  const isPast = (viewingProfile.races_count || 0) > l.max;
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: !isActive && !isPast ? 0.3 : 1, marginBottom: i < LEVELS.length - 1 ? 12 : 0 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: isActive || isPast ? `${l.color}22` : "#1e1e2e", border: `1.5px solid ${isActive || isPast ? l.color : "#1e1e2e"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{l.icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
+                          <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0-${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}-${l.max}`}</span>
+                        </div>
+                        <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
+                          <div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${vProgress}%` : "0%", height: 4, borderRadius: 99 }} />
                         </div>
                       </div>
-                    ))}
-                    {viewActivities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
-                  </div>
-                )}
-
-                {/* Níveis */}
-                {viewTab === "niveis_v" && (
-                  <div style={{ paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                    <div className="card">
-                      {LEVELS.map((l, i) => {
-                        const isActive = l.name === vLevel.name;
-                        const isPast = (viewingProfile.races_count || 0) > l.max;
-                        return (
-                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: !isActive && !isPast ? 0.3 : 1, marginBottom: i < LEVELS.length - 1 ? 12 : 0 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 10, background: isActive || isPast ? `${l.color}22` : "#1e1e2e", border: `1.5px solid ${isActive || isPast ? l.color : "#1e1e2e"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{l.icon}</div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
-                                <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0-${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}-${l.max}`}</span>
-                              </div>
-                              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
-                                <div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${vProgress}%` : "0%", height: 4, borderRadius: 99 }} />
-                              </div>
-                            </div>
-                            <span style={{ fontSize: 13 }}>{isPast ? "✅" : isActive ? "▶" : ""}</span>
-                          </div>
-                        );
-                      })}
+                      <span style={{ fontSize: 13 }}>{isPast ? "✅" : isActive ? "▶" : ""}</span>
                     </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
+            </div>
+          )}
+        </div>
             </div>
           );
         })()}
@@ -2034,21 +1917,21 @@ ${url}`).then(() => alert("Link copiado!"));
           <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"#000", zIndex:500, display:"flex", flexDirection:"column", maxWidth:390, margin:"0 auto" }}
             onClick={() => setActiveStory(null)}>
             <div style={{ padding:"52px 16px 12px" }}>
-              <div style={{ background:"#333", borderRadius:99, height:3, overflow:"hidden" }}>
-                <div style={{ background:"#fff", width:`${storyProgress}%`, height:"100%", borderRadius:99, transition:"width 0.1s linear" }}/>
-              </div>
+        <div style={{ background:"#333", borderRadius:99, height:3, overflow:"hidden" }}>
+          <div style={{ background:"#fff", width:`${storyProgress}%`, height:"100%", borderRadius:99, transition:"width 0.1s linear" }}/>
+        </div>
             </div>
             <div style={{ padding:"0 16px 16px", display:"flex", alignItems:"center", gap:10 }}>
-              <div style={{ width:36, height:36, borderRadius:"50%", background:`${activeStory.color}33`, border:`2px solid ${activeStory.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{activeStory.emoji}</div>
-              <div style={{ flex:1 }}>
-                <p style={{ fontWeight:700, fontSize:14, color:"#fff" }}>{activeStory.user}</p>
-                <p style={{ fontSize:11, color:"rgba(255,255,255,0.5)" }}>há 1h</p>
-              </div>
-              <button onClick={() => setActiveStory(null)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:24, cursor:"pointer" }}>✕</button>
+        <div style={{ width:36, height:36, borderRadius:"50%", background:`${activeStory.color}33`, border:`2px solid ${activeStory.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{activeStory.emoji}</div>
+        <div style={{ flex:1 }}>
+          <p style={{ fontWeight:700, fontSize:14, color:"#fff" }}>{activeStory.user}</p>
+          <p style={{ fontSize:11, color:"rgba(255,255,255,0.5)" }}>há 1h</p>
+        </div>
+        <button onClick={() => setActiveStory(null)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:24, cursor:"pointer" }}>✕</button>
             </div>
             <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:`linear-gradient(135deg, ${activeStory.color}44, #0a0a0f)`, margin:"0 16px", borderRadius:20, fontSize:80 }}>{activeStory.emoji}</div>
             <div style={{ padding:"16px 20px 48px", textAlign:"center" }}>
-              <p style={{ fontSize:16, color:"#fff", fontWeight:600, lineHeight:1.5 }}>{activeStory.text}</p>
+        <p style={{ fontSize:16, color:"#fff", fontWeight:600, lineHeight:1.5 }}>{activeStory.text}</p>
             </div>
           </div>
         )}
@@ -2057,41 +1940,41 @@ ${url}`).then(() => alert("Link copiado!"));
         {showNotifications && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
             <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <p style={{ fontWeight: 700, fontSize: 16 }}>Notificações</p>
-                <button onClick={() => setShowNotifications(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <p style={{ fontWeight: 700, fontSize: 16 }}>Notificações</p>
+          <button onClick={() => setShowNotifications(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
+          {notifications.length === 0 && (
+            <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma notificação ainda.</p>
+          )}
+          {notifications.map((n) => (
+            <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #1e1e2e", opacity: n.read ? 0.6 : 1 }}>
+              <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0, overflow: "hidden" }}>
+                {n.from_user?.avatar_url
+                  ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : n.from_user?.name?.charAt(0) || "?"
+                }
               </div>
-              <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
-                {notifications.length === 0 && (
-                  <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma notificação ainda.</p>
-                )}
-                {notifications.map((n) => (
-                  <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #1e1e2e", opacity: n.read ? 0.6 : 1 }}>
-                    <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0, overflow: "hidden" }}>
-                      {n.from_user?.avatar_url
-                        ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        : n.from_user?.name?.charAt(0) || "?"
-                      }
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
-                        <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
-                        {n.type === "follow" && " começou a te seguir"}
-                        {n.type === "like" && " curtiu sua publicação"}
-                        {n.type === "comment" && " comentou na sua publicação"}
-                      </p>
-                      <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>
-                        {new Date(n.created_at).toLocaleDateString("pt-BR")}
-                      </p>
-                    </div>
-                    <span style={{ fontSize: 20 }}>
-                      {n.type === "follow" && "👤"}
-                      {n.type === "like" && "❤️"}
-                      {n.type === "comment" && "💬"}
-                    </span>
-                  </div>
-                ))}
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
+                  <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
+                  {n.type === "follow" && " começou a te seguir"}
+                  {n.type === "like" && " curtiu sua publicação"}
+                  {n.type === "comment" && " comentou na sua publicação"}
+                </p>
+                <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>
+                  {new Date(n.created_at).toLocaleDateString("pt-BR")}
+                </p>
               </div>
+              <span style={{ fontSize: 20 }}>
+                {n.type === "follow" && "👤"}
+                {n.type === "like" && "❤️"}
+                {n.type === "comment" && "💬"}
+              </span>
+            </div>
+          ))}
+        </div>
             </div>
           </div>
         )}
@@ -2196,94 +2079,94 @@ function PublicProfilePage({ handle }) {
         <div style={{ padding: "0 20px 80px" }}>
           <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2 }}>
             <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-              <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
-                {profile.avatar_url ? <img src={profile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
-              </div>
-              <div style={{ flex: 1 }}>
-                <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{profile.name}</h1>
-                <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{profile.handle}</p>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
-                  <span style={{ fontSize: 11, color: vLevel.color, fontWeight: 700 }}>{vLevel.icon} {vLevel.name}</span>
-                </div>
-              </div>
+        <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
+          {profile.avatar_url ? <img src={profile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
+        </div>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{profile.name}</h1>
+          <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{profile.handle}</p>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
+            <span style={{ fontSize: 11, color: vLevel.color, fontWeight: 700 }}>{vLevel.icon} {vLevel.name}</span>
+          </div>
+        </div>
             </div>
             {profile.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{profile.bio}</p>}
             <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4, marginBottom: 14 }}>
-              <div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} />
+        <div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} />
             </div>
             <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
-              <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{profile.races_count || 0}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
-              <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{Number(profile.total_km || 0).toFixed(1)} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
+        <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{profile.races_count || 0}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
+        <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{Number(profile.total_km || 0).toFixed(1)} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
             </div>
             <div style={{ display: "flex", gap: 20, marginBottom: 14 }}>
-              <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{profile.followersCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p></div>
-              <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{profile.followingCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p></div>
+        <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{profile.followersCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p></div>
+        <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{profile.followingCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p></div>
             </div>
             {currentUser ? (
-              currentUser.id !== profile.id ? (
-                <button onClick={handleFollowToggle}
-                  style={{ width: "100%", background: isFollowing ? "none" : "#e11d48", color: isFollowing ? "#666" : "#fff", border: isFollowing ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                  {isFollowing ? "Seguindo" : "Seguir"}
-                </button>
-              ) : (
-                <a href="/" style={{ display: "block", textAlign: "center", background: "#13131a", color: "#888", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none", border: "1px solid #1e1e2e" }}>
-                  Seu perfil — voltar ao app
-                </a>
-              )
+        currentUser.id !== profile.id ? (
+          <button onClick={handleFollowToggle}
+            style={{ width: "100%", background: isFollowing ? "none" : "#e11d48", color: isFollowing ? "#666" : "#fff", border: isFollowing ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            {isFollowing ? "Seguindo" : "Seguir"}
+          </button>
+        ) : (
+          <a href="/" style={{ display: "block", textAlign: "center", background: "#13131a", color: "#888", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none", border: "1px solid #1e1e2e" }}>
+            Seu perfil — voltar ao app
+          </a>
+        )
             ) : (
-              <a href="/" style={{ display: "block", textAlign: "center", background: "#e11d48", color: "#fff", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
-                Entrar no eucorredor para seguir
-              </a>
+        <a href="/" style={{ display: "block", textAlign: "center", background: "#e11d48", color: "#fff", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
+          Entrar no eucorredor para seguir
+        </a>
             )}
           </div>
 
           {/* Tabs */}
           <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f" }}>
             {[{ id: "fotos", label: "Fotos" }, { id: "posts", label: "Posts" }, { id: "ativ", label: "Atividades" }].map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: tab === t.id ? "#e11d48" : "#555" }}>
-                {t.label}
-                {tab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
-              </button>
+        <button key={t.id} onClick={() => setTab(t.id)}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: tab === t.id ? "#e11d48" : "#555" }}>
+          {t.label}
+          {tab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
+        </button>
             ))}
           </div>
 
           {tab === "fotos" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
-              {posts.filter(p => p.photo_url).map((p) => (
-                <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}>
-                  <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                </div>
-              ))}
-              {posts.filter(p => p.photo_url).length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>}
+        {posts.filter(p => p.photo_url).map((p) => (
+          <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}>
+            <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        ))}
+        {posts.filter(p => p.photo_url).length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>}
             </div>
           )}
 
           {tab === "posts" && (
             <div>
-              {posts.filter(p => p.text).map((p) => (
-                <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
-                  {p.photo_url && <div style={{ aspectRatio: "4/5", borderRadius: 12, overflow: "hidden", marginBottom: 10 }}><img src={p.photo_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
-                  <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6 }}>{p.text}</p>
-                  <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
-                </div>
-              ))}
-              {posts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
+        {posts.filter(p => p.text).map((p) => (
+          <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
+            {p.photo_url && <div style={{ aspectRatio: "4/5", borderRadius: 12, overflow: "hidden", marginBottom: 10 }}><img src={p.photo_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
+            <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6 }}>{p.text}</p>
+            <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
+          </div>
+        ))}
+        {posts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
             </div>
           )}
 
           {tab === "ativ" && (
             <div>
-              {activities.map((a) => (
-                <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
-                    {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
-                    {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
-                  </div>
-                </div>
-              ))}
-              {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
+        {activities.map((a) => (
+          <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
+              {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
+              {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
+            </div>
+          </div>
+        ))}
+        {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
             </div>
           )}
         </div>
