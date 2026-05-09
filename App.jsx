@@ -514,11 +514,14 @@ function AppMain({ user, userName }) {
   };
 
   const formatGpsPace = (km, secs) => {
-    if (!km || km === 0 || secs === 0) return "--";
+    if (!km || km < 0.05 || secs < 10) return "--'--";
     const minPerKm = (secs / 60) / km;
+    if (minPerKm > 20 || minPerKm < 2) return "--'--";
     const min = Math.floor(minPerKm);
     const sec = Math.round((minPerKm - min) * 60);
-    return min + "'" + String(sec).padStart(2, '0') + '"';
+    const adjMin = sec >= 60 ? min + 1 : min;
+    const adjSec = sec >= 60 ? 0 : sec;
+    return adjMin + "'" + String(adjSec).padStart(2, "0") + ""/km";
   };
 
   const startGpsRun = () => {
@@ -616,10 +619,20 @@ function AppMain({ user, userName }) {
 
       // GPS real
       let lastCoord = null;
+      const gpsOptions = { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 };
+
       if (navigator.geolocation) {
+        // Pega posição imediata primeiro
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          marker.setLatLng([lat, lng]);
+          map.setView([lat, lng], 17);
+          setGpsLocated(true);
+          lastCoord = [lat, lng];
+        }, null, gpsOptions);
+
         const watchId = navigator.geolocation.watchPosition((pos) => {
-          const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-          if (accuracy > 100) return; // ignora leituras muito imprecisas
+          const { latitude: lat, longitude: lng } = pos.coords;
 
           const latlng = [lat, lng];
           marker.setLatLng(latlng);
@@ -645,7 +658,7 @@ function AppMain({ user, userName }) {
           lastCoord = latlng;
         }, (err) => {
           console.log("GPS erro:", err.message);
-        }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 });
+        }, gpsOptions);
 
         leafletMapRef.current._watchId = watchId;
       }
