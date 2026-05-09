@@ -1971,8 +1971,6 @@ ${url}`).then(() => alert("Link copiado!"));
             </div>
           ))}
         </div>
-            </div>
-          </div>
         )}
     </div>
   );
