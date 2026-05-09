@@ -583,9 +583,13 @@ function AppMain({ user, userName }) {
       if (leafletMapRef.current) return;
 
       const map = window.L.map("leaflet-map", { zoomControl: false, attributionControl: false });
+
+      // Posição inicial padrão — Porto Alegre
+      map.setView([-30.0346, -51.2177], 15);
+
       window.L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
         maxZoom: 19,
-        crossOrigin: true
+        subdomains: "abcd"
       }).addTo(map);
 
       const markerIcon = window.L.divIcon({
