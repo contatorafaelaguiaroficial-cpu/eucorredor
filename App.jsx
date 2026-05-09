@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const ADMIN_ID = "7cdb56e9-0525-48ac-901f-1f5ac23fe009";
 
 const LEVELS = [
   { name: "Iniciante", min: 0, max: 4, color: "#6ee7b7", icon: "🌱" },
@@ -261,6 +262,10 @@ function AppMain({ user, userName }) {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
+  const [dbEvents, setDbEvents] = useState([]);
+  const [showAdminEvents, setShowAdminEvents] = useState(false);
+  const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
+  const [savingEvent, setSavingEvent] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [showFollowModal, setShowFollowModal] = useState(null);
@@ -281,7 +286,7 @@ function AppMain({ user, userName }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); }, []);
 
   const loadNotifications = async () => {
     const { data } = await supabase.from("notifications")
@@ -361,6 +366,34 @@ function AppMain({ user, userName }) {
       data.forEach(f => { map[f.following_id] = true; });
       setRealFollowing(map);
     }
+  };
+
+  const loadEvents = async () => {
+    const { data } = await supabase.from("events").select("*").order("created_at", { ascending: true });
+    setDbEvents(data || []);
+  };
+
+  const handleSaveEvent = async () => {
+    if (!eventForm.name || !eventForm.date || !eventForm.distance) return alert("Preencha nome, data e distância.");
+    setSavingEvent(true);
+    await supabase.from("events").insert({
+      name: eventForm.name,
+      date: eventForm.date,
+      city: eventForm.city,
+      state: eventForm.state,
+      distance: eventForm.distance,
+      category: eventForm.category,
+      link: eventForm.link,
+    });
+    setEventForm({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
+    await loadEvents();
+    setSavingEvent(false);
+  };
+
+  const handleDeleteEvent = async (id) => {
+    if (!window.confirm("Excluir este evento?")) return;
+    await supabase.from("events").delete().eq("id", id);
+    await loadEvents();
   };
 
   const loadFollowCounts = async () => {
@@ -655,26 +688,115 @@ ${url}`;
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700 }}>Próximos eventos</h2>
-                <span style={{ fontSize: 12, color: "#555" }}>📍 Porto Alegre, RS</span>
+                {user.id === ADMIN_ID && (
+                  <button onClick={() => setShowAdminEvents(true)}
+                    style={{ background: "#1e1e2e", border: "none", color: "#888", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    + Gerenciar
+                  </button>
+                )}
               </div>
-              {events.map((e) => (
-                <div key={e.id} className="card" style={{ cursor: "pointer" }}>
+
+              {dbEvents.length === 0 && (
+                <div style={{ textAlign: "center", padding: "40px 0" }}>
+                  <p style={{ fontSize: 28, marginBottom: 10 }}>📅</p>
+                  <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Nenhum evento cadastrado</p>
+                  <p style={{ fontSize: 13, color: "#555" }}>Novos eventos serão adicionados em breve.</p>
+                </div>
+              )}
+
+              {dbEvents.map((e) => (
+                <div key={e.id} className="card">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>{e.name}</p>
-                      <p style={{ fontSize: 12, color: "#555" }}>{e.local}</p>
+                      <p style={{ fontSize: 12, color: "#555" }}>{e.city}, {e.state}</p>
                     </div>
-                    <span style={{ background: "#1e1e2e", color: "#999", borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 700, marginLeft: 8 }}>{e.cat}</span>
+                    <span style={{ background: "#1e1e2e", color: "#999", borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 700, marginLeft: 8, flexShrink: 0 }}>{e.category}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", gap: 10 }}>
                       <span style={{ fontSize: 12, color: "#e11d48", fontWeight: 700 }}>📅 {e.date}</span>
-                      <span style={{ fontSize: 12, color: "#888" }}>🏃 {e.dist}</span>
+                      <span style={{ fontSize: 12, color: "#888" }}>🏃 {e.distance}</span>
                     </div>
-                    <button className="jbtn">Inscrever</button>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      {user.id === ADMIN_ID && (
+                        <button onClick={() => handleDeleteEvent(e.id)}
+                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                      )}
+                      {e.link ? (
+                        <a href={e.link} target="_blank" rel="noopener noreferrer"
+                          style={{ background: "#e11d48", color: "#fff", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+                          Inscrever
+                        </a>
+                      ) : (
+                        <button className="jbtn" style={{ opacity: 0.5, cursor: "not-allowed" }}>Em breve</button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
+
+              {/* Modal admin de eventos */}
+              {showAdminEvents && user.id === ADMIN_ID && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "90vh", overflowY: "auto" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                      <p style={{ fontWeight: 700, fontSize: 16 }}>Gerenciar eventos</p>
+                      <button onClick={() => setShowAdminEvents(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                    </div>
+
+                    <p style={{ fontSize: 12, color: "#555", marginBottom: 14, fontWeight: 700 }}>Adicionar novo evento</p>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                      <input className="tinput" placeholder="Nome do evento" value={eventForm.name}
+                        onChange={(e) => setEventForm(f => ({ ...f, name: e.target.value }))} />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input className="tinput" placeholder="Data (ex: 15 Jun)" value={eventForm.date}
+                          onChange={(e) => setEventForm(f => ({ ...f, date: e.target.value }))} />
+                        <input className="tinput" placeholder="Distância (ex: 10km)" value={eventForm.distance}
+                          onChange={(e) => setEventForm(f => ({ ...f, distance: e.target.value }))} />
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input className="tinput" placeholder="Cidade" value={eventForm.city}
+                          onChange={(e) => setEventForm(f => ({ ...f, city: e.target.value }))} />
+                        <input className="tinput" placeholder="Estado" value={eventForm.state}
+                          onChange={(e) => setEventForm(f => ({ ...f, state: e.target.value }))} />
+                      </div>
+                      <select className="tinput" value={eventForm.category}
+                        onChange={(e) => setEventForm(f => ({ ...f, category: e.target.value }))}>
+                        {["Corrida de Rua", "Maratona", "Meia Maratona", "10K", "5K", "Trail Run", "Ultramaratona"].map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <input className="tinput" placeholder="Link de inscrição (Ticket Sports)" value={eventForm.link}
+                        onChange={(e) => setEventForm(f => ({ ...f, link: e.target.value }))} />
+                    </div>
+
+                    <button onClick={handleSaveEvent} disabled={savingEvent}
+                      style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}>
+                      {savingEvent ? "Salvando..." : "Adicionar evento"}
+                    </button>
+
+                    {dbEvents.length > 0 && (
+                      <>
+                        <p style={{ fontSize: 12, color: "#555", marginBottom: 12, fontWeight: 700 }}>Eventos cadastrados</p>
+                        {dbEvents.map((e) => (
+                          <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1e1e2e" }}>
+                            <div>
+                              <p style={{ fontWeight: 700, fontSize: 13 }}>{e.name}</p>
+                              <p style={{ fontSize: 11, color: "#555" }}>{e.date} · {e.distance} · {e.city}</p>
+                            </div>
+                            <button onClick={() => handleDeleteEvent(e.id)}
+                              style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                              🗑️
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
