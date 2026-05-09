@@ -583,7 +583,10 @@ function AppMain({ user, userName }) {
       if (leafletMapRef.current) return;
 
       const map = window.L.map("leaflet-map", { zoomControl: false, attributionControl: false });
-      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+      window.L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        maxZoom: 19,
+        crossOrigin: true
+      }).addTo(map);
 
       const markerIcon = window.L.divIcon({
         html: `<div style="width:18px;height:18px;background:#e11d48;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px #e11d4880;"></div>`,
