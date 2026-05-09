@@ -300,6 +300,7 @@ function AppMain({ user, userName }) {
   const [gpsPaused, setGpsPaused] = useState(false);
   const [gpsHR, setGpsHR] = useState(142);
   const [gpsLocated, setGpsLocated] = useState(false);
+  const [gpsError, setGpsError] = useState("");
   const gpsIntervalRef = useRef(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
@@ -331,6 +332,26 @@ function AppMain({ user, userName }) {
   const [searchResults, setSearchResults] = useState([]);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [seenStories, setSeenStories] = useState({});
+  const [activeStory, setActiveStory] = useState(null);
+  const [storyProgress, setStoryProgress] = useState(0);
+  const storyTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (activeStory) {
+      setStoryProgress(0);
+      storyTimerRef.current = setInterval(() => {
+        setStoryProgress(p => {
+          if (p >= 100) { clearInterval(storyTimerRef.current); setActiveStory(null); return 0; }
+          return p + 2;
+        });
+      }, 60);
+    } else {
+      clearInterval(storyTimerRef.current);
+      setStoryProgress(0);
+    }
+    return () => clearInterval(storyTimerRef.current);
+  }, [activeStory]);
 
   useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); }, []);
 
@@ -531,6 +552,7 @@ function AppMain({ user, userName }) {
     setGpsPaused(false);
     setGpsHR(142);
     setGpsLocated(false);
+    setGpsError("");
     setHubScreen("tracking");
   };
 
@@ -629,7 +651,10 @@ function AppMain({ user, userName }) {
           map.setView([lat, lng], 17);
           setGpsLocated(true);
           lastCoord = [lat, lng];
-        }, null, gpsOptions);
+        }, (err) => {
+          const msgs = { 1: "Permissão negada", 2: "GPS indisponível", 3: "Tempo esgotado" };
+          setGpsError(msgs[err.code] || "Erro GPS");
+        }, gpsOptions);
 
         const watchId = navigator.geolocation.watchPosition((pos) => {
           const { latitude: lat, longitude: lng } = pos.coords;
@@ -657,7 +682,8 @@ function AppMain({ user, userName }) {
           map.setView(latlng, 17);
           lastCoord = latlng;
         }, (err) => {
-          console.log("GPS erro:", err.message);
+          const msgs = { 1: "Permissão negada", 2: "GPS indisponível", 3: "Tempo esgotado" };
+          setGpsError(msgs[err.code] || "Erro GPS");
         }, gpsOptions);
 
         leafletMapRef.current._watchId = watchId;
@@ -795,6 +821,31 @@ ${url}`;
     setAvatarPreview(null);
   };
 
+
+  const RouteMap = ({ route }) => {
+    if (!route || route.length < 2) return null;
+    const xs = route.map(p => p[0]), ys = route.map(p => p[1]);
+    const pad = 14, w = 340, h = 130;
+    const sx = (Math.max(...xs)-Math.min(...xs))||1, sy = (Math.max(...ys)-Math.min(...ys))||1;
+    const pts = route.map(([x,y]) => `${pad+(x-Math.min(...xs))*(w-pad*2)/sx},${pad+(y-Math.min(...ys))*(h-pad*2)/sy}`).join(" ");
+    const [x0,y0] = pts.split(" ")[0].split(",");
+    const last = pts.split(" ").slice(-1)[0].split(",");
+    return (
+      <div style={{ background: "#0d0d18", borderRadius: 14, overflow: "hidden", marginTop: 12 }}>
+        <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+          <rect width={w} height={h} fill="#0d0d18"/>
+          {[0,1,2,3,4].map(i => <line key={i} x1={i*85} y1={0} x2={i*85} y2={h} stroke="#ffffff06" strokeWidth="1"/>)}
+          <polyline points={pts} fill="none" stroke="#e11d48" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity="0.15"/>
+          <polyline points={pts} fill="none" stroke="#e11d48" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <circle cx={x0} cy={y0} r="5" fill="#6ee7b7"/>
+          <circle cx={last[0]} cy={last[1]} r="7" fill="#e11d48" opacity="0.25"/>
+          <circle cx={last[0]} cy={last[1]} r="4.5" fill="#e11d48"/>
+          <circle cx={last[0]} cy={last[1]} r="2" fill="#fff"/>
+        </svg>
+      </div>
+    );
+  };
+
   const handleSignOut = async () => { await supabase.auth.signOut(); window.location.reload(); };
 
   const races = profile?.races_count || 0;
@@ -820,8 +871,9 @@ ${url}`;
         .tinput { width: 100%; background: #13131a; border: 1.5px solid #1e1e2e; border-radius: 12px; padding: 12px 16px; color: #f0f0f0; font-size: 14px; font-family: inherit; outline: none; resize: none; }
         .tinput:focus { border-color: #e11d48; }
         .tinput::placeholder { color: #444; }
-        .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.96); backdrop-filter: blur(12px); border-top: 1px solid #1e1e2e; display: flex; justify-content: space-around; padding: 10px 0 22px; z-index: 100; }
-        .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 16px; font-family: inherit; }
+        .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.96); backdrop-filter: blur(20px); border-top: 1px solid #1e1e2e; display: flex; justify-content: space-around; align-items: center; padding: 10px 4px 28px; z-index: 100; }
+        .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
+        .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
       `}</style>
 
       <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
@@ -875,43 +927,66 @@ ${url}`;
         )}
 
         {/* Header */}
-        <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <p style={{ color: "#555", fontSize: 12, marginBottom: 2 }}>Bom dia, {userName.split(" ")[0]} 👋</p>
-              <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#fff" }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
-            </div>
+        <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 50 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, color: "#fff" }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={() => setShowSearch(!showSearch)}
+                style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </button>
               <button onClick={() => { setShowNotifications(true); markAllRead(); }}
-                style={{ position: "relative", background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "6px 10px", color: "#888", fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
-                🔔
+                style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 {notifications.filter(n => !n.read).length > 0 && (
-                  <span style={{ position: "absolute", top: -4, right: -4, background: "#e11d48", borderRadius: "50%", width: 16, height: 16, fontSize: 9, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {notifications.filter(n => !n.read).length}
-                  </span>
+                  <span style={{ position: "absolute", top: 7, right: 7, width: 7, height: 7, background: "#e11d48", borderRadius: "50%", border: "1.5px solid #0a0a0f" }}/>
                 )}
               </button>
               <button onClick={handleSignOut} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "6px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
             </div>
           </div>
-          <div style={{ marginTop: 16, background: "#13131a", borderRadius: 12, padding: "10px 14px", border: "1px solid #1e1e2e" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: level.color, fontWeight: 700 }}>{level.icon} {level.name}</span>
-              {next && <span style={{ fontSize: 11, color: "#555" }}>{races}/{next.min} corridas</span>}
-            </div>
-            <div style={{ background: "#1e1e2e", borderRadius: 99, height: 5 }}>
-              <div style={{ background: level.color, width: `${progress}%`, height: 5, borderRadius: 99 }} />
+          <div style={{ background: "#13131a", borderRadius: 12, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: `${level.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{level.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: level.color }}>{level.name}</span>
+                {next && <span style={{ fontSize: 11, color: "#444" }}>{races}/{next.min} corridas</span>}
+              </div>
+              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
+                <div style={{ background: level.color, width: `${progress}%`, height: 4, borderRadius: 99 }} />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Bottom nav */}
         <nav className="bnav">
-          {[{ id: "eventos", label: "Eventos", icon: "📅" }, { id: "comunidade", label: "Comunidade", icon: "🤝" }, { id: "hub", label: "Hub", icon: "⚡" }, { id: "perfil", label: "Perfil", icon: "👤" }].map((t) => (
-            <button key={t.id} className="nbtn" onClick={() => setTab(t.id)}>
-              <span style={{ fontSize: 22 }}>{t.icon}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: tab === t.id ? "#e11d48" : "#555" }}>{t.label}</span>
-              {tab === t.id && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#e11d48" }} />}
+          {[
+            { id: "eventos", label: "Eventos", svg: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
+            { id: "comunidade", label: "Feed", svg: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> },
+            { id: "publish", label: "", special: true },
+            { id: "hub", label: "Hub", svg: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> },
+            { id: "perfil", label: "Perfil", svg: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+          ].map((t) => (
+            <button key={t.id} className="nbtn"
+              onClick={() => t.special ? setShowPublish(true) : setTab(t.id)}
+              style={{
+                background: t.special ? "#e11d48" : "none",
+                borderRadius: t.special ? "50%" : 0,
+                width: t.special ? 54 : "auto",
+                height: t.special ? 54 : "auto",
+                marginTop: t.special ? -22 : 0,
+                boxShadow: t.special ? "0 4px 24px #e11d4860" : "none",
+                justifyContent: "center",
+                border: "none",
+              }}>
+              {t.special
+                ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><polygon points="12 4 22 20 2 20"/></svg>
+                : <>
+                    <span style={{ color: tab === t.id ? "#e11d48" : "#555" }}>{t.svg}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: tab === t.id ? "#e11d48" : "#555" }}>{t.label}</span>
+                  </>
+              }
             </button>
           ))}
         </nav>
@@ -940,18 +1015,16 @@ ${url}`;
               )}
 
               {dbEvents.map((e) => (
-                <div key={e.id} className="card">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>{e.name}</p>
-                      <p style={{ fontSize: 12, color: "#555" }}>{e.city}, {e.state}</p>
-                    </div>
-                    <span style={{ background: "#1e1e2e", color: "#999", borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 700, marginLeft: 8, flexShrink: 0 }}>{e.category}</span>
+                <div key={e.id} style={{ background: "#13131a", borderRadius: 18, padding: "18px", border: "1px solid #1e1e2e" }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ background: "#1e1e2e", color: "#888", borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 700 }}>{e.category}</span>
                   </div>
+                  <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{e.name}</p>
+                  <p style={{ fontSize: 12, color: "#555", marginBottom: 14 }}>{e.city}, {e.state}</p>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", gap: 10 }}>
-                      <span style={{ fontSize: 12, color: "#e11d48", fontWeight: 700 }}>📅 {e.date}</span>
-                      <span style={{ fontSize: 12, color: "#888" }}>🏃 {e.distance}</span>
+                    <div style={{ display: "flex", gap: 14 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#e11d48" }}>{e.date}</span>
+                      <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>{e.distance}</span>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       {user.id === ADMIN_ID && (
@@ -960,11 +1033,11 @@ ${url}`;
                       )}
                       {e.link ? (
                         <a href={e.link} target="_blank" rel="noopener noreferrer"
-                          style={{ background: "#e11d48", color: "#fff", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+                          style={{ background: "#e11d48", color: "#fff", borderRadius: 10, padding: "8px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
                           Inscrever
                         </a>
                       ) : (
-                        <button className="jbtn" style={{ opacity: 0.5, cursor: "not-allowed" }}>Em breve</button>
+                        <button className="jbtn" style={{ opacity: 0.5, cursor: "not-allowed", borderRadius: 10 }}>Em breve</button>
                       )}
                     </div>
                   </div>
@@ -1049,13 +1122,40 @@ ${url}`;
                 ))}
               </div>
 
-              {/* Barra de ações */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <button onClick={() => setShowSearch(!showSearch)}
-                  style={{ background: showSearch ? "#13131a" : "none", border: showSearch ? "1px solid #e11d48" : "1px solid #1e1e2e", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", color: showSearch ? "#e11d48" : "#888", display: "flex", alignItems: "center", gap: 6 }}>
-                  Buscar
-                </button>
-                <button className="jbtn" onClick={() => setShowPublish(true)}>+ Publicar</button>
+              {/* Stories */}
+              <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0" }}>
+                <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 20px" }}>
+                  {/* Meu story */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }} onClick={() => setShowPublish(true)}>
+                    <div style={{ position: "relative" }}>
+                      <div style={{ width: 58, height: 58, borderRadius: "50%", background: "#13131a", border: "2px dashed #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+                        {profile?.avatar_url ? <img src={profile.avatar_url} style={{ width: 58, height: 58, borderRadius: "50%", objectFit: "cover" }}/> : "🏃"}
+                      </div>
+                      <div style={{ position: "absolute", bottom: -1, right: -1, width: 20, height: 20, background: "#e11d48", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", border: "2px solid #0a0a0f" }}>+</div>
+                    </div>
+                    <span style={{ fontSize: 10, color: "#555", fontWeight: 600 }}>Seu story</span>
+                  </div>
+                  {/* Stories de outros usuários do feed */}
+                  {posts.filter(p => p.profiles && p.profiles.id !== user.id).slice(0, 6).map((p, i) => {
+                    const seen = seenStories[p.profiles?.id];
+                    const storyColor = getLevelColor(p.profiles?.level);
+                    return (
+                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }}
+                        onClick={() => { setSeenStories(s => ({...s, [p.profiles?.id]: true})); setActiveStory({ user: p.profiles?.name, color: storyColor, level: p.profiles?.level, text: p.text || "Corrida registrada 🏃", emoji: getLevelIcon(p.profiles?.level) }); }}>
+                        <div style={{ padding: 2, borderRadius: "50%", background: seen ? "#1e1e2e" : `conic-gradient(${storyColor}, ${storyColor})`, position: "relative" }}>
+                          <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
+                            <div style={{ width: 54, height: 54, borderRadius: "50%", background: `${storyColor}22`, border: `2px solid ${seen ? "#1e1e2e" : storyColor}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
+                              {p.profiles?.avatar_url ? <img src={p.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }}/> : getLevelIcon(p.profiles?.level)}
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 10, color: seen ? "#444" : "#f0f0f0", fontWeight: seen ? 400 : 700, maxWidth: 58, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {p.profiles?.name?.split(" ")[0]}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Modal de comentários */}
@@ -1144,37 +1244,53 @@ ${url}`;
                     </div>
                   )}
                   {posts.filter(p => realFollowing[p.user_id]).map((p) => (
-                    <div key={p.id} className="card">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <div onClick={() => openProfile(p.user_id)} style={{ cursor: "pointer" }}>{getAvatar(p.profiles, 38)}</div>
+                    <div key={p.id} style={{ padding: "20px 20px 0" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                        <div onClick={() => openProfile(p.user_id)} style={{ cursor: "pointer" }}>{getAvatar(p.profiles, 42)}</div>
                         <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(p.user_id)}>
                           <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
-                          <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}</span>
+                          <p style={{ fontSize: 11, color: "#444" }}>agora · <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{p.profiles?.level || "Iniciante"}</span></p>
                         </div>
+                        {p.user_id !== user.id && (
+                          <button onClick={() => handleFollow(p.profiles?.id || p.user_id)}
+                            style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                            {realFollowing[p.profiles?.id || p.user_id] ? "Seguindo" : "Seguir"}
+                          </button>
+                        )}
                       </div>
                       {p.photo_url && (
-                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 16, marginBottom: 12, overflow: "hidden" }}>
                           <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         </div>
                       )}
-                      {p.text && <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>}
-                      <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10 }}>
-                        <button className="lbtn" onClick={() => handleLikePost(p.id, p.user_id)} style={{ color: liked[p.id] ? "#e11d48" : "#555" }}>
-                          <span style={{ fontSize: 16 }}>{liked[p.id] ? "❤️" : "🤍"}</span>
-                          <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
+                      {p.text && !p.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 12 }}>{p.text}</p>}
+                      {p.text && p.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}><span style={{ fontWeight: 700, color: "#f0f0f0" }}>{(p.profiles?.name || "").split(" ")[0].toLowerCase()} </span>{p.text}</p>}
+                      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 0", borderBottom: "1px solid #1e1e2e" }}>
+                        <button onClick={() => handleLikePost(p.id, p.user_id)}
+                          style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: liked[p.id] ? "#e11d48" : "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill={liked[p.id] ? "#e11d48" : "none"} stroke={liked[p.id] ? "#e11d48" : "#555"} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                          {(p.likes || 0) + (liked[p.id] ? 1 : 0)}
                         </button>
-                        <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
-                        <button className="lbtn" onClick={() => {
+                        <button onClick={() => { setOpenComments(p.id); loadComments(p.id); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                          {(comments[p.id] || []).length || p.comments || 0}
+                        </button>
+                        <button onClick={() => {
                           const handle = p.profiles?.handle || (p.profiles?.name || "").toLowerCase().replace(/\s/g, "");
                           const url = `https://eucorredor.com.br/@${handle}`;
-                          const text = p.text ? `"${p.text.slice(0, 80)}" — ${p.profiles?.name || "Corredor"} no eucorredor 🏃` : `Veja essa publicação no eucorredor 🏃`;
-                          const shareData = { title: "eucorredor", text, url };
-                          if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-                            navigator.share(shareData).catch(() => {});
-                          } else {
-                            navigator.clipboard?.writeText(`${text}\n${url}`).then(() => alert("Link copiado!"));
-                          }
-                        }} style={{ marginLeft: "auto", color: "#555", fontSize: 12, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>Compartilhar</button>
+                          const text = p.text ? `${p.text.slice(0, 80)} — ${p.profiles?.name || "Corredor"} no eucorredor 🏃` : `Veja no eucorredor 🏃`;
+                          if (navigator.share) navigator.share({ title: "eucorredor", text, url }).catch(() => {});
+                          else navigator.clipboard?.writeText(`${text}
+${url}`).then(() => alert("Link copiado!"));
+                        }} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#555" }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                        </button>
+                        {p.user_id === user.id && (
+                          <button onClick={() => handleDeletePost(p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#555" }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1328,8 +1444,8 @@ ${url}`;
                   {/* Status GPS */}
                   <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
                     <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 10, padding: "6px 12px", border: "1px solid #1e1e2e", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : "#f59e0b" }} />
-                      <span style={{ fontSize: 11, color: "#888" }}>{gpsLocated ? "GPS ativo" : "Aguardando GPS..."}</span>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : gpsError ? "#e11d48" : "#f59e0b" }} />
+                      <span style={{ fontSize: 11, color: "#888" }}>{gpsLocated ? "GPS ativo" : gpsError ? gpsError : "Aguardando GPS..."}</span>
                     </div>
                   </div>
 
@@ -1454,23 +1570,23 @@ ${url}`;
                   <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginTop: 4 }}>Atividades recentes</p>
                   {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhuma atividade ainda. Inicie sua primeira corrida!</p>}
                   {activities.map((a) => (
-                    <div key={a.id} className="card">
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          {getAvatar(a.profiles, 36)}
+                    <div key={a.id} style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {getAvatar(a.profiles, 34)}
                           <div>
-                            <p style={{ fontWeight: 700, fontSize: 14 }}>{a.profiles?.name || "Corredor"}</p>
-                            <p style={{ fontSize: 11, color: "#555" }}>Corrida ao ar livre</p>
+                            <p style={{ fontWeight: 700, fontSize: 13 }}>{a.profiles?.name || "Corredor"}</p>
+                            <p style={{ fontSize: 10, color: "#555" }}>Corrida ao ar livre</p>
                           </div>
                         </div>
-                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 800, color: "#e11d48" }}>{a.distance} km</p>
+                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: "#e11d48" }}>{a.distance} km</p>
                       </div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {a.duration && <div className="sbox" style={{ padding: "6px 8px" }}><p style={{ fontSize: 12, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
-                        {a.pace && <div className="sbox" style={{ padding: "6px 8px" }}><p style={{ fontSize: 12, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {a.duration && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>tempo</p></div>}
+                        {a.pace && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>pace</p></div>}
                         {a.user_id === user.id && (
                           <button onClick={() => handleDeleteActivity(a.id)}
-                            style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "6px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                            style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 10, padding: "8px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
                             🗑️
                           </button>
                         )}
@@ -1912,6 +2028,30 @@ ${url}`;
             </div>
           );
         })()}
+
+        {/* Story viewer */}
+        {activeStory && (
+          <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"#000", zIndex:500, display:"flex", flexDirection:"column", maxWidth:390, margin:"0 auto" }}
+            onClick={() => setActiveStory(null)}>
+            <div style={{ padding:"52px 16px 12px" }}>
+              <div style={{ background:"#333", borderRadius:99, height:3, overflow:"hidden" }}>
+                <div style={{ background:"#fff", width:`${storyProgress}%`, height:"100%", borderRadius:99, transition:"width 0.1s linear" }}/>
+              </div>
+            </div>
+            <div style={{ padding:"0 16px 16px", display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:36, height:36, borderRadius:"50%", background:`${activeStory.color}33`, border:`2px solid ${activeStory.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{activeStory.emoji}</div>
+              <div style={{ flex:1 }}>
+                <p style={{ fontWeight:700, fontSize:14, color:"#fff" }}>{activeStory.user}</p>
+                <p style={{ fontSize:11, color:"rgba(255,255,255,0.5)" }}>há 1h</p>
+              </div>
+              <button onClick={() => setActiveStory(null)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:24, cursor:"pointer" }}>✕</button>
+            </div>
+            <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:`linear-gradient(135deg, ${activeStory.color}44, #0a0a0f)`, margin:"0 16px", borderRadius:20, fontSize:80 }}>{activeStory.emoji}</div>
+            <div style={{ padding:"16px 20px 48px", textAlign:"center" }}>
+              <p style={{ fontSize:16, color:"#fff", fontWeight:600, lineHeight:1.5 }}>{activeStory.text}</p>
+            </div>
+          </div>
+        )}
 
         {/* Modal notificações */}
         {showNotifications && (
