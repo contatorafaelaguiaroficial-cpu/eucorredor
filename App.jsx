@@ -1296,9 +1296,6 @@ ${url}`;
               {hubScreen === "tracking" && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, display: "flex", flexDirection: "column", maxWidth: 390, margin: "0 auto" }}>
 
-                  {/* Leaflet CSS */}
-                  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
                   {/* Mapa Leaflet */}
                   <div id="leaflet-map" style={{ flex: 1, position: "relative", zIndex: 1 }} />
 
