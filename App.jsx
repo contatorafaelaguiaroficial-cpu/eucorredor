@@ -2055,7 +2055,8 @@ export default function App() {
   useEffect(() => {
     // Verificar se a URL tem um handle de perfil público
     const path = window.location.pathname.replace("/", "").replace("@", "").toLowerCase();
-    if (path && path !== "") {
+    const reserved = ["privacidade", "termos", "privacy", "terms", "sobre", "contato", "favicon.ico"];
+    if (path && path !== "" && !reserved.includes(path)) {
       setPublicHandle(path);
     }
 
