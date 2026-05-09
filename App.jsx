@@ -597,6 +597,7 @@ function AppMain({ user, userName }) {
       leafletMarkerRef.current = marker;
       leafletPolylineRef.current = polyline;
       leafletCoordsRef.current = [];
+      setTimeout(() => { map.invalidateSize(); }, 300);
 
       // Timer
       gpsIntervalRef.current = setInterval(() => {
@@ -1295,10 +1296,10 @@ ${url}`;
 
               {/* Rastreamento ativo */}
               {hubScreen === "tracking" && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, display: "flex", flexDirection: "column", maxWidth: 390, margin: "0 auto" }}>
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, maxWidth: 390, margin: "0 auto" }}>
 
                   {/* Mapa Leaflet */}
-                  <div id="leaflet-map" style={{ flex: 1, position: "relative", zIndex: 1, minHeight: "400px" }}></div>
+                  <div id="leaflet-map" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: "90px", zIndex: 1 }}></div>
 
                   {/* Stats sobrepostos */}
                   <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
@@ -1334,7 +1335,7 @@ ${url}`;
                   </div>
 
                   {/* Controles */}
-                  <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16, position: "relative", zIndex: 1000 }}>
+                  <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16, position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
                     <button onClick={() => setGpsPaused(p => !p)}
                       style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#888", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {gpsPaused ? "▶" : "⏸"}
