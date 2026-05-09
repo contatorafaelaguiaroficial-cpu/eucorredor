@@ -44,6 +44,7 @@ const events = [
 function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState("login"); // login | register | forgot | reset
   const [form, setForm] = useState({ name: "", email: "", password: "", handle: "", newPassword: "" });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -104,6 +105,7 @@ function AuthScreen({ onLogin }) {
     setLoading(true);
     try {
       if (mode === "register") {
+        if (!acceptedTerms) throw new Error("Você precisa aceitar os Termos de Uso e a Política de Privacidade.");
         if (!form.handle.trim()) throw new Error("Informe seu @handle.");
         if (form.handle.length < 3) throw new Error("O handle precisa ter no mínimo 3 caracteres.");
         const { data: existing } = await supabase.from("profiles").select("id").eq("handle", form.handle).single();
@@ -219,7 +221,21 @@ function AuthScreen({ onLogin }) {
         {/* Botões de login/cadastro */}
         {(mode === "login" || mode === "register") && (
           <>
-            <button className="ab" style={{ marginTop: 24 }} onClick={handleSubmit} disabled={loading}>
+            {mode === "register" && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 16 }}>
+                <div onClick={() => setAcceptedTerms(t => !t)}
+                  style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${acceptedTerms ? "#e11d48" : "#1e1e2e"}`, background: acceptedTerms ? "#e11d48" : "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
+                  {acceptedTerms && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
+                </div>
+                <p style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>
+                  Li e aceito os{" "}
+                  <a href="/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a>
+                  {" "}e a{" "}
+                  <a href="/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
+                </p>
+              </div>
+            )}
+            <button className="ab" style={{ marginTop: 16 }} onClick={handleSubmit} disabled={loading}>
               {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
             </button>
 
@@ -290,7 +306,7 @@ function AppMain({ user, userName }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingForm, setOnboardingForm] = useState({ name: "", handle: "" });
+  const [onboardingForm, setOnboardingForm] = useState({ name: "", handle: "", terms: false });
   const [dbEvents, setDbEvents] = useState([]);
   const [showAdminEvents, setShowAdminEvents] = useState(false);
   const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
@@ -398,6 +414,7 @@ function AppMain({ user, userName }) {
   };
 
   const handleOnboarding = async () => {
+    if (!onboardingForm.terms) return alert("Você precisa aceitar os Termos de Uso e a Política de Privacidade.");
     if (!onboardingForm.name.trim()) return alert("Informe seu nome.");
     if (!onboardingForm.handle.trim() || onboardingForm.handle.length < 3) return alert("Handle precisa ter no mínimo 3 caracteres.");
     const { data: existing } = await supabase.from("profiles").select("id").eq("handle", onboardingForm.handle).neq("id", user.id).single();
@@ -713,8 +730,21 @@ ${url}`;
                 </div>
               </div>
 
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 20 }}>
+                <div onClick={() => setOnboardingForm(f => ({ ...f, terms: !f.terms }))}
+                  style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${onboardingForm.terms ? "#e11d48" : "#1e1e2e"}`, background: onboardingForm.terms ? "#e11d48" : "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
+                  {onboardingForm.terms && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
+                </div>
+                <p style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>
+                  Li e aceito os{" "}
+                  <a href="/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a>
+                  {" "}e a{" "}
+                  <a href="/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
+                </p>
+              </div>
+
               <button onClick={handleOnboarding}
-                style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 24 }}>
+                style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }}>
                 Entrar no eucorredor
               </button>
             </div>
