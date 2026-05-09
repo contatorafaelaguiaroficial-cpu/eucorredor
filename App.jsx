@@ -1749,10 +1749,6 @@ ${url}`).then(() => alert("Link copiado!"));
             )}
           </div>
         )}
-            </div>
-          )}
-        </div>
-      </div>
 
 
         {/* Perfil público de outro usuário */}
