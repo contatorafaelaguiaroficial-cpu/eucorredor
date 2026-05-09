@@ -521,7 +521,7 @@ function AppMain({ user, userName }) {
     const sec = Math.round((minPerKm - min) * 60);
     const adjMin = sec >= 60 ? min + 1 : min;
     const adjSec = sec >= 60 ? 0 : sec;
-    return adjMin + "'" + String(adjSec).padStart(2, "0") + ""/km";
+    return adjMin + "min" + String(adjSec).padStart(2, "0") + "s/km";
   };
 
   const startGpsRun = () => {
