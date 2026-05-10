@@ -746,6 +746,15 @@ function AppMain({ user, userName }) {
 
   const handleSignOut = async () => { await supabase.auth.signOut(); window.location.reload(); };
 
+  const timeAgo = (dateStr) => {
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+    if (diff < 60) return "agora";
+    if (diff < 3600) return `${Math.floor(diff / 60)}min`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+    return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  };
+
   const races = profile?.races_count || 0;
   const level = getLevel(races);
   const next = getNextLevel(races);
@@ -1118,7 +1127,7 @@ function AppMain({ user, userName }) {
                         <div onClick={() => openProfile(p.user_id)} style={{ cursor: "pointer" }}>{getAvatar(p.profiles, 42)}</div>
                         <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(p.user_id)}>
                           <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
-                          <p style={{ fontSize: 11, color: "#444" }}>agora · <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{p.profiles?.level || "Iniciante"}</span></p>
+                          <p style={{ fontSize: 11, color: "#444" }}>{p.created_at ? timeAgo(p.created_at) : "agora"} · <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{p.profiles?.level || "Iniciante"}</span></p>
                         </div>
                         {p.user_id !== user.id && (
                           <button onClick={() => handleFollow(p.profiles?.id || p.user_id)} style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
@@ -1172,7 +1181,7 @@ function AppMain({ user, userName }) {
                         </div>
                         <div style={{ flex: 1, cursor: "pointer" }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)}>
                           <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
-                          <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}</span>
+                          <span style={{ fontSize: 10, color: "#444" }}>{getLevelIcon(p.profiles?.level)} <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{p.profiles?.level || "Iniciante"}</span>{p.created_at ? ` · ${timeAgo(p.created_at)}` : ""}</span>
                         </div>
                         {p.user_id !== user.id && (
                           <button onClick={() => handleFollow(p.profiles?.id || p.user_id)} style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
