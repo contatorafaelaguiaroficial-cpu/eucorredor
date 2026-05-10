@@ -6,6 +6,7 @@ const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_ID = "7cdb56e9-0525-48ac-901f-1f5ac23fe009";
+const VAPID_PUBLIC_KEY = "BCqHJrzsjtka05tMWLJEQ_sJmeCpEDw6IYrNpBaG-lz_cD_qcCF04yjuBFVhetqN6SbmWKAmjFnXy8QWABMptYo";
 
 const LEVELS = [
   { name: "Iniciante", min: 0, max: 4, color: "#6ee7b7", icon: "🌱" },
@@ -325,7 +326,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); requestPushPermission(); }, []);
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
@@ -345,6 +346,35 @@ function AppMain({ user, userName }) {
       .order("races_count", { ascending: false })
       .limit(8);
     setSuggestions(data || []);
+  };
+
+  const registerPush = async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: VAPID_PUBLIC_KEY,
+      });
+      const { endpoint, keys } = sub.toJSON();
+      await supabase.from("push_subscriptions").upsert({
+        user_id: user.id,
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      }, { onConflict: "user_id,endpoint" });
+    } catch (e) {
+      console.log("Push registration failed:", e.message);
+    }
+  };
+
+  const requestPushPermission = async () => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") { await registerPush(); return; }
+    if (Notification.permission === "denied") return;
+    const perm = await Notification.requestPermission();
+    if (perm === "granted") await registerPush();
   };
 
   const handlePostStory = async () => {
