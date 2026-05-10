@@ -331,7 +331,18 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); requestPushPermission(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); requestPushPermission(); loadLikedPosts(); }, []);
+
+  useEffect(() => {
+    const postsChannel = supabase
+      .channel("posts_realtime")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "posts" }, () => { loadPosts(); })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, () => {
+        if (openComments) loadComments(openComments);
+      })
+      .subscribe();
+    return () => supabase.removeChannel(postsChannel);
+  }, [openComments]);
 
   useEffect(() => {
     const channel = supabase
@@ -560,6 +571,15 @@ function AppMain({ user, userName }) {
   const loadPosts = async () => {
     const { data } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").order("created_at", { ascending: false }).limit(20);
     setPosts(data || []);
+  };
+
+  const loadLikedPosts = async () => {
+    const { data } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
+    if (data) {
+      const map = {};
+      data.forEach(l => { map[l.post_id] = true; });
+      setLiked(map);
+    }
   };
 
   const loadActivities = async () => {
