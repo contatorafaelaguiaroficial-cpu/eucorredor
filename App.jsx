@@ -1348,23 +1348,6 @@ function AppMain({ user, userName }) {
                     </div>
                   )}
 
-                  {/* Modal criar clube */}
-                  {showCreateClub && (
-                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-                      <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                          <p style={{ fontWeight: 700, fontSize: 16 }}>Criar clube</p>
-                          <button onClick={() => setShowCreateClub(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-                          <input className="tinput" placeholder="Nome do clube" value={clubForm.name} onChange={(e) => setClubForm(f => ({ ...f, name: e.target.value }))} />
-                          <textarea className="tinput" rows={3} placeholder="Descrição (opcional)" value={clubForm.description} onChange={(e) => setClubForm(f => ({ ...f, description: e.target.value }))} />
-                        </div>
-                        <p style={{ fontSize: 11, color: "#555", marginBottom: 16, lineHeight: 1.5 }}>Novos membros precisam da sua aprovação para entrar no clube.</p>
-                        <button onClick={handleCreateClub} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Criar clube</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1905,6 +1888,24 @@ function AppMain({ user, userName }) {
             </div>
           );
         })()}
+
+        {/* Modal criar clube */}
+        {showCreateClub && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+            <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <p style={{ fontWeight: 700, fontSize: 16 }}>Criar clube</p>
+                <button onClick={() => setShowCreateClub(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                <input className="tinput" placeholder="Nome do clube" value={clubForm.name} onChange={(e) => setClubForm(f => ({ ...f, name: e.target.value }))} />
+                <textarea className="tinput" rows={3} placeholder="Descrição (opcional)" value={clubForm.description} onChange={(e) => setClubForm(f => ({ ...f, description: e.target.value }))} />
+              </div>
+              <p style={{ fontSize: 11, color: "#555", marginBottom: 16, lineHeight: 1.5 }}>Novos membros precisam da sua aprovação para entrar no clube.</p>
+              <button onClick={handleCreateClub} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Criar clube</button>
+            </div>
+          </div>
+        )}
 
         {/* Story viewer */}
         {activeStory && (
