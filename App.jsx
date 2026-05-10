@@ -6,6 +6,7 @@ const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_ID = "7cdb56e9-0525-48ac-901f-1f5ac23fe009";
+const VAPID_PUBLIC_KEY = "BCqHJrzsjtka05tMWLJEQ_sJmeCpEDw6IYrNpBaG-lz_cD_qcCF04yjuBFVhetqN6SbmWKAmjFnXy8QWABMptYo";
 
 const LEVELS = [
   { name: "Iniciante", min: 0, max: 4, color: "#6ee7b7", icon: "🌱" },
@@ -308,16 +309,6 @@ function AppMain({ user, userName }) {
   const [storyPreview, setStoryPreview] = useState(null);
   const [uploadingStory, setUploadingStory] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
-  const [myClubs, setMyClubs] = useState([]);
-  const [allClubs, setAllClubs] = useState([]);
-  const [clubMembership, setClubMembership] = useState({});
-  const [activeClub, setActiveClub] = useState(null);
-  const [clubPosts, setClubPosts] = useState([]);
-  const [clubMembers, setClubMembers] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
-  const [showCreateClub, setShowCreateClub] = useState(false);
-  const [clubForm, setClubForm] = useState({ name: "", description: "" });
-  const [newClubPost, setNewClubPost] = useState("");
 
   useEffect(() => {
     if (activeStory) {
@@ -335,7 +326,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadMyClubs(); loadAllClubs(); loadClubMembership(); requestPushPermission(); }, []);
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
@@ -355,6 +346,133 @@ function AppMain({ user, userName }) {
       .order("races_count", { ascending: false })
       .limit(8);
     setSuggestions(data || []);
+  };
+
+  const loadMyClubs = async () => {
+    const { data } = await supabase.from("club_members")
+      .select("*, clubs(id, name, description, avatar_url, owner_id)")
+      .eq("user_id", user.id).eq("status", "approved");
+    setMyClubs((data || []).map(m => m.clubs).filter(Boolean));
+  };
+
+  const loadAllClubs = async () => {
+    const { data } = await supabase.from("clubs").select("*").order("created_at", { ascending: false });
+    setAllClubs(data || []);
+  };
+
+  const loadClubMembership = async () => {
+    const { data } = await supabase.from("club_members").select("club_id, status").eq("user_id", user.id);
+    const map = {};
+    (data || []).forEach(m => { map[m.club_id] = m.status; });
+    setClubMembership(map);
+  };
+
+  const handleCreateClub = async () => {
+    if (!clubForm.name.trim()) return alert("Informe o nome do clube.");
+    const { data, error } = await supabase.from("clubs").insert({ name: clubForm.name, description: clubForm.description, owner_id: user.id }).select().single();
+    if (error) { alert("Erro: " + error.message); return; }
+    await supabase.from("club_members").insert({ club_id: data.id, user_id: user.id, role: "owner", status: "approved" });
+    setClubForm({ name: "", description: "" });
+    setShowCreateClub(false);
+    await loadMyClubs(); await loadAllClubs(); await loadClubMembership();
+  };
+
+  const handleRequestJoin = async (clubId) => {
+    const { error } = await supabase.from("club_members").insert({ club_id: clubId, user_id: user.id, status: "pending" });
+    if (!error) setClubMembership(m => ({ ...m, [clubId]: "pending" }));
+  };
+
+  const handleCancelRequest = async (clubId) => {
+    await supabase.from("club_members").delete().eq("club_id", clubId).eq("user_id", user.id);
+    setClubMembership(m => ({ ...m, [clubId]: null }));
+  };
+
+  const handleLeaveClub = async (clubId) => {
+    if (!window.confirm("Sair do clube?")) return;
+    await supabase.from("club_members").delete().eq("club_id", clubId).eq("user_id", user.id);
+    setClubMembership(m => ({ ...m, [clubId]: null }));
+    await loadMyClubs();
+    setActiveClub(null);
+  };
+
+  const openClub = async (club) => {
+    setActiveClub(club);
+    const { data: posts } = await supabase.from("club_posts")
+      .select("*, profiles(id, name, avatar_url, level)")
+      .eq("club_id", club.id).order("created_at", { ascending: false });
+    setClubPosts(posts || []);
+    const { data: members } = await supabase.from("club_members")
+      .select("*, profiles(id, name, avatar_url, level, handle)")
+      .eq("club_id", club.id).eq("status", "approved");
+    setClubMembers(members || []);
+    if (club.owner_id === user.id) {
+      const { data: pending } = await supabase.from("club_members")
+        .select("*, profiles(id, name, avatar_url, level, handle)")
+        .eq("club_id", club.id).eq("status", "pending");
+      setPendingRequests(pending || []);
+    }
+  };
+
+  const handleApproveMember = async (memberId) => {
+    await supabase.from("club_members").update({ status: "approved" }).eq("id", memberId);
+    await openClub(activeClub);
+  };
+
+  const handleRejectMember = async (memberId) => {
+    await supabase.from("club_members").delete().eq("id", memberId);
+    await openClub(activeClub);
+  };
+
+  const handleClubPost = async () => {
+    if (!newClubPost.trim() || !activeClub) return;
+    await supabase.from("club_posts").insert({ club_id: activeClub.id, user_id: user.id, text: newClubPost });
+    setNewClubPost("");
+    await openClub(activeClub);
+  };
+
+  const registerPush = async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY });
+      const { endpoint, keys } = sub.toJSON();
+      await supabase.from("push_subscriptions").upsert({ user_id: user.id, endpoint, p256dh: keys.p256dh, auth: keys.auth }, { onConflict: "user_id,endpoint" });
+    } catch (e) { console.log("Push registration failed:", e.message); }
+  };
+
+  const requestPushPermission = async () => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") { await registerPush(); return; }
+    if (Notification.permission === "denied") return;
+    const perm = await Notification.requestPermission();
+    if (perm === "granted") await registerPush();
+  };
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    await Promise.all([loadPosts(), loadActivities(), loadStories(), loadSuggestions(), loadNotifications()]);
+    setRefreshing(false);
+    setPullDistance(0);
+  };
+
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchCurrentY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    touchCurrentY.current = e.touches[0].clientY;
+    const scrollTop = e.currentTarget.scrollTop;
+    if (scrollTop > 0) return;
+    const dist = Math.max(0, Math.min(80, touchCurrentY.current - touchStartY.current));
+    setPullDistance(dist);
+  };
+
+  const handleTouchEnd = () => {
+    if (pullDistance >= 60) handleRefresh();
+    else setPullDistance(0);
   };
 
   const handlePostStory = async () => {
@@ -765,6 +883,15 @@ function AppMain({ user, userName }) {
     return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   };
 
+  const timeAgo = (dateStr) => {
+    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+    if (diff < 60) return "agora";
+    if (diff < 3600) return `${Math.floor(diff / 60)}min`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+    return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  };
+
   const races = profile?.races_count || 0;
   const level = getLevel(races);
   const next = getNextLevel(races);
@@ -794,6 +921,8 @@ function AppMain({ user, userName }) {
         .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.96); backdrop-filter: blur(20px); border-top: 1px solid #1e1e2e; display: flex; justify-content: space-around; align-items: center; padding: 10px 4px 28px; z-index: 100; }
         .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes bounce { 0%,100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(0.9); } }
       `}</style>
 
       <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
@@ -887,7 +1016,20 @@ function AppMain({ user, userName }) {
           ))}
         </nav>
 
-        <div style={{ padding: "20px", paddingBottom: 90 }}>
+        <div
+          style={{ padding: "20px", paddingBottom: 90 }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {(pullDistance > 0 || refreshing) && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: pullDistance || 48, overflow: "hidden", transition: refreshing ? "none" : "height 0.2s", marginTop: -20, marginBottom: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 24, height: 24, border: "2px solid #e11d48", borderTopColor: "transparent", borderRadius: "50%", animation: refreshing ? "spin 0.8s linear infinite" : "none", transform: refreshing ? "none" : `rotate(${pullDistance * 3}deg)` }} />
+                {refreshing && <span style={{ fontSize: 10, color: "#555" }}>atualizando...</span>}
+              </div>
+            </div>
+          )}
 
           {/* EVENTOS */}
           {tab === "eventos" && (
@@ -983,8 +1125,8 @@ function AppMain({ user, userName }) {
             <div style={{ display: "flex", flexDirection: "column" }}>
               {/* Tabs */}
               <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", marginBottom: 14 }}>
-                {[{ id: "todos", label: "Comunidade" }, { id: "amigos", label: "Amigos" }, { id: "clube", label: "Clube" }].map((t) => (
-                  <button key={t.id} onClick={() => setCommFeed(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: "10px 0", color: commFeed === t.id ? "#f0f0f0" : "#555" }}>
+                {[{ id: "todos", label: "Comunidade" }, { id: "amigos", label: "Amigos" }].map((t) => (
+                  <button key={t.id} onClick={() => setCommFeed(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, padding: "10px 0", color: commFeed === t.id ? "#f0f0f0" : "#555" }}>
                     {t.label}
                     {commFeed === t.id && <div style={{ width: 28, height: 2, background: "#e11d48", borderRadius: 2, margin: "6px auto 0" }} />}
                   </button>
@@ -992,7 +1134,7 @@ function AppMain({ user, userName }) {
               </div>
 
               {/* Stories */}
-              <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
+              <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14 }}>
                 <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 4px" }}>
                   {/* Meu story */}
                   {(() => {
@@ -1044,7 +1186,7 @@ function AppMain({ user, userName }) {
 
               {/* Sugestões de quem seguir */}
               {suggestions.length > 0 && (
-                <div style={{ marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
+                <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 10 }}>Corredores para seguir</p>
                   <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
                     {suggestions.map((u) => (
@@ -1101,7 +1243,7 @@ function AppMain({ user, userName }) {
 
               {/* Campo de busca */}
               {showSearch && (
-                <div style={{ marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
+                <div style={{ marginBottom: 14 }}>
                   <input className="tinput" placeholder="Buscar por nome ou @handle..." value={searchQuery} onChange={(e) => handleSearch(e.target.value)} style={{ marginBottom: searchResults.length > 0 ? 10 : 0 }} />
                   {searchResults.map((u) => (
                     <div key={u.id} style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
@@ -1123,7 +1265,7 @@ function AppMain({ user, userName }) {
 
               {/* Feed */}
               {commFeed === "amigos" ? (
-                <div style={{ display: commFeed === "clube" ? "none" : "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {(() => {
                     const friendPosts = posts.filter(p => realFollowing[p.user_id]).map(p => ({ ...p, _type: "post", _date: p.created_at }));
                     const friendActivities = activities.filter(a => realFollowing[a.user_id]).map(a => ({ ...a, _type: "activity", _date: a.created_at }));
@@ -1233,121 +1375,6 @@ function AppMain({ user, userName }) {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-
-              {/* CLUBE */}
-              {commFeed === "clube" && (
-                <div>
-                  {/* Club detail view */}
-                  {activeClub ? (
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                        <button onClick={() => setActiveClub(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
-                        <p style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{activeClub.name}</p>
-                        {activeClub.owner_id !== user.id && clubMembership[activeClub.id] === "approved" && (
-                          <button onClick={() => handleLeaveClub(activeClub.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", fontSize: 11, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
-                        )}
-                      </div>
-
-                      {/* Solicitações pendentes (só dono vê) */}
-                      {activeClub.owner_id === user.id && pendingRequests.length > 0 && (
-                        <div style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #e11d4833", marginBottom: 14 }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: "#e11d48", marginBottom: 10 }}>Solicitações pendentes ({pendingRequests.length})</p>
-                          {pendingRequests.map(r => (
-                            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, border: `2px solid ${getLevelColor(r.profiles?.level)}`, overflow: "hidden", flexShrink: 0 }}>
-                                {r.profiles?.avatar_url ? <img src={r.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : r.profiles?.name?.charAt(0) || "?"}
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <p style={{ fontSize: 13, fontWeight: 700 }}>{r.profiles?.name}</p>
-                                <p style={{ fontSize: 11, color: "#555" }}>@{r.profiles?.handle}</p>
-                              </div>
-                              <button onClick={() => handleApproveMember(r.id)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginRight: 6 }}>Aceitar</button>
-                              <button onClick={() => handleRejectMember(r.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#555", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Recusar</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Info do clube */}
-                      {activeClub.description && <p style={{ fontSize: 13, color: "#666", marginBottom: 14, lineHeight: 1.5 }}>{activeClub.description}</p>}
-                      <p style={{ fontSize: 11, color: "#555", marginBottom: 14 }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
-
-                      {/* Campo de post no clube */}
-                      {clubMembership[activeClub.id] === "approved" && (
-                        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                          <input className="tinput" placeholder="Compartilhe algo com o clube..." value={newClubPost} onChange={(e) => setNewClubPost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleClubPost()} style={{ flex: 1 }} />
-                          <button onClick={handleClubPost} className="jbtn">↑</button>
-                        </div>
-                      )}
-
-                      {/* Posts do clube */}
-                      {clubPosts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma publicação ainda.</p>}
-                      {clubPosts.map(p => (
-                        <div key={p.id} className="card" style={{ marginBottom: 10 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                            {getAvatar(p.profiles, 36)}
-                            <div>
-                              <p style={{ fontWeight: 700, fontSize: 13 }}>{p.profiles?.name}</p>
-                              <p style={{ fontSize: 10, color: "#555" }}>{timeAgo(p.created_at)}</p>
-                            </div>
-                          </div>
-                          <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55 }}>{p.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div>
-                      {/* Meus clubes */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#888" }}>Meus clubes</p>
-                        <button onClick={() => setShowCreateClub(true)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ Criar clube</button>
-                      </div>
-
-                      {myClubs.length === 0 && (
-                        <div style={{ textAlign: "center", padding: "24px 0", marginBottom: 20 }}>
-                          <p style={{ fontSize: 13, color: "#555" }}>Você ainda não faz parte de nenhum clube.</p>
-                        </div>
-                      )}
-
-                      {myClubs.map(c => (
-                        <div key={c.id} onClick={() => openClub(c)} style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #1e1e2e", marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
-                            {c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} /> : "🏃"}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
-                            {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}{c.description.length > 50 ? "..." : ""}</p>}
-                            {c.owner_id === user.id && <p style={{ fontSize: 10, color: "#e11d48", fontWeight: 700, marginTop: 3 }}>Administrador</p>}
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Descobrir clubes */}
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginBottom: 12, marginTop: 8 }}>Descobrir clubes</p>
-                      {allClubs.filter(c => clubMembership[c.id] !== "approved").map(c => (
-                        <div key={c.id} style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #1e1e2e", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #1e1e2e, #2a2a3e)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
-                            {c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} /> : "🏃"}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
-                            {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}{c.description.length > 50 ? "..." : ""}</p>}
-                          </div>
-                          {clubMembership[c.id] === "pending" ? (
-                            <button onClick={() => handleCancelRequest(c.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#555", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Pendente</button>
-                          ) : (
-                            <button onClick={() => handleRequestJoin(c.id)} style={{ background: "none", border: "1px solid #e11d48", color: "#e11d48", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Entrar</button>
-                          )}
-                        </div>
-                      ))}
-                      {allClubs.filter(c => clubMembership[c.id] !== "approved").length === 0 && myClubs.length > 0 && (
-                        <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "16px 0" }}>Você faz parte de todos os clubes disponíveis.</p>
-                      )}
-                    </div>
-                  )}
-
                 </div>
               )}
 
@@ -1903,6 +1930,22 @@ function AppMain({ user, userName }) {
               </div>
               <p style={{ fontSize: 11, color: "#555", marginBottom: 16, lineHeight: 1.5 }}>Novos membros precisam da sua aprovação para entrar no clube.</p>
               <button onClick={handleCreateClub} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Criar clube</button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal celebração de nível */}
+        {levelUpData && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+            onClick={() => setLevelUpData(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "#13131a", borderRadius: 28, padding: "40px 32px", border: `2px solid ${levelUpData.color}`, width: "100%", maxWidth: 340, textAlign: "center", position: "relative", overflow: "hidden" }}>
+              <div style={{ fontSize: 72, marginBottom: 16, animation: "bounce 0.6s ease" }}>{levelUpData.icon}</div>
+              <p style={{ fontSize: 12, color: levelUpData.color, fontWeight: 700, letterSpacing: 2, marginBottom: 8, textTransform: "uppercase" }}>Nível atingido</p>
+              <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 8 }}>{levelUpData.name}</h2>
+              <p style={{ fontSize: 14, color: "#888", lineHeight: 1.5, marginBottom: 32 }}>Você evoluiu como corredor. Continue assim e chegue ainda mais longe!</p>
+              <button onClick={() => setLevelUpData(null)} style={{ width: "100%", background: levelUpData.color, color: "#fff", border: "none", borderRadius: 14, padding: "15px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                Continuar correndo
+              </button>
             </div>
           </div>
         )}
