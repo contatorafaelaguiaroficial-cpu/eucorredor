@@ -378,13 +378,17 @@ function AppMain({ user, userName }) {
   };
 
   const sendPush = async (targetUserId, title, body, url = "/") => {
+    console.log("sendPush chamado para:", targetUserId);
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0emJneWplbmhmZ3Jud2RzdG5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDY0NjMsImV4cCI6MjA5MzY4MjQ2M30.K0d-PuwnmpOZmjtznZHwH7zWLS6aJc5857JHTpuqurQ" },
         body: JSON.stringify({ user_id: targetUserId, title, body, url }),
       });
-    } catch (e) { console.log("Push error:", e); }
+      console.log("sendPush status:", res.status);
+    } catch (e) {
+      console.error("sendPush erro:", e);
+    }
   };
 
   const handlePostStory = async () => {
