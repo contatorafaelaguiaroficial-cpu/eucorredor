@@ -1112,7 +1112,13 @@ function AppMain({ user, userName }) {
                           <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
                         </button>
                         <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
-                        <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
+                        <button className="lbtn" style={{ marginLeft: "auto" }} onClick={() => {
+  const handle = p.profiles?.handle || (p.profiles?.name || "").toLowerCase().replace(/\s/g, "");
+  const url = `https://eucorredor.com.br/@${handle}`;
+  const text = p.text ? `${p.text.slice(0, 80)} — ${p.profiles?.name || "Corredor"} no eucorredor 🏃` : `Veja no eucorredor 🏃`;
+  if (navigator.share) navigator.share({ title: "eucorredor", text, url }).catch(() => {});
+  else navigator.clipboard?.writeText(`${text}\n${url}`).then(() => alert("Link copiado!"));
+}}>↗️</button>
                         {p.user_id === user.id && <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}><span style={{ fontSize: 16 }}>🗑️</span></button>}
                       </div>
                     </div>
