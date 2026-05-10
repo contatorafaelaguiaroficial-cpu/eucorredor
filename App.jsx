@@ -2084,11 +2084,18 @@ ${url}`).then(() => alert("Link copiado!"));
                         {new Date(n.created_at).toLocaleDateString("pt-BR")}
                       </p>
                     </div>
-                    <span style={{ fontSize: 20 }}>
-                      {n.type === "follow" && "👤"}
-                      {n.type === "like" && "❤️"}
-                      {n.type === "comment" && "💬"}
-                    </span>
+                    {n.type === "follow" && n.from_user_id && (
+  <button onClick={() => handleFollow(n.from_user_id)}
+    style={{ border: `1.5px solid ${realFollowing[n.from_user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[n.from_user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+    {realFollowing[n.from_user_id] ? "Seguindo" : "Seguir"}
+  </button>
+)}
+{n.type !== "follow" && (
+  <span style={{ fontSize: 20 }}>
+    {n.type === "like" && "❤️"}
+    {n.type === "comment" && "💬"}
+  </span>
+)}
                   </div>
                 ))}
               </div>
