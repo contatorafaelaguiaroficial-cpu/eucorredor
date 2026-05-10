@@ -570,7 +570,11 @@ function AppMain({ user, userName }) {
 
   const loadPosts = async () => {
     const { data } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").order("created_at", { ascending: false }).limit(20);
-    setPosts(data || []);
+    if (!data) return;
+    const { data: commentCounts } = await supabase.from("comments").select("post_id");
+    const countMap = {};
+    (commentCounts || []).forEach(c => { countMap[c.post_id] = (countMap[c.post_id] || 0) + 1; });
+    setPosts(data.map(p => ({ ...p, comments_count: countMap[p.id] || 0 })));
   };
 
   const loadLikedPosts = async () => {
@@ -1297,7 +1301,7 @@ function AppMain({ user, userName }) {
                         </button>
                         <button onClick={() => { setOpenComments(item.id); loadComments(item.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                          {(comments[item.id] || []).length || item.comments || 0}
+                          {(comments[item.id] || []).length || item.comments_count || 0}
                         </button>
                         {item.user_id === user.id && <button onClick={() => handleDeletePost(item.id)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#555" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>}
                       </div>
@@ -1349,7 +1353,7 @@ function AppMain({ user, userName }) {
                           <span style={{ fontSize: 16 }}>{liked[p.id] ? "❤️" : "🤍"}</span>
                           <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
                         </button>
-                        <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
+                        <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments_count || 0}</span></button>
                         <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
                         {p.user_id === user.id && <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}><span style={{ fontSize: 16 }}>🗑️</span></button>}
                       </div>
