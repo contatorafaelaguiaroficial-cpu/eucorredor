@@ -864,7 +864,7 @@ ${url}`;
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { display: none; }
-        .card { background: #13131a; border-radius: 16px; padding: 16px; border: 1px solid #1e1e2e; }
+        body { background: #0a0a0f; margin: 0; }.card { background: #13131a; border-radius: 16px; padding: 16px; border: 1px solid #1e1e2e; }
         .sbox { background: #1a1a24; border-radius: 10px; padding: 10px 12px; flex: 1; text-align: center; }
         .jbtn { background: #e11d48; color: #fff; border: none; border-radius: 10px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
         .lbtn { background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; color: #555; font-size: 13px; padding: 0; font-family: inherit; }
