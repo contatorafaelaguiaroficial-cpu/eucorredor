@@ -1118,8 +1118,13 @@ function AppMain({ user, userName }) {
                         }}>
                           {hasActiveStory(p.profiles?.id)
                             ? <div style={{ padding: 2, borderRadius: "50%", background: getLevelColor(p.profiles?.level) }}>
-                                <div style={{ padding: 2, borderRadius: "50%", background: "#13131a" }}>
-                                  {getAvatar(p.profiles, 38)}
+                                <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
+                                  <div style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1e1e2e", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+                                    {p.profiles?.avatar_url
+                                      ? <img src={p.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                      : p.profiles?.name?.charAt(0) || "?"
+                                    }
+                                  </div>
                                 </div>
                               </div>
                             : getAvatar(p.profiles, 38)
