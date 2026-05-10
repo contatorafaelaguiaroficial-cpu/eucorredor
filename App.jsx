@@ -307,6 +307,7 @@ function AppMain({ user, userName }) {
   const [storyFile, setStoryFile] = useState(null);
   const [storyPreview, setStoryPreview] = useState(null);
   const [uploadingStory, setUploadingStory] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
   useEffect(() => {
     if (activeStory) {
@@ -324,7 +325,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); }, []);
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
@@ -332,6 +333,18 @@ function AppMain({ user, userName }) {
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false });
     setStories(data || []);
+  };
+
+  const loadSuggestions = async () => {
+    const { data: followingData } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
+    const followingIds = (followingData || []).map(f => f.following_id);
+    followingIds.push(user.id);
+    const { data } = await supabase.from("profiles")
+      .select("id, name, handle, level, avatar_url, races_count")
+      .not("id", "in", `(${followingIds.join(",")})`)
+      .order("races_count", { ascending: false })
+      .limit(8);
+    setSuggestions(data || []);
   };
 
   const handlePostStory = async () => {
@@ -376,6 +389,7 @@ function AppMain({ user, userName }) {
     }
     await loadFollowCounts();
     await loadNotifications();
+    await loadSuggestions();
   };
 
   const handleLikePost = async (postId, postOwnerId) => {
@@ -1008,6 +1022,32 @@ function AppMain({ user, userName }) {
                   })}
                 </div>
               </div>
+
+              {/* Sugestões de quem seguir */}
+              {suggestions.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 10 }}>Corredores para seguir</p>
+                  <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+                    {suggestions.map((u) => (
+                      <div key={u.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0, background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 16, padding: "14px 12px", width: 110, cursor: "pointer" }}
+                        onClick={() => openProfile(u.id)}>
+                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, overflow: "hidden", flexShrink: 0 }}>
+                          {u.avatar_url ? <img src={u.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : u.name?.charAt(0) || "?"}
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: "#f0f0f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 86 }}>{u.name?.split(" ")[0]}</p>
+                          <p style={{ fontSize: 10, color: getLevelColor(u.level), fontWeight: 700, marginTop: 2 }}>{getLevelIcon(u.level)} {u.level}</p>
+                          <p style={{ fontSize: 10, color: "#555", marginTop: 1 }}>{u.races_count || 0} corridas</p>
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); handleFollow(u.id); }}
+                          style={{ width: "100%", background: realFollowing[u.id] ? "none" : "#e11d48", color: realFollowing[u.id] ? "#555" : "#fff", border: realFollowing[u.id] ? "1px solid #1e1e2e" : "none", borderRadius: 20, padding: "5px 0", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                          {realFollowing[u.id] ? "Seguindo" : "Seguir"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Modal de comentários */}
               {openComments && (
