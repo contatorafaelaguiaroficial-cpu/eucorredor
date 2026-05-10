@@ -6,7 +6,6 @@ const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_ID = "7cdb56e9-0525-48ac-901f-1f5ac23fe009";
-const VAPID_PUBLIC_KEY = "BCqHJrzsjtka05tMWLJEQ_sJmeCpEDw6IYrNpBaG-lz_cD_qcCF04yjuBFVhetqN6SbmWKAmjFnXy8QWABMptYo";
 
 const LEVELS = [
   { name: "Iniciante", min: 0, max: 4, color: "#6ee7b7", icon: "🌱" },
@@ -309,11 +308,16 @@ function AppMain({ user, userName }) {
   const [storyPreview, setStoryPreview] = useState(null);
   const [uploadingStory, setUploadingStory] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [levelUpData, setLevelUpData] = useState(null);
-  const touchStartY = useRef(0);
-  const touchCurrentY = useRef(0);
-  const [pullDistance, setPullDistance] = useState(0);
+  const [myClubs, setMyClubs] = useState([]);
+  const [allClubs, setAllClubs] = useState([]);
+  const [clubMembership, setClubMembership] = useState({});
+  const [activeClub, setActiveClub] = useState(null);
+  const [clubPosts, setClubPosts] = useState([]);
+  const [clubMembers, setClubMembers] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [showCreateClub, setShowCreateClub] = useState(false);
+  const [clubForm, setClubForm] = useState({ name: "", description: "" });
+  const [newClubPost, setNewClubPost] = useState("");
 
   useEffect(() => {
     if (activeStory) {
@@ -331,31 +335,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); requestPushPermission(); loadLikedPosts(); }, []);
-
-  useEffect(() => {
-    const postsChannel = supabase
-      .channel("posts_realtime")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "posts" }, () => { loadPosts(); })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, () => {
-        if (openComments) loadComments(openComments);
-      })
-      .subscribe();
-    return () => supabase.removeChannel(postsChannel);
-  }, [openComments]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("notifications_realtime")
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "notifications",
-        filter: `user_id=eq.${user.id}`,
-      }, () => { loadNotifications(); })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); }, []);
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
@@ -375,49 +355,6 @@ function AppMain({ user, userName }) {
       .order("races_count", { ascending: false })
       .limit(8);
     setSuggestions(data || []);
-  };
-
-  const registerPush = async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const existing = await reg.pushManager.getSubscription();
-      const sub = existing || await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: VAPID_PUBLIC_KEY,
-      });
-      const { endpoint, keys } = sub.toJSON();
-      await supabase.from("push_subscriptions").upsert({
-        user_id: user.id,
-        endpoint,
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-      }, { onConflict: "user_id,endpoint" });
-    } catch (e) {
-      console.log("Push registration failed:", e.message);
-    }
-  };
-
-  const requestPushPermission = async () => {
-    if (!("Notification" in window)) return;
-    if (Notification.permission === "granted") { await registerPush(); return; }
-    if (Notification.permission === "denied") return;
-    const perm = await Notification.requestPermission();
-    if (perm === "granted") await registerPush();
-  };
-
-  const sendPush = async (targetUserId, title, body, url = "/") => {
-    console.log("sendPush chamado para:", targetUserId);
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0emJneWplbmhmZ3Jud2RzdG5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDY0NjMsImV4cCI6MjA5MzY4MjQ2M30.K0d-PuwnmpOZmjtznZHwH7zWLS6aJc5857JHTpuqurQ" },
-        body: JSON.stringify({ user_id: targetUserId, title, body, url }),
-      });
-      console.log("sendPush status:", res.status);
-    } catch (e) {
-      console.error("sendPush erro:", e);
-    }
   };
 
   const handlePostStory = async () => {
@@ -472,7 +409,6 @@ function AppMain({ user, userName }) {
       await supabase.from("posts").update({ likes: (posts.find(p => p.id === postId)?.likes || 0) + 1 }).eq("id", postId);
       if (postOwnerId !== user.id) {
         await supabase.from("notifications").insert({ user_id: postOwnerId, from_user_id: user.id, type: "like", post_id: postId });
-
       }
     } else {
       await supabase.from("posts").update({ likes: Math.max((posts.find(p => p.id === postId)?.likes || 1) - 1, 0) }).eq("id", postId);
@@ -570,20 +506,7 @@ function AppMain({ user, userName }) {
 
   const loadPosts = async () => {
     const { data } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").order("created_at", { ascending: false }).limit(20);
-    if (!data) return;
-    const { data: commentCounts } = await supabase.from("comments").select("post_id");
-    const countMap = {};
-    (commentCounts || []).forEach(c => { countMap[c.post_id] = (countMap[c.post_id] || 0) + 1; });
-    setPosts(data.map(p => ({ ...p, comments_count: countMap[p.id] || 0 })));
-  };
-
-  const loadLikedPosts = async () => {
-    const { data } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
-    if (data) {
-      const map = {};
-      data.forEach(l => { map[l.post_id] = true; });
-      setLiked(map);
-    }
+    setPosts(data || []);
   };
 
   const loadActivities = async () => {
@@ -606,16 +529,13 @@ function AppMain({ user, userName }) {
     if (error) { alert("Erro: " + error.message); return; }
     const newKm = (profile?.total_km || 0) + parseFloat(actForm.distance);
     const newCount = (profile?.races_count || 0) + 1;
-    const oldLevel = getLevel(profile?.races_count || 0);
-    const newLevel = getLevel(newCount);
-    await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: newLevel.name }).eq("id", user.id);
+    await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
     setActForm({ distance: "", duration: "", pace: "" });
     setShowActivityForm(false);
     setShowPublish(false);
     setPublishType(null);
     await loadProfile();
     await loadActivities();
-    if (oldLevel.name !== newLevel.name) setLevelUpData(newLevel);
   };
 
   const formatRunTime = (seconds) => {
@@ -651,11 +571,8 @@ function AppMain({ user, userName }) {
       await supabase.from("activities").insert({ user_id: user.id, distance: parseFloat(gpsDistance.toFixed(2)), duration, pace });
       const newKm = (profile?.total_km || 0) + gpsDistance;
       const newCount = (profile?.races_count || 0) + 1;
-      const oldLevelGps = getLevel(profile?.races_count || 0);
-      const newLevelGps = getLevel(newCount);
-      await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: newLevelGps.name }).eq("id", user.id);
+      await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
       await loadProfile(); await loadActivities();
-      if (oldLevelGps.name !== newLevelGps.name) setLevelUpData(newLevelGps);
     }
     setHubScreen("summary");
   };
@@ -772,9 +689,7 @@ function AppMain({ user, userName }) {
     if (!newComment.trim()) return;
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
     const post = posts.find(p => p.id === postId);
-    if (post && post.user_id !== user.id) {
-      await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId, comment_text: newComment.slice(0, 80) });
-    }
+    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
     setNewComment("");
     await loadComments(postId);
     await loadNotifications();
@@ -841,32 +756,6 @@ function AppMain({ user, userName }) {
 
   const handleSignOut = async () => { await supabase.auth.signOut(); window.location.reload(); };
 
-  const handleRefresh = async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    await Promise.all([loadPosts(), loadActivities(), loadStories(), loadSuggestions(), loadNotifications()]);
-    setRefreshing(false);
-    setPullDistance(0);
-  };
-
-  const handleTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY;
-    touchCurrentY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchMove = (e) => {
-    touchCurrentY.current = e.touches[0].clientY;
-    const scrollTop = e.currentTarget.scrollTop;
-    if (scrollTop > 0) return;
-    const dist = Math.max(0, Math.min(80, touchCurrentY.current - touchStartY.current));
-    setPullDistance(dist);
-  };
-
-  const handleTouchEnd = () => {
-    if (pullDistance >= 60) handleRefresh();
-    else setPullDistance(0);
-  };
-
   const timeAgo = (dateStr) => {
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
     if (diff < 60) return "agora";
@@ -905,8 +794,6 @@ function AppMain({ user, userName }) {
         .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.96); backdrop-filter: blur(20px); border-top: 1px solid #1e1e2e; display: flex; justify-content: space-around; align-items: center; padding: 10px 4px 28px; z-index: 100; }
         .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes bounce { 0%,100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(0.9); } }
       `}</style>
 
       <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
@@ -1000,20 +887,7 @@ function AppMain({ user, userName }) {
           ))}
         </nav>
 
-        <div
-          style={{ padding: "20px", paddingBottom: 90 }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {(pullDistance > 0 || refreshing) && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: pullDistance || 48, overflow: "hidden", transition: refreshing ? "none" : "height 0.2s", marginTop: -20, marginBottom: 8 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                <div style={{ width: 24, height: 24, border: "2px solid #e11d48", borderTopColor: "transparent", borderRadius: "50%", animation: refreshing ? "spin 0.8s linear infinite" : "none", transform: refreshing ? "none" : `rotate(${pullDistance * 3}deg)` }} />
-                {refreshing && <span style={{ fontSize: 10, color: "#555" }}>atualizando...</span>}
-              </div>
-            </div>
-          )}
+        <div style={{ padding: "20px", paddingBottom: 90 }}>
 
           {/* EVENTOS */}
           {tab === "eventos" && (
@@ -1109,8 +983,8 @@ function AppMain({ user, userName }) {
             <div style={{ display: "flex", flexDirection: "column" }}>
               {/* Tabs */}
               <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", marginBottom: 14 }}>
-                {[{ id: "todos", label: "Comunidade" }, { id: "amigos", label: "Amigos" }].map((t) => (
-                  <button key={t.id} onClick={() => setCommFeed(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, padding: "10px 0", color: commFeed === t.id ? "#f0f0f0" : "#555" }}>
+                {[{ id: "todos", label: "Comunidade" }, { id: "amigos", label: "Amigos" }, { id: "clube", label: "Clube" }].map((t) => (
+                  <button key={t.id} onClick={() => setCommFeed(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: "10px 0", color: commFeed === t.id ? "#f0f0f0" : "#555" }}>
                     {t.label}
                     {commFeed === t.id && <div style={{ width: 28, height: 2, background: "#e11d48", borderRadius: 2, margin: "6px auto 0" }} />}
                   </button>
@@ -1301,7 +1175,7 @@ function AppMain({ user, userName }) {
                         </button>
                         <button onClick={() => { setOpenComments(item.id); loadComments(item.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                          {(comments[item.id] || []).length || item.comments_count || 0}
+                          {(comments[item.id] || []).length || item.comments || 0}
                         </button>
                         {item.user_id === user.id && <button onClick={() => handleDeletePost(item.id)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#555" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>}
                       </div>
@@ -1353,12 +1227,144 @@ function AppMain({ user, userName }) {
                           <span style={{ fontSize: 16 }}>{liked[p.id] ? "❤️" : "🤍"}</span>
                           <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
                         </button>
-                        <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments_count || 0}</span></button>
+                        <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
                         <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
                         {p.user_id === user.id && <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}><span style={{ fontSize: 16 }}>🗑️</span></button>}
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* CLUBE */}
+              {commFeed === "clube" && (
+                <div>
+                  {/* Club detail view */}
+                  {activeClub ? (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                        <button onClick={() => setActiveClub(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
+                        <p style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{activeClub.name}</p>
+                        {activeClub.owner_id !== user.id && clubMembership[activeClub.id] === "approved" && (
+                          <button onClick={() => handleLeaveClub(activeClub.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", fontSize: 11, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
+                        )}
+                      </div>
+
+                      {/* Solicitações pendentes (só dono vê) */}
+                      {activeClub.owner_id === user.id && pendingRequests.length > 0 && (
+                        <div style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #e11d4833", marginBottom: 14 }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: "#e11d48", marginBottom: 10 }}>Solicitações pendentes ({pendingRequests.length})</p>
+                          {pendingRequests.map(r => (
+                            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, border: `2px solid ${getLevelColor(r.profiles?.level)}`, overflow: "hidden", flexShrink: 0 }}>
+                                {r.profiles?.avatar_url ? <img src={r.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : r.profiles?.name?.charAt(0) || "?"}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: 13, fontWeight: 700 }}>{r.profiles?.name}</p>
+                                <p style={{ fontSize: 11, color: "#555" }}>@{r.profiles?.handle}</p>
+                              </div>
+                              <button onClick={() => handleApproveMember(r.id)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginRight: 6 }}>Aceitar</button>
+                              <button onClick={() => handleRejectMember(r.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#555", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Recusar</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Info do clube */}
+                      {activeClub.description && <p style={{ fontSize: 13, color: "#666", marginBottom: 14, lineHeight: 1.5 }}>{activeClub.description}</p>}
+                      <p style={{ fontSize: 11, color: "#555", marginBottom: 14 }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
+
+                      {/* Campo de post no clube */}
+                      {clubMembership[activeClub.id] === "approved" && (
+                        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                          <input className="tinput" placeholder="Compartilhe algo com o clube..." value={newClubPost} onChange={(e) => setNewClubPost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleClubPost()} style={{ flex: 1 }} />
+                          <button onClick={handleClubPost} className="jbtn">↑</button>
+                        </div>
+                      )}
+
+                      {/* Posts do clube */}
+                      {clubPosts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma publicação ainda.</p>}
+                      {clubPosts.map(p => (
+                        <div key={p.id} className="card" style={{ marginBottom: 10 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                            {getAvatar(p.profiles, 36)}
+                            <div>
+                              <p style={{ fontWeight: 700, fontSize: 13 }}>{p.profiles?.name}</p>
+                              <p style={{ fontSize: 10, color: "#555" }}>{timeAgo(p.created_at)}</p>
+                            </div>
+                          </div>
+                          <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55 }}>{p.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div>
+                      {/* Meus clubes */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#888" }}>Meus clubes</p>
+                        <button onClick={() => setShowCreateClub(true)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ Criar clube</button>
+                      </div>
+
+                      {myClubs.length === 0 && (
+                        <div style={{ textAlign: "center", padding: "24px 0", marginBottom: 20 }}>
+                          <p style={{ fontSize: 13, color: "#555" }}>Você ainda não faz parte de nenhum clube.</p>
+                        </div>
+                      )}
+
+                      {myClubs.map(c => (
+                        <div key={c.id} onClick={() => openClub(c)} style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #1e1e2e", marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                            {c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} /> : "🏃"}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
+                            {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}{c.description.length > 50 ? "..." : ""}</p>}
+                            {c.owner_id === user.id && <p style={{ fontSize: 10, color: "#e11d48", fontWeight: 700, marginTop: 3 }}>Administrador</p>}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Descobrir clubes */}
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginBottom: 12, marginTop: 8 }}>Descobrir clubes</p>
+                      {allClubs.filter(c => clubMembership[c.id] !== "approved").map(c => (
+                        <div key={c.id} style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #1e1e2e", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #1e1e2e, #2a2a3e)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                            {c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} /> : "🏃"}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
+                            {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}{c.description.length > 50 ? "..." : ""}</p>}
+                          </div>
+                          {clubMembership[c.id] === "pending" ? (
+                            <button onClick={() => handleCancelRequest(c.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#555", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Pendente</button>
+                          ) : (
+                            <button onClick={() => handleRequestJoin(c.id)} style={{ background: "none", border: "1px solid #e11d48", color: "#e11d48", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Entrar</button>
+                          )}
+                        </div>
+                      ))}
+                      {allClubs.filter(c => clubMembership[c.id] !== "approved").length === 0 && myClubs.length > 0 && (
+                        <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "16px 0" }}>Você faz parte de todos os clubes disponíveis.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Modal criar clube */}
+                  {showCreateClub && (
+                    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                      <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                          <p style={{ fontWeight: 700, fontSize: 16 }}>Criar clube</p>
+                          <button onClick={() => setShowCreateClub(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                          <input className="tinput" placeholder="Nome do clube" value={clubForm.name} onChange={(e) => setClubForm(f => ({ ...f, name: e.target.value }))} />
+                          <textarea className="tinput" rows={3} placeholder="Descrição (opcional)" value={clubForm.description} onChange={(e) => setClubForm(f => ({ ...f, description: e.target.value }))} />
+                        </div>
+                        <p style={{ fontSize: 11, color: "#555", marginBottom: 16, lineHeight: 1.5 }}>Novos membros precisam da sua aprovação para entrar no clube.</p>
+                        <button onClick={handleCreateClub} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Criar clube</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1900,28 +1906,6 @@ function AppMain({ user, userName }) {
           );
         })()}
 
-        {/* Modal celebração de nível */}
-        {levelUpData && (
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
-            onClick={() => setLevelUpData(null)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "#13131a", borderRadius: 28, padding: "40px 32px", border: `2px solid ${levelUpData.color}`, width: "100%", maxWidth: 340, textAlign: "center", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: -40, left: "50%", transform: "translateX(-50%)", width: 200, height: 200, background: `radial-gradient(circle, ${levelUpData.color}30 0%, transparent 70%)`, pointerEvents: "none" }} />
-              <div style={{ fontSize: 72, marginBottom: 16, animation: "bounce 0.6s ease" }}>{levelUpData.icon}</div>
-              <p style={{ fontSize: 12, color: levelUpData.color, fontWeight: 700, letterSpacing: 2, marginBottom: 8, textTransform: "uppercase" }}>Nível atingido</p>
-              <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 8 }}>{levelUpData.name}</h2>
-              <p style={{ fontSize: 14, color: "#888", lineHeight: 1.5, marginBottom: 32 }}>Você evoluiu como corredor. Continue assim e chegue ainda mais longe! 🏅</p>
-              <div style={{ display: "flex", gap: 4, justifyContent: "center", marginBottom: 28 }}>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: i < LEVELS.indexOf(LEVELS.find(l => l.name === levelUpData.name)) + 1 ? levelUpData.color : "#1e1e2e" }} />
-                ))}
-              </div>
-              <button onClick={() => setLevelUpData(null)} style={{ width: "100%", background: levelUpData.color, color: "#fff", border: "none", borderRadius: 14, padding: "15px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                Continuar correndo 🏃
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Story viewer */}
         {activeStory && (
           <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"#000", zIndex:500, display:"flex", flexDirection:"column", maxWidth:390, margin:"0 auto" }}
@@ -2000,7 +1984,7 @@ function AppMain({ user, userName }) {
                         <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
                         {n.type === "follow" && " começou a te seguir"}
                         {n.type === "like" && " curtiu sua publicação"}
-                        {n.type === "comment" && ` comentou na sua publicação${n.comment_text ? `: "${n.comment_text}"` : ""}`}
+                        {n.type === "comment" && " comentou na sua publicação"}
                       </p>
                       <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
