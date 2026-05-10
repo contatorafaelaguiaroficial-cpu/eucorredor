@@ -665,7 +665,7 @@ function AppMain({ user, userName }) {
     if (!newComment.trim()) return;
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
     const post = posts.find(p => p.id === postId);
-    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
+    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId, comment_text: newComment.slice(0, 80) });
     setNewComment("");
     await loadComments(postId);
     await loadNotifications();
@@ -1722,7 +1722,7 @@ function AppMain({ user, userName }) {
                         <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
                         {n.type === "follow" && " começou a te seguir"}
                         {n.type === "like" && " curtiu sua publicação"}
-                        {n.type === "comment" && " comentou na sua publicação"}
+                        {n.type === "comment" && ` comentou na sua publicação${n.comment_text ? `: "${n.comment_text}"` : ""}`}
                       </p>
                       <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
