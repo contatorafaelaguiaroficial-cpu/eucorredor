@@ -328,6 +328,19 @@ function AppMain({ user, userName }) {
 
   useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); requestPushPermission(); }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("notifications_realtime")
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "notifications",
+        filter: `user_id=eq.${user.id}`,
+      }, () => { loadNotifications(); })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
+
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
       .select("*, profiles(id, name, avatar_url, level, handle)")
@@ -430,7 +443,6 @@ function AppMain({ user, userName }) {
       await supabase.from("follows").insert({ follower_id: user.id, following_id: targetId });
       await supabase.from("notifications").insert({ user_id: targetId, from_user_id: user.id, type: "follow" });
       setRealFollowing(f => ({ ...f, [targetId]: true }));
-      sendPush(targetId, "eucorredor 🏃", `${profile?.name || "Alguém"} começou a te seguir`, "/");
     }
     await loadFollowCounts();
     await loadNotifications();
@@ -444,7 +456,7 @@ function AppMain({ user, userName }) {
       await supabase.from("posts").update({ likes: (posts.find(p => p.id === postId)?.likes || 0) + 1 }).eq("id", postId);
       if (postOwnerId !== user.id) {
         await supabase.from("notifications").insert({ user_id: postOwnerId, from_user_id: user.id, type: "like", post_id: postId });
-        sendPush(postOwnerId, "eucorredor 🏃", `${profile?.name || "Alguém"} curtiu sua publicação`, "/");
+
       }
     } else {
       await supabase.from("posts").update({ likes: Math.max((posts.find(p => p.id === postId)?.likes || 1) - 1, 0) }).eq("id", postId);
@@ -726,8 +738,7 @@ function AppMain({ user, userName }) {
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
     const post = posts.find(p => p.id === postId);
     if (post && post.user_id !== user.id) {
-      await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
-      sendPush(post.user_id, "eucorredor 🏃", `${profile?.name || "Alguém"} comentou: "${newComment.slice(0, 60)}"`, "/");
+      await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId, comment_text: newComment.slice(0, 80) });
     }
     setNewComment("");
     await loadComments(postId);
