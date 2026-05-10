@@ -992,7 +992,7 @@ function AppMain({ user, userName }) {
               </div>
 
               {/* Stories */}
-              <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14 }}>
+              {commFeed !== "clube" && <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14 }}>
                 <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 4px" }}>
                   {/* Meu story */}
                   {(() => {
@@ -1040,10 +1040,10 @@ function AppMain({ user, userName }) {
                     );
                   })}
                 </div>
-              </div>
+              </div>}
 
               {/* Sugestões de quem seguir */}
-              {suggestions.length > 0 && (
+              {commFeed !== "clube" && suggestions.length > 0 && (
                 <div style={{ marginBottom: 14 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 10 }}>Corredores para seguir</p>
                   <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
@@ -1100,7 +1100,7 @@ function AppMain({ user, userName }) {
               )}
 
               {/* Campo de busca */}
-              {showSearch && (
+              {commFeed !== "clube" && showSearch && (
                 <div style={{ marginBottom: 14 }}>
                   <input className="tinput" placeholder="Buscar por nome ou @handle..." value={searchQuery} onChange={(e) => handleSearch(e.target.value)} style={{ marginBottom: searchResults.length > 0 ? 10 : 0 }} />
                   {searchResults.map((u) => (
@@ -1122,7 +1122,7 @@ function AppMain({ user, userName }) {
               )}
 
               {/* Feed */}
-              {commFeed === "amigos" ? (
+              {commFeed !== "clube" && (commFeed === "amigos" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {(() => {
                     const friendPosts = posts.filter(p => realFollowing[p.user_id]).map(p => ({ ...p, _type: "post", _date: p.created_at }));
@@ -1234,7 +1234,7 @@ function AppMain({ user, userName }) {
                     </div>
                   ))}
                 </div>
-              )}
+              ))}
 
               {/* CLUBE */}
               {commFeed === "clube" && (
