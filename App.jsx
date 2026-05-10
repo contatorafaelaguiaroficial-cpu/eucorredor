@@ -992,7 +992,7 @@ function AppMain({ user, userName }) {
               </div>
 
               {/* Stories */}
-              {commFeed !== "clube" && <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14 }}>
+              <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
                 <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 4px" }}>
                   {/* Meu story */}
                   {(() => {
@@ -1040,11 +1040,11 @@ function AppMain({ user, userName }) {
                     );
                   })}
                 </div>
-              </div>}
+              </div>
 
               {/* Sugestões de quem seguir */}
-              {commFeed !== "clube" && suggestions.length > 0 && (
-                <div style={{ marginBottom: 14 }}>
+              {suggestions.length > 0 && (
+                <div style={{ marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 10 }}>Corredores para seguir</p>
                   <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
                     {suggestions.map((u) => (
@@ -1100,8 +1100,8 @@ function AppMain({ user, userName }) {
               )}
 
               {/* Campo de busca */}
-              {commFeed !== "clube" && showSearch && (
-                <div style={{ marginBottom: 14 }}>
+              {showSearch && (
+                <div style={{ marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
                   <input className="tinput" placeholder="Buscar por nome ou @handle..." value={searchQuery} onChange={(e) => handleSearch(e.target.value)} style={{ marginBottom: searchResults.length > 0 ? 10 : 0 }} />
                   {searchResults.map((u) => (
                     <div key={u.id} style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
@@ -1122,8 +1122,8 @@ function AppMain({ user, userName }) {
               )}
 
               {/* Feed */}
-              {commFeed !== "clube" && (commFeed === "amigos" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {commFeed === "amigos" ? (
+                <div style={{ display: commFeed === "clube" ? "none" : "flex", flexDirection: "column", gap: 12 }}>
                   {(() => {
                     const friendPosts = posts.filter(p => realFollowing[p.user_id]).map(p => ({ ...p, _type: "post", _date: p.created_at }));
                     const friendActivities = activities.filter(a => realFollowing[a.user_id]).map(a => ({ ...a, _type: "activity", _date: a.created_at }));
@@ -1234,7 +1234,7 @@ function AppMain({ user, userName }) {
                     </div>
                   ))}
                 </div>
-              ))}
+              )}
 
               {/* CLUBE */}
               {commFeed === "clube" && (
