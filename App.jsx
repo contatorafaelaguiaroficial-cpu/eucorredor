@@ -377,6 +377,16 @@ function AppMain({ user, userName }) {
     if (perm === "granted") await registerPush();
   };
 
+  const sendPush = async (targetUserId, title, body, url = "/") => {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_KEY}` },
+        body: JSON.stringify({ user_id: targetUserId, title, body, url }),
+      });
+    } catch (e) { console.log("Push error:", e); }
+  };
+
   const handlePostStory = async () => {
     if (!storyFile) return;
     setUploadingStory(true);
@@ -416,6 +426,7 @@ function AppMain({ user, userName }) {
       await supabase.from("follows").insert({ follower_id: user.id, following_id: targetId });
       await supabase.from("notifications").insert({ user_id: targetId, from_user_id: user.id, type: "follow" });
       setRealFollowing(f => ({ ...f, [targetId]: true }));
+      sendPush(targetId, "eucorredor 🏃", `${profile?.name || "Alguém"} começou a te seguir`, "/");
     }
     await loadFollowCounts();
     await loadNotifications();
@@ -429,6 +440,7 @@ function AppMain({ user, userName }) {
       await supabase.from("posts").update({ likes: (posts.find(p => p.id === postId)?.likes || 0) + 1 }).eq("id", postId);
       if (postOwnerId !== user.id) {
         await supabase.from("notifications").insert({ user_id: postOwnerId, from_user_id: user.id, type: "like", post_id: postId });
+        sendPush(postOwnerId, "eucorredor 🏃", `${profile?.name || "Alguém"} curtiu sua publicação`, "/");
       }
     } else {
       await supabase.from("posts").update({ likes: Math.max((posts.find(p => p.id === postId)?.likes || 1) - 1, 0) }).eq("id", postId);
@@ -709,7 +721,10 @@ function AppMain({ user, userName }) {
     if (!newComment.trim()) return;
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
     const post = posts.find(p => p.id === postId);
-    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
+    if (post && post.user_id !== user.id) {
+      await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
+      sendPush(post.user_id, "eucorredor 🏃", `${profile?.name || "Alguém"} comentou: "${newComment.slice(0, 60)}"`, "/");
+    }
     setNewComment("");
     await loadComments(postId);
     await loadNotifications();
