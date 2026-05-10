@@ -39,10 +39,9 @@ const events = [
   { id: 3, name: "Night Run Canoas", date: "30 Jun", dist: "5km", local: "Canoas, RS", cat: "5K" },
   { id: 4, name: "Trail da Serra Gaúcha", date: "7 Jul", dist: "21km", local: "Caxias do Sul, RS", cat: "Trail" },
 ];
-
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 function AuthScreen({ onLogin }) {
-  const [mode, setMode] = useState("login"); // login | register | forgot | reset
+  const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "", handle: "", newPassword: "" });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
@@ -51,15 +50,11 @@ function AuthScreen({ onLogin }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  // Detectar se voltou do link de reset
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes("type=recovery") || hash.includes("access_token")) {
-      // Supabase troca o token automaticamente via onAuthStateChange
       supabase.auth.onAuthStateChange((event, session) => {
-        if (event === "PASSWORD_RECOVERY") {
-          setMode("reset");
-        }
+        if (event === "PASSWORD_RECOVERY") setMode("reset");
       });
     }
   }, []);
@@ -67,9 +62,7 @@ function AuthScreen({ onLogin }) {
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}`,
-      },
+      options: { redirectTo: `${window.location.origin}` },
     });
   };
 
@@ -121,13 +114,10 @@ function AuthScreen({ onLogin }) {
         }
       } else {
         let emailToUse = form.email.trim();
-        // Se não contém @ ou começa com @, trata como handle
         if (!emailToUse.includes("@") || emailToUse.startsWith("@")) {
           const handle = emailToUse.replace("@", "").toLowerCase();
           const { data: profileData } = await supabase.from("profiles").select("id").eq("handle", handle).single();
           if (!profileData) throw new Error("Usuário @" + handle + " não encontrado.");
-          const { data: userData } = await supabase.auth.admin?.getUserById(profileData.id);
-          // fallback: busca o email pelo handle via profiles join auth
           const { data: authData } = await supabase.rpc("get_email_by_handle", { p_handle: handle });
           if (!authData) throw new Error("Não foi possível autenticar com esse @handle. Use seu e-mail.");
           emailToUse = authData;
@@ -148,7 +138,8 @@ function AuthScreen({ onLogin }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0a0f; margin: 0; }.ai { width: 100%; background: #13131a; border: 1.5px solid #1e1e2e; border-radius: 12px; padding: 14px 16px; color: #f0f0f0; font-size: 14px; font-family: inherit; outline: none; }
+        body { background: #0a0a0f; margin: 0; }
+        .ai { width: 100%; background: #13131a; border: 1.5px solid #1e1e2e; border-radius: 12px; padding: 14px 16px; color: #f0f0f0; font-size: 14px; font-family: inherit; outline: none; }
         .ai:focus { border-color: #e11d48; }
         .ai::placeholder { color: #444; }
         .ab { width: 100%; background: #e11d48; color: #fff; border: none; border-radius: 12px; padding: 15px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; }
@@ -186,39 +177,25 @@ function AuthScreen({ onLogin }) {
           <input className="ai" placeholder="Senha" type="password" value={form.password} onChange={set("password")} />
         </div>
         {error && (mode === "login" || mode === "register") && <p style={{ color: "#e11d48", fontSize: 12, marginTop: 10 }}>{error}</p>}
-        {/* Tela de recuperação de senha */}
         {mode === "forgot" && (
           <>
-            <p style={{ fontSize: 14, color: "#888", marginBottom: 16, lineHeight: 1.5 }}>
-              Digite seu e-mail e enviaremos um link para redefinir sua senha.
-            </p>
+            <p style={{ fontSize: 14, color: "#888", marginBottom: 16, lineHeight: 1.5 }}>Digite seu e-mail e enviaremos um link para redefinir sua senha.</p>
             <input className="ai" placeholder="Seu e-mail" type="email" value={form.email} onChange={set("email")} />
             {error && <p style={{ color: "#e11d48", fontSize: 12, marginTop: 10 }}>{error}</p>}
             {success && <p style={{ color: "#6ee7b7", fontSize: 12, marginTop: 10 }}>{success}</p>}
-            <button className="ab" style={{ marginTop: 16 }} onClick={handleForgot} disabled={loading}>
-              {loading ? "Enviando..." : "Enviar link de recuperação"}
-            </button>
-            <button onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
-              style={{ width: "100%", background: "none", border: "none", color: "#555", fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "inherit" }}>
-              Voltar para o login
-            </button>
+            <button className="ab" style={{ marginTop: 16 }} onClick={handleForgot} disabled={loading}>{loading ? "Enviando..." : "Enviar link de recuperação"}</button>
+            <button onClick={() => { setMode("login"); setError(""); setSuccess(""); }} style={{ width: "100%", background: "none", border: "none", color: "#555", fontSize: 13, marginTop: 16, cursor: "pointer", fontFamily: "inherit" }}>Voltar para o login</button>
           </>
         )}
-
-        {/* Tela de nova senha */}
         {mode === "reset" && (
           <>
             <p style={{ fontSize: 14, color: "#888", marginBottom: 16 }}>Digite sua nova senha.</p>
             <input className="ai" placeholder="Nova senha" type="password" value={form.newPassword} onChange={set("newPassword")} />
             {error && <p style={{ color: "#e11d48", fontSize: 12, marginTop: 10 }}>{error}</p>}
             {success && <p style={{ color: "#6ee7b7", fontSize: 12, marginTop: 10 }}>{success}</p>}
-            <button className="ab" style={{ marginTop: 16 }} onClick={handleReset} disabled={loading}>
-              {loading ? "Salvando..." : "Salvar nova senha"}
-            </button>
+            <button className="ab" style={{ marginTop: 16 }} onClick={handleReset} disabled={loading}>{loading ? "Salvando..." : "Salvar nova senha"}</button>
           </>
         )}
-
-        {/* Botões de login/cadastro */}
         {(mode === "login" || mode === "register") && (
           <>
             {mode === "register" && (
@@ -228,25 +205,17 @@ function AuthScreen({ onLogin }) {
                   {acceptedTerms && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
                 </div>
                 <p style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>
-                  Li e aceito os{" "}
-                  <a href="/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a>
-                  {" "}e a{" "}
-                  <a href="/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
+                  Li e aceito os <a href="/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a> e a <a href="/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
                 </p>
               </div>
             )}
-            <button className="ab" style={{ marginTop: 16 }} onClick={handleSubmit} disabled={loading}>
-              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
-            </button>
-
+            <button className="ab" style={{ marginTop: 16 }} onClick={handleSubmit} disabled={loading}>{loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}</button>
             <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}>
               <div style={{ flex: 1, height: 1, background: "#1e1e2e" }} />
               <span style={{ fontSize: 12, color: "#555" }}>ou</span>
               <div style={{ flex: 1, height: 1, background: "#1e1e2e" }} />
             </div>
-
-            <button onClick={handleGoogleLogin}
-              style={{ width: "100%", background: "#fff", color: "#1a1a1a", border: "none", borderRadius: 12, padding: "13px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <button onClick={handleGoogleLogin} style={{ width: "100%", background: "#fff", color: "#1a1a1a", border: "none", borderRadius: 12, padding: "13px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
               <svg width="18" height="18" viewBox="0 0 48 48">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                 <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -258,16 +227,12 @@ function AuthScreen({ onLogin }) {
             </button>
             {mode === "login" && (
               <div style={{ textAlign: "center", marginTop: 12 }}>
-                <button onClick={() => { setMode("forgot"); setError(""); setSuccess(""); }}
-                  style={{ background: "none", border: "none", color: "#555", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-                  Esqueci minha senha
-                </button>
+                <button onClick={() => { setMode("forgot"); setError(""); setSuccess(""); }} style={{ background: "none", border: "none", color: "#555", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Esqueci minha senha</button>
               </div>
             )}
             <p style={{ textAlign: "center", fontSize: 13, color: "#555", marginTop: 16 }}>
               {mode === "login" ? "Ainda não tem conta? " : "Já tem conta? "}
-              <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
-                style={{ background: "none", border: "none", color: "#e11d48", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }} style={{ background: "none", border: "none", color: "#e11d48", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                 {mode === "login" ? "Criar agora" : "Entrar"}
               </button>
             </p>
@@ -336,6 +301,12 @@ function AppMain({ user, userName }) {
   const [activeStory, setActiveStory] = useState(null);
   const [storyProgress, setStoryProgress] = useState(0);
   const storyTimerRef = useRef(null);
+  // Stories reais
+  const [stories, setStories] = useState([]);
+  const [showStoryUpload, setShowStoryUpload] = useState(false);
+  const [storyFile, setStoryFile] = useState(null);
+  const [storyPreview, setStoryPreview] = useState(null);
+  const [uploadingStory, setUploadingStory] = useState(false);
 
   useEffect(() => {
     if (activeStory) {
@@ -353,7 +324,31 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); }, []);
+
+  const loadStories = async () => {
+    const { data } = await supabase.from("stories")
+      .select("*, profiles(id, name, avatar_url, level, handle)")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false });
+    setStories(data || []);
+  };
+
+  const handlePostStory = async () => {
+    if (!storyFile) return;
+    setUploadingStory(true);
+    const ext = storyFile.name.split(".").pop();
+    const path = `${user.id}/story_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("posts").upload(path, storyFile);
+    if (error) { alert("Erro ao enviar story: " + error.message); setUploadingStory(false); return; }
+    const { data } = supabase.storage.from("posts").getPublicUrl(path);
+    await supabase.from("stories").insert({ user_id: user.id, media_url: data.publicUrl });
+    await loadStories();
+    setShowStoryUpload(false);
+    setStoryFile(null);
+    setStoryPreview(null);
+    setUploadingStory(false);
+  };
 
   const loadNotifications = async () => {
     const { data } = await supabase.from("notifications")
@@ -454,15 +449,7 @@ function AppMain({ user, userName }) {
   const handleSaveEvent = async () => {
     if (!eventForm.name || !eventForm.date || !eventForm.distance) return alert("Preencha nome, data e distância.");
     setSavingEvent(true);
-    await supabase.from("events").insert({
-      name: eventForm.name,
-      date: eventForm.date,
-      city: eventForm.city,
-      state: eventForm.state,
-      distance: eventForm.distance,
-      category: eventForm.category,
-      link: eventForm.link,
-    });
+    await supabase.from("events").insert({ name: eventForm.name, date: eventForm.date, city: eventForm.city, state: eventForm.state, distance: eventForm.distance, category: eventForm.category, link: eventForm.link });
     setEventForm({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
     await loadEvents();
     setSavingEvent(false);
@@ -484,7 +471,6 @@ function AppMain({ user, userName }) {
   const loadProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     setProfile(data);
-    // Detecta usuario sem handle (entrou pelo Google)
     const hasHandle = data?.handle && data.handle.trim() !== "";
     if (!hasHandle) {
       const suggestedHandle = user.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9_]/g, "") || "";
@@ -493,10 +479,12 @@ function AppMain({ user, userName }) {
       setShowOnboarding(true);
     }
   };
+
   const loadPosts = async () => {
     const { data } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").order("created_at", { ascending: false }).limit(20);
     setPosts(data || []);
   };
+
   const loadActivities = async () => {
     const { data } = await supabase.from("activities").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false }).limit(20);
     setActivities(data || []);
@@ -527,9 +515,7 @@ function AppMain({ user, userName }) {
   };
 
   const formatRunTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
+    const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
     if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
@@ -546,44 +532,27 @@ function AppMain({ user, userName }) {
   };
 
   const startGpsRun = () => {
-    setGpsElapsed(0);
-    setGpsDistance(0);
-    setGpsRoute([{ x: 195, y: 300 }]);
-    setGpsPaused(false);
-    setGpsHR(142);
-    setGpsLocated(false);
-    setGpsError("");
+    setGpsElapsed(0); setGpsDistance(0); setGpsRoute([{ x: 195, y: 300 }]);
+    setGpsPaused(false); setGpsHR(142); setGpsLocated(false); setGpsError("");
     setHubScreen("tracking");
   };
 
   const finishGpsRun = async () => {
     clearInterval(gpsIntervalRef.current);
-    if (leafletMapRef.current?._watchId !== undefined) {
-      navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
-    }
-    if (leafletMapRef.current) {
-      leafletMapRef.current.remove();
-      leafletMapRef.current = null;
-    }
+    if (leafletMapRef.current?._watchId !== undefined) navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
+    if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; }
     if (gpsDistance > 0) {
       const pace = formatGpsPace(gpsDistance, gpsElapsed);
       const duration = formatRunTime(gpsElapsed);
-      await supabase.from("activities").insert({
-        user_id: user.id,
-        distance: parseFloat(gpsDistance.toFixed(2)),
-        duration,
-        pace,
-      });
+      await supabase.from("activities").insert({ user_id: user.id, distance: parseFloat(gpsDistance.toFixed(2)), duration, pace });
       const newKm = (profile?.total_km || 0) + gpsDistance;
       const newCount = (profile?.races_count || 0) + 1;
       await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
-      await loadProfile();
-      await loadActivities();
+      await loadProfile(); await loadActivities();
     }
     setHubScreen("summary");
   };
 
-  // Leaflet map + GPS real
   const leafletMapRef = useRef(null);
   const leafletMarkerRef = useRef(null);
   const leafletPolylineRef = useRef(null);
@@ -591,122 +560,61 @@ function AppMain({ user, userName }) {
 
   useEffect(() => {
     if (hubScreen !== "tracking") return;
-
-    // Carregar Leaflet dinamicamente
     const loadLeaflet = async () => {
       if (!window.L) {
         const script = document.createElement("script");
         script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
         script.onload = initMap;
         document.head.appendChild(script);
-      } else {
-        initMap();
-      }
+      } else { initMap(); }
     };
-
     const initMap = () => {
       const mapEl = document.getElementById("leaflet-map");
-      if (!mapEl) { console.log("Map element not found"); return; }
-      if (leafletMapRef.current) return;
-
+      if (!mapEl || leafletMapRef.current) return;
       const map = window.L.map("leaflet-map", { zoomControl: false, attributionControl: false });
-
-      // Posição inicial padrão — Porto Alegre
       map.setView([-30.0346, -51.2177], 15);
-
-      window.L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19,
-        subdomains: "abcd"
-      }).addTo(map);
-
-      const markerIcon = window.L.divIcon({
-        html: `<div style="width:18px;height:18px;background:#e11d48;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px #e11d4880;"></div>`,
-        iconSize: [18, 18], iconAnchor: [9, 9], className: ""
-      });
-
+      window.L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom: 19, subdomains: "abcd" }).addTo(map);
+      const markerIcon = window.L.divIcon({ html: `<div style="width:18px;height:18px;background:#e11d48;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px #e11d4880;"></div>`, iconSize: [18, 18], iconAnchor: [9, 9], className: "" });
       const marker = window.L.marker([0, 0], { icon: markerIcon }).addTo(map);
       const polyline = window.L.polyline([], { color: "#e11d48", weight: 4, opacity: 0.9 }).addTo(map);
-
-      leafletMapRef.current = map;
-      leafletMarkerRef.current = marker;
-      leafletPolylineRef.current = polyline;
-      leafletCoordsRef.current = [];
+      leafletMapRef.current = map; leafletMarkerRef.current = marker; leafletPolylineRef.current = polyline; leafletCoordsRef.current = [];
       setTimeout(() => { map.invalidateSize(); }, 300);
-
-      // Timer
       gpsIntervalRef.current = setInterval(() => {
         setGpsElapsed(e => e + 1);
         setGpsHR(h => Math.max(135, Math.min(175, h + (Math.random() > 0.5 ? 1 : -1))));
       }, 1000);
-
-      // GPS real
       let lastCoord = null;
       const gpsOptions = { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 };
-
       if (navigator.geolocation) {
-        // Pega posição imediata primeiro
         navigator.geolocation.getCurrentPosition((pos) => {
           const { latitude: lat, longitude: lng } = pos.coords;
-          marker.setLatLng([lat, lng]);
-          map.setView([lat, lng], 17);
-          setGpsLocated(true);
-          lastCoord = [lat, lng];
-        }, (err) => {
-          const msgs = { 1: "Permissão negada", 2: "GPS indisponível", 3: "Tempo esgotado" };
-          setGpsError(msgs[err.code] || "Erro GPS");
-        }, gpsOptions);
-
+          marker.setLatLng([lat, lng]); map.setView([lat, lng], 17); setGpsLocated(true); lastCoord = [lat, lng];
+        }, (err) => { const msgs = { 1: "Permissão negada", 2: "GPS indisponível", 3: "Tempo esgotado" }; setGpsError(msgs[err.code] || "Erro GPS"); }, gpsOptions);
         const watchId = navigator.geolocation.watchPosition((pos) => {
           const { latitude: lat, longitude: lng } = pos.coords;
-
           const latlng = [lat, lng];
-          marker.setLatLng(latlng);
-          map.setView(latlng, 17);
-          setGpsLocated(true);
-
+          marker.setLatLng(latlng); map.setView(latlng, 17); setGpsLocated(true);
           if (lastCoord) {
-            const R = 6371;
-            const dLat = (lat - lastCoord[0]) * Math.PI / 180;
-            const dLng = (lng - lastCoord[1]) * Math.PI / 180;
+            const R = 6371, dLat = (lat - lastCoord[0]) * Math.PI / 180, dLng = (lng - lastCoord[1]) * Math.PI / 180;
             const a = Math.sin(dLat/2)**2 + Math.cos(lastCoord[0]*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLng/2)**2;
             const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            if (dist > 0.003 && dist < 0.5) {
-              setGpsDistance(d => d + dist);
-              leafletCoordsRef.current.push(latlng);
-              polyline.setLatLngs(leafletCoordsRef.current);
-            }
-          } else {
-            leafletCoordsRef.current = [latlng];
-          }
-          // Sempre centraliza no usuário
-          map.setView(latlng, 17);
-          lastCoord = latlng;
-        }, (err) => {
-          const msgs = { 1: "Permissão negada", 2: "GPS indisponível", 3: "Tempo esgotado" };
-          setGpsError(msgs[err.code] || "Erro GPS");
-        }, gpsOptions);
-
+            if (dist > 0.003 && dist < 0.5) { setGpsDistance(d => d + dist); leafletCoordsRef.current.push(latlng); polyline.setLatLngs(leafletCoordsRef.current); }
+          } else { leafletCoordsRef.current = [latlng]; }
+          map.setView(latlng, 17); lastCoord = latlng;
+        }, (err) => { const msgs = { 1: "Permissão negada", 2: "GPS indisponível", 3: "Tempo esgotado" }; setGpsError(msgs[err.code] || "Erro GPS"); }, gpsOptions);
         leafletMapRef.current._watchId = watchId;
       }
     };
-
     loadLeaflet();
-
     return () => {
       clearInterval(gpsIntervalRef.current);
       if (leafletMapRef.current) {
-        if (leafletMapRef.current._watchId !== undefined) {
-          navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
-        }
-        leafletMapRef.current.remove();
-        leafletMapRef.current = null;
-        leafletMarkerRef.current = null;
-        leafletPolylineRef.current = null;
+        if (leafletMapRef.current._watchId !== undefined) navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
+        leafletMapRef.current.remove(); leafletMapRef.current = null; leafletMarkerRef.current = null; leafletPolylineRef.current = null;
       }
     };
   }, [hubScreen]);
 
-  // Pausar GPS
   useEffect(() => {
     if (hubScreen === "tracking") {
       if (gpsPaused) clearInterval(gpsIntervalRef.current);
@@ -723,29 +631,16 @@ function AppMain({ user, userName }) {
     const handle = profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "");
     const url = `https://eucorredor.com.br/@${handle}`;
     let text = "";
-
-    if (type === "atividade") {
-      text = `Acabei de correr ${data.distance} km em ${data.duration} com pace de ${data.pace}! 🏃`;
-    } else if (type === "perfil") {
-      text = `Me siga no eucorredor! Estou no nível ${level.name} com ${races} corridas. 🏃`;
-    } else if (type === "resumo_gps") {
-      text = `Finalizei ${data.distance} km em ${data.time}! 🏅 Pace: ${data.pace} | ${data.calories} kcal`;
-    } else {
-      text = `Confira no eucorredor, a comunidade dos corredores! 🏃`;
-    }
-
+    if (type === "atividade") text = `Acabei de correr ${data.distance} km em ${data.duration} com pace de ${data.pace}! 🏃`;
+    else if (type === "perfil") text = `Me siga no eucorredor! Estou no nível ${level.name} com ${races} corridas. 🏃`;
+    else if (type === "resumo_gps") text = `Finalizei ${data.distance} km em ${data.time}! 🏅 Pace: ${data.pace} | ${data.calories} kcal`;
+    else text = `Confira no eucorredor, a comunidade dos corredores! 🏃`;
     const shareData = { title: "eucorredor", text, url };
-
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-      navigator.share(shareData).catch(() => {});
-    } else {
-      const full = `${text}
-${url}`;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(full).then(() => alert("Link copiado!"));
-      } else {
-        prompt("Copie o link:", full);
-      }
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) navigator.share(shareData).catch(() => {});
+    else {
+      const full = `${text}\n${url}`;
+      if (navigator.clipboard) navigator.clipboard.writeText(full).then(() => alert("Link copiado!"));
+      else prompt("Copie o link:", full);
     }
   };
 
@@ -762,10 +657,7 @@ ${url}`;
   };
 
   const loadComments = async (postId) => {
-    const { data } = await supabase.from("comments")
-      .select("*, profiles(name, avatar_url, level)")
-      .eq("post_id", postId)
-      .order("created_at", { ascending: true });
+    const { data } = await supabase.from("comments").select("*, profiles(name, avatar_url, level)").eq("post_id", postId).order("created_at", { ascending: true });
     setComments(c => ({ ...c, [postId]: data || [] }));
   };
 
@@ -773,9 +665,7 @@ ${url}`;
     if (!newComment.trim()) return;
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
     const post = posts.find(p => p.id === postId);
-    if (post && post.user_id !== user.id) {
-      await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
-    }
+    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
     setNewComment("");
     await loadComments(postId);
     await loadNotifications();
@@ -784,11 +674,7 @@ ${url}`;
   const handleSearch = async (query) => {
     setSearchQuery(query);
     if (!query.trim()) { setSearchResults([]); return; }
-    const { data } = await supabase.from("profiles")
-      .select("id, name, handle, level, avatar_url, races_count")
-      .or(`name.ilike.%${query}%,handle.ilike.%${query}%`)
-      .neq("id", user.id)
-      .limit(10);
+    const { data } = await supabase.from("profiles").select("id, name, handle, level, avatar_url, races_count").or(`name.ilike.%${query}%,handle.ilike.%${query}%`).neq("id", user.id).limit(10);
     setSearchResults(data || []);
   };
 
@@ -802,8 +688,7 @@ ${url}`;
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setAvatarPreview({ file, previewUrl });
+    setAvatarPreview({ file, previewUrl: URL.createObjectURL(file) });
   };
 
   const confirmAvatarUpload = async () => {
@@ -820,7 +705,6 @@ ${url}`;
     setUploadingAvatar(false);
     setAvatarPreview(null);
   };
-
 
   const RouteMap = ({ route }) => {
     if (!route || route.length < 2) return null;
@@ -864,7 +748,8 @@ ${url}`;
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { display: none; }
-        body { background: #0a0a0f; margin: 0; }.card { background: #13131a; border-radius: 16px; padding: 16px; border: 1px solid #1e1e2e; }
+        body { background: #0a0a0f; margin: 0; }
+        .card { background: #13131a; border-radius: 16px; padding: 16px; border: 1px solid #1e1e2e; }
         .sbox { background: #1a1a24; border-radius: 10px; padding: 10px 12px; flex: 1; text-align: center; }
         .jbtn { background: #e11d48; color: #fff; border: none; border-radius: 10px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
         .lbtn { background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; color: #555; font-size: 13px; padding: 0; font-family: inherit; }
@@ -878,7 +763,7 @@ ${url}`;
 
       <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
 
-        {/* Modal onboarding para novos usuarios Google */}
+        {/* Modal onboarding */}
         {showOnboarding && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 500, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28 }}>
             <div style={{ width: "100%", maxWidth: 360 }}>
@@ -887,39 +772,29 @@ ${url}`;
                 <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 26, fontWeight: 800, marginBottom: 8 }}>Bem-vindo ao eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
                 <p style={{ fontSize: 13, color: "#555" }}>Antes de começar, confirme seus dados.</p>
               </div>
-
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Seu nome</p>
-                  <input className="tinput" placeholder="Como quer ser chamado?" value={onboardingForm.name}
-                    onChange={(e) => setOnboardingForm(f => ({ ...f, name: e.target.value }))} />
+                  <input className="tinput" placeholder="Como quer ser chamado?" value={onboardingForm.name} onChange={(e) => setOnboardingForm(f => ({ ...f, name: e.target.value }))} />
                 </div>
                 <div>
                   <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Seu @handle único</p>
                   <div style={{ position: "relative" }}>
                     <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#555", fontSize: 14 }}>@</span>
-                    <input className="tinput" style={{ paddingLeft: 28 }} placeholder="seuhandle" value={onboardingForm.handle}
-                      onChange={(e) => setOnboardingForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} />
+                    <input className="tinput" style={{ paddingLeft: 28 }} placeholder="seuhandle" value={onboardingForm.handle} onChange={(e) => setOnboardingForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} />
                   </div>
                   <p style={{ fontSize: 11, color: "#555", marginTop: 5 }}>Somente letras minúsculas, números e _</p>
                 </div>
               </div>
-
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 20 }}>
-                <div onClick={() => setOnboardingForm(f => ({ ...f, terms: !f.terms }))}
-                  style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${onboardingForm.terms ? "#e11d48" : "#1e1e2e"}`, background: onboardingForm.terms ? "#e11d48" : "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
+                <div onClick={() => setOnboardingForm(f => ({ ...f, terms: !f.terms }))} style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${onboardingForm.terms ? "#e11d48" : "#1e1e2e"}`, background: onboardingForm.terms ? "#e11d48" : "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
                   {onboardingForm.terms && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
                 </div>
                 <p style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>
-                  Li e aceito os{" "}
-                  <a href="/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a>
-                  {" "}e a{" "}
-                  <a href="/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
+                  Li e aceito os <a href="/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a> e a <a href="/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
                 </p>
               </div>
-
-              <button onClick={handleOnboarding}
-                style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }}>
+              <button onClick={handleOnboarding} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }}>
                 Entrar no eucorredor
               </button>
             </div>
@@ -931,12 +806,10 @@ ${url}`;
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, color: "#fff" }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button onClick={() => setShowSearch(!showSearch)}
-                style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
+              <button onClick={() => setShowSearch(!showSearch)} style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               </button>
-              <button onClick={() => { setShowNotifications(true); markAllRead(); }}
-                style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
+              <button onClick={() => { setShowNotifications(true); markAllRead(); }} style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 {notifications.filter(n => !n.read).length > 0 && (
                   <span style={{ position: "absolute", top: 7, right: 7, width: 7, height: 7, background: "#e11d48", borderRadius: "50%", border: "1.5px solid #0a0a0f" }}/>
@@ -970,22 +843,10 @@ ${url}`;
           ].map((t) => (
             <button key={t.id} className="nbtn"
               onClick={() => t.special ? setShowPublish(true) : setTab(t.id)}
-              style={{
-                background: t.special ? "#e11d48" : "none",
-                borderRadius: t.special ? "50%" : 0,
-                width: t.special ? 54 : "auto",
-                height: t.special ? 54 : "auto",
-                marginTop: t.special ? -22 : 0,
-                boxShadow: t.special ? "0 4px 24px #e11d4860" : "none",
-                justifyContent: "center",
-                border: "none",
-              }}>
+              style={{ background: t.special ? "#e11d48" : "none", borderRadius: t.special ? "50%" : 0, width: t.special ? 54 : "auto", height: t.special ? 54 : "auto", marginTop: t.special ? -22 : 0, boxShadow: t.special ? "0 4px 24px #e11d4860" : "none", justifyContent: "center", border: "none" }}>
               {t.special
                 ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><polygon points="12 4 22 20 2 20"/></svg>
-                : <>
-                    <span style={{ color: tab === t.id ? "#e11d48" : "#555" }}>{t.svg}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: tab === t.id ? "#e11d48" : "#555" }}>{t.label}</span>
-                  </>
+                : <><span style={{ color: tab === t.id ? "#e11d48" : "#555" }}>{t.svg}</span><span style={{ fontSize: 10, fontWeight: 700, color: tab === t.id ? "#e11d48" : "#555" }}>{t.label}</span></>
               }
             </button>
           ))}
@@ -999,13 +860,9 @@ ${url}`;
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700 }}>Próximos eventos</h2>
                 {user.id === ADMIN_ID && (
-                  <button onClick={() => setShowAdminEvents(true)}
-                    style={{ background: "#1e1e2e", border: "none", color: "#888", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                    + Gerenciar
-                  </button>
+                  <button onClick={() => setShowAdminEvents(true)} style={{ background: "#1e1e2e", border: "none", color: "#888", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ Gerenciar</button>
                 )}
               </div>
-
               {dbEvents.length === 0 && (
                 <div style={{ textAlign: "center", padding: "40px 0" }}>
                   <p style={{ fontSize: 28, marginBottom: 10 }}>📅</p>
@@ -1013,7 +870,6 @@ ${url}`;
                   <p style={{ fontSize: 13, color: "#555" }}>Novos eventos serão adicionados em breve.</p>
                 </div>
               )}
-
               {dbEvents.map((e) => (
                 <div key={e.id} style={{ background: "#13131a", borderRadius: 18, padding: "18px", border: "1px solid #1e1e2e" }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
@@ -1028,14 +884,10 @@ ${url}`;
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       {user.id === ADMIN_ID && (
-                        <button onClick={() => handleDeleteEvent(e.id)}
-                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                        <button onClick={() => handleDeleteEvent(e.id)} style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
                       )}
                       {e.link ? (
-                        <a href={e.link} target="_blank" rel="noopener noreferrer"
-                          style={{ background: "#e11d48", color: "#fff", borderRadius: 10, padding: "8px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
-                          Inscrever
-                        </a>
+                        <a href={e.link} target="_blank" rel="noopener noreferrer" style={{ background: "#e11d48", color: "#fff", borderRadius: 10, padding: "8px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>Inscrever</a>
                       ) : (
                         <button className="jbtn" style={{ opacity: 0.5, cursor: "not-allowed", borderRadius: 10 }}>Em breve</button>
                       )}
@@ -1052,39 +904,25 @@ ${url}`;
                       <p style={{ fontWeight: 700, fontSize: 16 }}>Gerenciar eventos</p>
                       <button onClick={() => setShowAdminEvents(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
                     </div>
-
                     <p style={{ fontSize: 12, color: "#555", marginBottom: 14, fontWeight: 700 }}>Adicionar novo evento</p>
-
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-                      <input className="tinput" placeholder="Nome do evento" value={eventForm.name}
-                        onChange={(e) => setEventForm(f => ({ ...f, name: e.target.value }))} />
+                      <input className="tinput" placeholder="Nome do evento" value={eventForm.name} onChange={(e) => setEventForm(f => ({ ...f, name: e.target.value }))} />
                       <div style={{ display: "flex", gap: 8 }}>
-                        <input className="tinput" placeholder="Data (ex: 15 Jun)" value={eventForm.date}
-                          onChange={(e) => setEventForm(f => ({ ...f, date: e.target.value }))} />
-                        <input className="tinput" placeholder="Distância (ex: 10km)" value={eventForm.distance}
-                          onChange={(e) => setEventForm(f => ({ ...f, distance: e.target.value }))} />
+                        <input className="tinput" placeholder="Data (ex: 15 Jun)" value={eventForm.date} onChange={(e) => setEventForm(f => ({ ...f, date: e.target.value }))} />
+                        <input className="tinput" placeholder="Distância (ex: 10km)" value={eventForm.distance} onChange={(e) => setEventForm(f => ({ ...f, distance: e.target.value }))} />
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <input className="tinput" placeholder="Cidade" value={eventForm.city}
-                          onChange={(e) => setEventForm(f => ({ ...f, city: e.target.value }))} />
-                        <input className="tinput" placeholder="Estado" value={eventForm.state}
-                          onChange={(e) => setEventForm(f => ({ ...f, state: e.target.value }))} />
+                        <input className="tinput" placeholder="Cidade" value={eventForm.city} onChange={(e) => setEventForm(f => ({ ...f, city: e.target.value }))} />
+                        <input className="tinput" placeholder="Estado" value={eventForm.state} onChange={(e) => setEventForm(f => ({ ...f, state: e.target.value }))} />
                       </div>
-                      <select className="tinput" value={eventForm.category}
-                        onChange={(e) => setEventForm(f => ({ ...f, category: e.target.value }))}>
-                        {["Corrida de Rua", "Maratona", "Meia Maratona", "10K", "5K", "Trail Run", "Ultramaratona"].map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
+                      <select className="tinput" value={eventForm.category} onChange={(e) => setEventForm(f => ({ ...f, category: e.target.value }))}>
+                        {["Corrida de Rua", "Maratona", "Meia Maratona", "10K", "5K", "Trail Run", "Ultramaratona"].map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <input className="tinput" placeholder="Link de inscrição (Ticket Sports)" value={eventForm.link}
-                        onChange={(e) => setEventForm(f => ({ ...f, link: e.target.value }))} />
+                      <input className="tinput" placeholder="Link de inscrição (Ticket Sports)" value={eventForm.link} onChange={(e) => setEventForm(f => ({ ...f, link: e.target.value }))} />
                     </div>
-
-                    <button onClick={handleSaveEvent} disabled={savingEvent}
-                      style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}>
+                    <button onClick={handleSaveEvent} disabled={savingEvent} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}>
                       {savingEvent ? "Salvando..." : "Adicionar evento"}
                     </button>
-
                     {dbEvents.length > 0 && (
                       <>
                         <p style={{ fontSize: 12, color: "#555", marginBottom: 12, fontWeight: 700 }}>Eventos cadastrados</p>
@@ -1094,10 +932,7 @@ ${url}`;
                               <p style={{ fontWeight: 700, fontSize: 13 }}>{e.name}</p>
                               <p style={{ fontSize: 11, color: "#555" }}>{e.date} · {e.distance} · {e.city}</p>
                             </div>
-                            <button onClick={() => handleDeleteEvent(e.id)}
-                              style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                              🗑️
-                            </button>
+                            <button onClick={() => handleDeleteEvent(e.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
                           </div>
                         ))}
                       </>
@@ -1114,8 +949,7 @@ ${url}`;
               {/* Tabs */}
               <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", marginBottom: 14 }}>
                 {[{ id: "todos", label: "Comunidade" }, { id: "amigos", label: "Amigos" }].map((t) => (
-                  <button key={t.id} onClick={() => setCommFeed(t.id)}
-                    style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, padding: "10px 0", color: commFeed === t.id ? "#f0f0f0" : "#555" }}>
+                  <button key={t.id} onClick={() => setCommFeed(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, padding: "10px 0", color: commFeed === t.id ? "#f0f0f0" : "#555" }}>
                     {t.label}
                     {commFeed === t.id && <div style={{ width: 28, height: 2, background: "#e11d48", borderRadius: 2, margin: "6px auto 0" }} />}
                   </button>
@@ -1123,34 +957,35 @@ ${url}`;
               </div>
 
               {/* Stories */}
-              <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0" }}>
-                <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 20px" }}>
+              <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14 }}>
+                <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 4px" }}>
                   {/* Meu story */}
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }} onClick={() => setShowPublish(true)}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }} onClick={() => setShowStoryUpload(true)}>
                     <div style={{ position: "relative" }}>
-                      <div style={{ width: 58, height: 58, borderRadius: "50%", background: "#13131a", border: "2px dashed #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+                      <div style={{ width: 58, height: 58, borderRadius: "50%", background: "#13131a", border: "2px dashed #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
                         {profile?.avatar_url ? <img src={profile.avatar_url} style={{ width: 58, height: 58, borderRadius: "50%", objectFit: "cover" }}/> : "🏃"}
                       </div>
                       <div style={{ position: "absolute", bottom: -1, right: -1, width: 20, height: 20, background: "#e11d48", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", border: "2px solid #0a0a0f" }}>+</div>
                     </div>
                     <span style={{ fontSize: 10, color: "#555", fontWeight: 600 }}>Seu story</span>
                   </div>
-                  {/* Stories de outros usuários do feed */}
-                  {posts.filter(p => p.profiles && p.profiles.id !== user.id).slice(0, 6).map((p, i) => {
-                    const seen = seenStories[p.profiles?.id];
-                    const storyColor = getLevelColor(p.profiles?.level);
+
+                  {/* Stories reais do banco */}
+                  {stories.filter(s => s.user_id !== user.id).slice(0, 8).map((s, i) => {
+                    const seen = seenStories[s.user_id];
+                    const storyColor = getLevelColor(s.profiles?.level);
                     return (
                       <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }}
-                        onClick={() => { setSeenStories(s => ({...s, [p.profiles?.id]: true})); setActiveStory({ user: p.profiles?.name, color: storyColor, level: p.profiles?.level, text: p.text || "Corrida registrada 🏃", emoji: getLevelIcon(p.profiles?.level) }); }}>
-                        <div style={{ padding: 2, borderRadius: "50%", background: seen ? "#1e1e2e" : `conic-gradient(${storyColor}, ${storyColor})`, position: "relative" }}>
+                        onClick={() => { setSeenStories(st => ({...st, [s.user_id]: true})); setActiveStory({ user: s.profiles?.name, color: storyColor, level: s.profiles?.level, media_url: s.media_url, emoji: getLevelIcon(s.profiles?.level) }); }}>
+                        <div style={{ padding: 2, borderRadius: "50%", background: seen ? "#1e1e2e" : storyColor }}>
                           <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
                             <div style={{ width: 54, height: 54, borderRadius: "50%", background: `${storyColor}22`, border: `2px solid ${seen ? "#1e1e2e" : storyColor}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
-                              {p.profiles?.avatar_url ? <img src={p.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }}/> : getLevelIcon(p.profiles?.level)}
+                              {s.profiles?.avatar_url ? <img src={s.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }}/> : getLevelIcon(s.profiles?.level)}
                             </div>
                           </div>
                         </div>
                         <span style={{ fontSize: 10, color: seen ? "#444" : "#f0f0f0", fontWeight: seen ? 400 : 700, maxWidth: 58, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {p.profiles?.name?.split(" ")[0]}
+                          {s.profiles?.name?.split(" ")[0]}
                         </span>
                       </div>
                     );
@@ -1166,19 +1001,12 @@ ${url}`;
                       <p style={{ fontWeight: 700, fontSize: 16 }}>Comentários</p>
                       <button onClick={() => { setOpenComments(null); setNewComment(""); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
                     </div>
-
-                    {/* Lista de comentários */}
                     <div style={{ flex: 1, overflowY: "auto", marginBottom: 16 }}>
-                      {(comments[openComments] || []).length === 0 && (
-                        <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhum comentário ainda. Seja o primeiro!</p>
-                      )}
+                      {(comments[openComments] || []).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhum comentário ainda. Seja o primeiro!</p>}
                       {(comments[openComments] || []).map((c) => (
                         <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 16 }}>
                           <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, border: `2px solid ${getLevelColor(c.profiles?.level)}`, flexShrink: 0 }}>
-                            {c.profiles?.avatar_url
-                              ? <img src={c.profiles.avatar_url} alt="av" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-                              : c.profiles?.name?.charAt(0) || "?"
-                            }
+                            {c.profiles?.avatar_url ? <img src={c.profiles.avatar_url} alt="av" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} /> : c.profiles?.name?.charAt(0) || "?"}
                           </div>
                           <div style={{ flex: 1, background: "#0a0a0f", borderRadius: 12, padding: "8px 12px" }}>
                             <p style={{ fontWeight: 700, fontSize: 12, marginBottom: 3 }}>{c.profiles?.name || "Corredor"}</p>
@@ -1187,16 +1015,9 @@ ${url}`;
                         </div>
                       ))}
                     </div>
-
-                    {/* Campo de novo comentário */}
                     <div style={{ display: "flex", gap: 10, paddingBottom: 32, borderTop: "1px solid #1e1e2e", paddingTop: 14 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
-                        {level.icon}
-                      </div>
-                      <input className="tinput" placeholder="Adicione um comentário..." value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleComment(openComments)}
-                        style={{ flex: 1, padding: "8px 14px", borderRadius: 20 }} />
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{level.icon}</div>
+                      <input className="tinput" placeholder="Adicione um comentário..." value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleComment(openComments)} style={{ flex: 1, padding: "8px 14px", borderRadius: 20 }} />
                       <button onClick={() => handleComment(openComments)} className="jbtn" style={{ borderRadius: 20, padding: "8px 16px" }}>↑</button>
                     </div>
                   </div>
@@ -1206,30 +1027,22 @@ ${url}`;
               {/* Campo de busca */}
               {showSearch && (
                 <div style={{ marginBottom: 14 }}>
-                  <input className="tinput" placeholder="Buscar por nome ou @handle..." value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    style={{ marginBottom: searchResults.length > 0 ? 10 : 0 }} />
+                  <input className="tinput" placeholder="Buscar por nome ou @handle..." value={searchQuery} onChange={(e) => handleSearch(e.target.value)} style={{ marginBottom: searchResults.length > 0 ? 10 : 0 }} />
                   {searchResults.map((u) => (
                     <div key={u.id} style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
                       <div onClick={() => openProfile(u.id)} style={{ width: 40, height: 40, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, flexShrink: 0, cursor: "pointer", overflow: "hidden" }}>
-                        {u.avatar_url
-                          ? <img src={u.avatar_url} alt="av" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
-                          : u.name?.charAt(0) || "?"
-                        }
+                        {u.avatar_url ? <img src={u.avatar_url} alt="av" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} /> : u.name?.charAt(0) || "?"}
                       </div>
                       <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(u.id)}>
                         <p style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</p>
                         <p style={{ fontSize: 11, color: "#555" }}>{u.handle ? `@${u.handle}` : ""} · <span style={{ color: getLevelColor(u.level) }}>{getLevelIcon(u.level)} {u.level}</span></p>
                       </div>
-                      <button onClick={() => handleFollow(u.id)}
-                        style={{ border: `1.5px solid ${realFollowing[u.id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      <button onClick={() => handleFollow(u.id)} style={{ border: `1.5px solid ${realFollowing[u.id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                         {realFollowing[u.id] ? "Seguindo" : "Seguir"}
                       </button>
                     </div>
                   ))}
-                  {searchQuery.length > 0 && searchResults.length === 0 && (
-                    <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "16px 0" }}>Nenhum corredor encontrado.</p>
-                  )}
+                  {searchQuery.length > 0 && searchResults.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "16px 0" }}>Nenhum corredor encontrado.</p>}
                 </div>
               )}
 
@@ -1252,45 +1065,24 @@ ${url}`;
                           <p style={{ fontSize: 11, color: "#444" }}>agora · <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{p.profiles?.level || "Iniciante"}</span></p>
                         </div>
                         {p.user_id !== user.id && (
-                          <button onClick={() => handleFollow(p.profiles?.id || p.user_id)}
-                            style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                          <button onClick={() => handleFollow(p.profiles?.id || p.user_id)} style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                             {realFollowing[p.profiles?.id || p.user_id] ? "Seguindo" : "Seguir"}
                           </button>
                         )}
                       </div>
-                      {p.photo_url && (
-                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 16, marginBottom: 12, overflow: "hidden" }}>
-                          <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        </div>
-                      )}
+                      {p.photo_url && <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 16, marginBottom: 12, overflow: "hidden" }}><img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
                       {p.text && !p.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 12 }}>{p.text}</p>}
                       {p.text && p.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}><span style={{ fontWeight: 700, color: "#f0f0f0" }}>{(p.profiles?.name || "").split(" ")[0].toLowerCase()} </span>{p.text}</p>}
                       <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 0", borderBottom: "1px solid #1e1e2e" }}>
-                        <button onClick={() => handleLikePost(p.id, p.user_id)}
-                          style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: liked[p.id] ? "#e11d48" : "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                        <button onClick={() => handleLikePost(p.id, p.user_id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: liked[p.id] ? "#e11d48" : "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill={liked[p.id] ? "#e11d48" : "none"} stroke={liked[p.id] ? "#e11d48" : "#555"} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                           {(p.likes || 0) + (liked[p.id] ? 1 : 0)}
                         </button>
-                        <button onClick={() => { setOpenComments(p.id); loadComments(p.id); }}
-                          style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                        <button onClick={() => { setOpenComments(p.id); loadComments(p.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                           {(comments[p.id] || []).length || p.comments || 0}
                         </button>
-                        <button onClick={() => {
-                          const handle = p.profiles?.handle || (p.profiles?.name || "").toLowerCase().replace(/\s/g, "");
-                          const url = `https://eucorredor.com.br/@${handle}`;
-                          const text = p.text ? `${p.text.slice(0, 80)} — ${p.profiles?.name || "Corredor"} no eucorredor 🏃` : `Veja no eucorredor 🏃`;
-                          if (navigator.share) navigator.share({ title: "eucorredor", text, url }).catch(() => {});
-                          else navigator.clipboard?.writeText(`${text}
-${url}`).then(() => alert("Link copiado!"));
-                        }} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#555" }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                        </button>
-                        {p.user_id === user.id && (
-                          <button onClick={() => handleDeletePost(p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#555" }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                          </button>
-                        )}
+                        {p.user_id === user.id && <button onClick={() => handleDeletePost(p.id)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#555" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>}
                       </div>
                     </div>
                   ))}
@@ -1304,22 +1096,15 @@ ${url}`).then(() => alert("Link copiado!"));
                         {getAvatar(p.profiles, 38)}
                         <div style={{ flex: 1, cursor: "pointer" }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)}>
                           <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
-                          <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>
-                            {getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}
-                          </span>
+                          <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}</span>
                         </div>
                         {p.user_id !== user.id && (
-                          <button onClick={() => handleFollow(p.profiles?.id || p.user_id)}
-                            style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                          <button onClick={() => handleFollow(p.profiles?.id || p.user_id)} style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                             {realFollowing[p.profiles?.id || p.user_id] ? "Seguindo" : "Seguir"}
                           </button>
                         )}
                       </div>
-                      {p.photo_url && (
-                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
-                          <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        </div>
-                      )}
+                      {p.photo_url && <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}><img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
                       {p.text && <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>}
                       <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10 }}>
                         <button className="lbtn" onClick={() => handleLikePost(p.id, p.user_id)} style={{ color: liked[p.id] ? "#e11d48" : "#555" }}>
@@ -1328,11 +1113,7 @@ ${url}`).then(() => alert("Link copiado!"));
                         </button>
                         <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
                         <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
-                        {p.user_id === user.id && (
-                          <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}>
-                            <span style={{ fontSize: 16 }}>🗑️</span>
-                          </button>
-                        )}
+                        {p.user_id === user.id && <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}><span style={{ fontSize: 16 }}>🗑️</span></button>}
                       </div>
                     </div>
                   ))}
@@ -1347,16 +1128,10 @@ ${url}`).then(() => alert("Link copiado!"));
                       <p style={{ fontWeight: 700, fontSize: 16 }}>{publishType ? (publishType === "post" ? "Novo post" : publishType === "foto" ? "Nova foto" : "Nova atividade") : "O que quer publicar?"}</p>
                       <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
                     </div>
-
                     {!publishType && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {[
-                          { id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" },
-                          { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" },
-                          { id: "atividade", label: "Atividade", desc: "Registre um treino com métricas", icon: "⚡" },
-                        ].map((t) => (
-                          <button key={t.id} onClick={() => setPublishType(t.id)}
-                            style={{ background: "#0a0a0f", border: "1px solid #1e1e2e", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 14 }}>
+                        {[{ id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" }, { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" }, { id: "atividade", label: "Atividade", desc: "Registre um treino com métricas", icon: "⚡" }].map((t) => (
+                          <button key={t.id} onClick={() => setPublishType(t.id)} style={{ background: "#0a0a0f", border: "1px solid #1e1e2e", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 14 }}>
                             <span style={{ fontSize: 24 }}>{t.icon}</span>
                             <div style={{ textAlign: "left" }}>
                               <p style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f0" }}>{t.label}</p>
@@ -1366,7 +1141,6 @@ ${url}`).then(() => alert("Link copiado!"));
                         ))}
                       </div>
                     )}
-
                     {publishType === "post" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                         <textarea className="tinput" rows={4} placeholder="O que está pensando?" value={newPost} onChange={(e) => setNewPost(e.target.value)} />
@@ -1376,22 +1150,14 @@ ${url}`).then(() => alert("Link copiado!"));
                         </div>
                       </div>
                     )}
-
                     {publishType === "foto" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                         <label htmlFor="post-photo" style={{ cursor: "pointer" }}>
                           <div style={{ background: "#0a0a0f", border: `2px dashed ${photoPreview ? "#e11d48" : "#1e1e2e"}`, borderRadius: 14, aspectRatio: "4/5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                            {photoPreview
-                              ? <img src={photoPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                              : <><span style={{ fontSize: 32 }}>🖼️</span><p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>Toque para selecionar (formato 4:5)</p></>
-                            }
+                            {photoPreview ? <img src={photoPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <><span style={{ fontSize: 32 }}>🖼️</span><p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>Toque para selecionar (formato 4:5)</p></>}
                           </div>
                         </label>
-                        <input id="post-photo" type="file" accept="image/*" style={{ display: "none" }}
-                          onChange={(e) => {
-                            const f = e.target.files[0];
-                            if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); }
-                          }} />
+                        <input id="post-photo" type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
                         <textarea className="tinput" rows={3} placeholder="Adicione uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
                         <div style={{ display: "flex", gap: 10 }}>
                           <button onClick={() => { setPublishType(null); setPhotoFile(null); setPhotoPreview(null); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
@@ -1412,7 +1178,6 @@ ${url}`).then(() => alert("Link copiado!"));
                         </div>
                       </div>
                     )}
-
                     {publishType === "atividade" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <input className="tinput" placeholder="Distância (ex: 10.5)" type="number" value={actForm.distance} onChange={(e) => setActForm(a => ({ ...a, distance: e.target.value }))} />
@@ -1433,23 +1198,15 @@ ${url}`).then(() => alert("Link copiado!"));
           {/* HUB */}
           {tab === "hub" && (
             <div style={{ display: "flex", flexDirection: "column" }}>
-
-              {/* Rastreamento ativo */}
               {hubScreen === "tracking" && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, maxWidth: 390, margin: "0 auto" }}>
-
-                  {/* Mapa Leaflet */}
                   <div id="leaflet-map" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: "90px", zIndex: 1 }}></div>
-
-                  {/* Status GPS */}
                   <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
                     <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 10, padding: "6px 12px", border: "1px solid #1e1e2e", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : gpsError ? "#e11d48" : "#f59e0b" }} />
                       <span style={{ fontSize: 11, color: "#888" }}>{gpsLocated ? "GPS ativo" : gpsError ? gpsError : "Aguardando GPS..."}</span>
                     </div>
                   </div>
-
-                  {/* Stats sobrepostos */}
                   <div style={{ position: "absolute", top: 110, left: 16, right: 16, zIndex: 1000 }}>
                     <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "14px 16px", border: "1px solid #1e1e2e" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1468,8 +1225,6 @@ ${url}`).then(() => alert("Link copiado!"));
                       </div>
                     </div>
                   </div>
-
-                  {/* HR e calorias */}
                   <div style={{ position: "absolute", bottom: 100, right: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 8, zIndex: 1000 }}>
                     <span style={{ fontSize: 18 }}>❤️</span>
                     <div>
@@ -1481,17 +1236,11 @@ ${url}`).then(() => alert("Link copiado!"));
                     <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#f97316", lineHeight: 1 }}>{Math.floor(gpsDistance * 65)}</p>
                     <p style={{ fontSize: 9, color: "#555" }}>kcal</p>
                   </div>
-
-                  {/* Controles */}
                   <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16, position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
-                    <button onClick={() => setGpsPaused(p => !p)}
-                      style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#888", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <button onClick={() => setGpsPaused(p => !p)} style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#888", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {gpsPaused ? "▶" : "⏸"}
                     </button>
-                    <button onClick={finishGpsRun}
-                      style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 16, padding: "16px 0", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Finalizar corrida
-                    </button>
+                    <button onClick={finishGpsRun} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 16, padding: "16px 0", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Finalizar corrida</button>
                     <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <div style={{ width: 10, height: 10, borderRadius: "50%", background: gpsPaused ? "#555" : "#e11d48" }} />
                     </div>
@@ -1499,7 +1248,6 @@ ${url}`).then(() => alert("Link copiado!"));
                 </div>
               )}
 
-              {/* Resumo pós-corrida GPS */}
               {hubScreen === "summary" && (
                 <div style={{ paddingBottom: 40 }}>
                   <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -1512,12 +1260,7 @@ ${url}`).then(() => alert("Link copiado!"));
                     <p style={{ fontSize: 16, color: "#888", marginTop: 4 }}>quilômetros</p>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                    {[
-                      { v: formatRunTime(gpsElapsed), l: "Tempo total", icon: "⏱" },
-                      { v: formatGpsPace(gpsDistance, gpsElapsed), l: "Pace médio", icon: "⚡" },
-                      { v: `${gpsHR} bpm`, l: "FC média", icon: "❤️" },
-                      { v: `${Math.floor(gpsDistance * 65)} kcal`, l: "Calorias", icon: "🔥" },
-                    ].map((s, i) => (
+                    {[{ v: formatRunTime(gpsElapsed), l: "Tempo total", icon: "⏱" }, { v: formatGpsPace(gpsDistance, gpsElapsed), l: "Pace médio", icon: "⚡" }, { v: `${gpsHR} bpm`, l: "FC média", icon: "❤️" }, { v: `${Math.floor(gpsDistance * 65)} kcal`, l: "Calorias", icon: "🔥" }].map((s, i) => (
                       <div key={i} className="card" style={{ textAlign: "center" }}>
                         <p style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</p>
                         <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{s.v}</p>
@@ -1526,47 +1269,28 @@ ${url}`).then(() => alert("Link copiado!"));
                     ))}
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => setHubScreen("hub")}
-                      style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Ver hub
-                    </button>
-                    <button onClick={() => handleShare("resumo_gps", { distance: gpsDistance.toFixed(2), time: formatRunTime(gpsElapsed), pace: formatGpsPace(gpsDistance, gpsElapsed), calories: Math.floor(gpsDistance * 65) })}
-                      style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Compartilhar corrida
-                    </button>
+                    <button onClick={() => setHubScreen("hub")} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Ver hub</button>
+                    <button onClick={() => handleShare("resumo_gps", { distance: gpsDistance.toFixed(2), time: formatRunTime(gpsElapsed), pace: formatGpsPace(gpsDistance, gpsElapsed), calories: Math.floor(gpsDistance * 65) })} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Compartilhar corrida</button>
                   </div>
                 </div>
               )}
 
-              {/* HUB PRINCIPAL */}
               {hubScreen === "hub" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {/* Card iniciar corrida */}
                   <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 20, border: "1px solid #e11d4833", position: "relative", overflow: "hidden" }}>
                     <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4825 0%, transparent 70%)", pointerEvents: "none" }} />
                     <p style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Pronto para correr?</p>
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 16 }}>
-                      Registre com <span style={{ color: "#e11d48" }}>GPS</span>
-                    </p>
+                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Registre com <span style={{ color: "#e11d48" }}>GPS</span></p>
                     <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-                      {["📍 GPS", "❤️ FC", "⚡ Pace", "🔥 Calorias"].map((f, i) => (
-                        <div key={i} style={{ background: "#0a0a0f", borderRadius: 8, padding: "4px 10px", fontSize: 10, color: "#888", fontWeight: 700 }}>{f}</div>
-                      ))}
+                      {["📍 GPS", "❤️ FC", "⚡ Pace", "🔥 Calorias"].map((f, i) => <div key={i} style={{ background: "#0a0a0f", borderRadius: 8, padding: "4px 10px", fontSize: 10, color: "#888", fontWeight: 700 }}>{f}</div>)}
                     </div>
-                    <button onClick={startGpsRun}
-                      style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Iniciar corrida
-                    </button>
+                    <button onClick={startGpsRun} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Iniciar corrida</button>
                   </div>
-
-                  {/* Stats do mês */}
                   <div style={{ display: "flex", gap: 8 }}>
                     <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700, color: "#e11d48" }}>{(profile?.total_km || 0).toFixed(1)}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km total</p></div>
                     <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700 }}>{races}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>corridas</p></div>
                     <div className="sbox"><p style={{ fontSize: 18, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace médio</p></div>
                   </div>
-
-                  {/* Atividades recentes */}
                   <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginTop: 4 }}>Atividades recentes</p>
                   {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhuma atividade ainda. Inicie sua primeira corrida!</p>}
                   {activities.map((a) => (
@@ -1584,12 +1308,7 @@ ${url}`).then(() => alert("Link copiado!"));
                       <div style={{ display: "flex", gap: 8 }}>
                         {a.duration && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>tempo</p></div>}
                         {a.pace && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>pace</p></div>}
-                        {a.user_id === user.id && (
-                          <button onClick={() => handleDeleteActivity(a.id)}
-                            style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 10, padding: "8px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-                            🗑️
-                          </button>
-                        )}
+                        {a.user_id === user.id && <button onClick={() => handleDeleteActivity(a.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 10, padding: "8px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>}
                       </div>
                     </div>
                   ))}
@@ -1601,19 +1320,13 @@ ${url}`).then(() => alert("Link copiado!"));
           {/* PERFIL */}
           {tab === "perfil" && (
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {/* Card perfil */}
               <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4820 0%, transparent 70%)", pointerEvents: "none" }} />
                 <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     <label htmlFor="av-upload" style={{ cursor: "pointer" }}>
-                      {profile?.avatar_url
-                        ? <img src={profile.avatar_url} alt="av" style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "cover", border: "3px solid #1e1e2e" }} />
-                        : <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e" }}>{level.icon}</div>
-                      }
-                      <div style={{ position: "absolute", bottom: -1, right: -1, background: "#e11d48", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, border: "2px solid #13131a" }}>
-                        {uploadingAvatar ? "⏳" : "📷"}
-                      </div>
+                      {profile?.avatar_url ? <img src={profile.avatar_url} alt="av" style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "cover", border: "3px solid #1e1e2e" }} /> : <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e" }}>{level.icon}</div>}
+                      <div style={{ position: "absolute", bottom: -1, right: -1, background: "#e11d48", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, border: "2px solid #13131a" }}>{uploadingAvatar ? "⏳" : "📷"}</div>
                     </label>
                     <input id="av-upload" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
                   </div>
@@ -1640,22 +1353,16 @@ ${url}`).then(() => alert("Link copiado!"));
                   <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{profile?.total_km?.toFixed(1) || 0} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>km total</p></div>
                   <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
                 </div>
-
-                {/* Seguidores e seguindo */}
                 <div style={{ display: "flex", gap: 20, marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid #1e1e2e" }}>
-                  <button onClick={() => loadFollowList("seguidores")}
-                    style={{ textAlign: "center", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit" }}>
+                  <button onClick={() => loadFollowList("seguidores")} style={{ textAlign: "center", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit" }}>
                     <p style={{ fontWeight: 700, fontSize: 18, color: "#f0f0f0" }}>{followersCount}</p>
                     <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p>
                   </button>
-                  <button onClick={() => loadFollowList("seguindo")}
-                    style={{ textAlign: "center", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit" }}>
+                  <button onClick={() => loadFollowList("seguindo")} style={{ textAlign: "center", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit" }}>
                     <p style={{ fontWeight: 700, fontSize: 18, color: "#f0f0f0" }}>{followingCount}</p>
                     <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p>
                   </button>
                 </div>
-
-                {/* Modal seguidores/seguindo */}
                 {showFollowModal && (
                   <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
                     <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
@@ -1663,28 +1370,19 @@ ${url}`).then(() => alert("Link copiado!"));
                         <p style={{ fontWeight: 700, fontSize: 16, textTransform: "capitalize" }}>{showFollowModal}</p>
                         <button onClick={() => setShowFollowModal(null)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
                       </div>
-
                       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
-                        {followList.length === 0 && (
-                          <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>
-                            {showFollowModal === "seguidores" ? "Nenhum seguidor ainda." : "Você não segue ninguém ainda."}
-                          </p>
-                        )}
+                        {followList.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>{showFollowModal === "seguidores" ? "Nenhum seguidor ainda." : "Você não segue ninguém ainda."}</p>}
                         {followList.map((u) => (
                           <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid #1e1e2e" }}>
                             <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, flexShrink: 0, overflow: "hidden" }}>
-                              {u.avatar_url
-                                ? <img src={u.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                                : u.name?.charAt(0) || "?"
-                              }
+                              {u.avatar_url ? <img src={u.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : u.name?.charAt(0) || "?"}
                             </div>
                             <div style={{ flex: 1 }}>
                               <p style={{ fontWeight: 700, fontSize: 15 }}>{u.name}</p>
                               <p style={{ fontSize: 12, color: "#555" }}>{u.handle ? `@${u.handle}` : ""}</p>
                               <p style={{ fontSize: 11, color: getLevelColor(u.level), fontWeight: 700, marginTop: 2 }}>{getLevelIcon(u.level)} {u.level} · {u.races_count || 0} corridas</p>
                             </div>
-                            <button onClick={() => handleFollow(u.id)}
-                              style={{ border: `1.5px solid ${realFollowing[u.id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                            <button onClick={() => handleFollow(u.id)} style={{ border: `1.5px solid ${realFollowing[u.id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                               {realFollowing[u.id] ? "Seguindo" : "Seguir"}
                             </button>
                           </div>
@@ -1694,29 +1392,22 @@ ${url}`).then(() => alert("Link copiado!"));
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
-                    style={{ flex: 1, background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                    ✏️ Editar perfil
-                  </button>
+                  <button onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }} style={{ flex: 1, background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>✏️ Editar perfil</button>
                   <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
                 </div>
               </div>
 
-              {/* Preview avatar */}
               {avatarPreview && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
                   <p style={{ fontWeight: 700, fontSize: 16 }}>Nova foto de perfil</p>
                   <img src={avatarPreview.previewUrl} alt="prev" style={{ width: 180, height: 180, borderRadius: "50%", objectFit: "cover", border: "4px solid #e11d48" }} />
                   <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 300 }}>
                     <button onClick={() => setAvatarPreview(null)} style={{ flex: 1, border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 12, padding: 14, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-                    <button onClick={confirmAvatarUpload} disabled={uploadingAvatar} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      {uploadingAvatar ? "Enviando..." : "Usar essa foto"}
-                    </button>
+                    <button onClick={confirmAvatarUpload} disabled={uploadingAvatar} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{uploadingAvatar ? "Enviando..." : "Usar essa foto"}</button>
                   </div>
                 </div>
               )}
 
-              {/* Modal editar perfil */}
               {showEditProfile && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
                   <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 24px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
@@ -1726,10 +1417,7 @@ ${url}`).then(() => alert("Link copiado!"));
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
                       <label htmlFor="av-modal" style={{ cursor: "pointer", position: "relative" }}>
-                        {profile?.avatar_url
-                          ? <img src={profile.avatar_url} alt="av" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid #e11d48" }} />
-                          : <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, border: "3px solid #1e1e2e" }}>{level.icon}</div>
-                        }
+                        {profile?.avatar_url ? <img src={profile.avatar_url} alt="av" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid #e11d48" }} /> : <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, border: "3px solid #1e1e2e" }}>{level.icon}</div>}
                         <div style={{ position: "absolute", bottom: 0, right: 0, background: "#e11d48", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, border: "2px solid #13131a" }}>📷</div>
                       </label>
                       <input id="av-modal" type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
@@ -1746,25 +1434,20 @@ ${url}`).then(() => alert("Link copiado!"));
                           <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#555", fontSize: 14 }}>@</span>
                           <input className="tinput" style={{ paddingLeft: 28 }} value={editForm.handle} onChange={(e) => setEditForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="seuhandle" />
                         </div>
-                        <p style={{ fontSize: 10, color: "#555", marginTop: 4 }}>Somente letras minúsculas, números e _</p>
                       </div>
                       <div>
                         <p style={{ fontSize: 11, color: "#555", marginBottom: 6, fontWeight: 700 }}>Bio</p>
                         <textarea className="tinput" rows={3} value={editForm.bio} onChange={(e) => setEditForm(f => ({ ...f, bio: e.target.value }))} placeholder="Conte um pouco sobre você..." />
                       </div>
                     </div>
-                    <button onClick={handleEditProfile} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                      Salvar alterações
-                    </button>
+                    <button onClick={handleEditProfile} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Salvar alterações</button>
                   </div>
                 </div>
               )}
 
-              {/* Sub-tabs perfil */}
               <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 0, zIndex: 10 }}>
                 {[{ id: "fotos", label: "Fotos" }, { id: "posts_p", label: "Posts" }, { id: "ativ_p", label: "Atividades" }, { id: "niveis_p", label: "Níveis" }].map((t) => (
-                  <button key={t.id} onClick={() => setProfileTab(t.id)}
-                    style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: profileTab === t.id ? "#e11d48" : "#555" }}>
+                  <button key={t.id} onClick={() => setProfileTab(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: profileTab === t.id ? "#e11d48" : "#555" }}>
                     {t.label}
                     {profileTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
                   </button>
@@ -1778,37 +1461,24 @@ ${url}`).then(() => alert("Link copiado!"));
                       <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </div>
                   ))}
-                  {posts.filter(p => p.user_id === user.id && p.photo_url).length === 0 && (
-                    <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>
-                      Nenhuma foto publicada ainda.
-                    </div>
-                  )}
+                  {posts.filter(p => p.user_id === user.id && p.photo_url).length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto publicada ainda.</div>}
                 </div>
               )}
-
               {profileTab === "posts_p" && (
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   {posts.filter(p => p.user_id === user.id).map((p) => (
                     <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
-                      {p.photo_url && (
-                        <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
-                          <img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        </div>
-                      )}
+                      {p.photo_url && <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}><img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
                       {p.text && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 8 }}>{p.text}</p>}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: 11, color: "#555" }}>❤️ {p.likes || 0}</span>
-                        <button onClick={() => handleDeletePost(p.id)}
-                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
-                          🗑️ Excluir
-                        </button>
+                        <button onClick={() => handleDeletePost(p.id)} style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️ Excluir</button>
                       </div>
                     </div>
                   ))}
                   {posts.filter(p => p.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
                 </div>
               )}
-
               {profileTab === "ativ_p" && (
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   {activities.filter(a => a.user_id === user.id).map((a) => (
@@ -1819,21 +1489,14 @@ ${url}`).then(() => alert("Link copiado!"));
                         {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <button onClick={() => handleShare("atividade", { distance: a.distance, duration: a.duration, pace: a.pace })}
-                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
-                          ↗ Compartilhar
-                        </button>
-                        <button onClick={() => handleDeleteActivity(a.id)}
-                          style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
-                          🗑️ Excluir
-                        </button>
+                        <button onClick={() => handleShare("atividade", { distance: a.distance, duration: a.duration, pace: a.pace })} style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>↗ Compartilhar</button>
+                        <button onClick={() => handleDeleteActivity(a.id)} style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️ Excluir</button>
                       </div>
                     </div>
                   ))}
                   {activities.filter(a => a.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
                 </div>
               )}
-
               {profileTab === "niveis_p" && (
                 <div style={{ padding: "16px 0", display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="card">
@@ -1859,11 +1522,7 @@ ${url}`).then(() => alert("Link copiado!"));
                       })}
                     </div>
                   </div>
-                  {next && (
-                    <div style={{ background: "#13131a", borderRadius: 12, padding: "12px 16px", border: "1px solid #1e1e2e", textAlign: "center" }}>
-                      <p style={{ fontSize: 12, color: "#555" }}>Faltam <span style={{ color: "#f0f0f0", fontWeight: 700 }}>{next.min - races} corridas</span> para {next.name} {next.icon}</p>
-                    </div>
-                  )}
+                  {next && <div style={{ background: "#13131a", borderRadius: 12, padding: "12px 16px", border: "1px solid #1e1e2e", textAlign: "center" }}><p style={{ fontSize: 12, color: "#555" }}>Faltam <span style={{ color: "#f0f0f0", fontWeight: 700 }}>{next.min - races} corridas</span> para {next.name} {next.icon}</p></div>}
                 </div>
               )}
             </div>
@@ -1871,34 +1530,24 @@ ${url}`).then(() => alert("Link copiado!"));
         </div>
       </div>
 
-
-        {/* Perfil público de outro usuário */}
+        {/* Perfil de outro usuário */}
         {viewingProfile && (() => {
           const vLevel = getLevel(viewingProfile.races_count || 0);
           const vNext = getNextLevel(viewingProfile.races_count || 0);
           const vProgress = vNext ? ((viewingProfile.races_count - vLevel.min) / (vNext.min - vLevel.min)) * 100 : 100;
-          const isFollowingView = realFollowing[viewingProfile.id];
           return (
             <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 400, overflowY: "auto" }}>
-              {/* Header */}
               <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                   <button onClick={() => setViewingProfile(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
                   <p style={{ fontWeight: 700, fontSize: 16 }}>{viewingProfile.name}</p>
                 </div>
               </div>
-
               <div style={{ padding: "0 20px 100px" }}>
-                {/* Card perfil */}
                 <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4820 0%, transparent 70%)", pointerEvents: "none" }} />
-
                   <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
                     <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
-                      {viewingProfile.avatar_url
-                        ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        : vLevel.icon
-                      }
+                      {viewingProfile.avatar_url ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
                     </div>
                     <div style={{ flex: 1 }}>
                       <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{viewingProfile.name}</h2>
@@ -1908,67 +1557,38 @@ ${url}`).then(() => alert("Link copiado!"));
                       </div>
                     </div>
                   </div>
-
                   {viewingProfile.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{viewingProfile.bio}</p>}
-
-                  <div style={{ marginBottom: 14 }}>
-                    <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
-                      <div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} />
-                    </div>
-                  </div>
-
+                  <div style={{ marginBottom: 14 }}><div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}><div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} /></div></div>
                   <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
                     <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{viewingProfile.races_count || 0}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
                     <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{Number(viewingProfile.total_km || 0).toFixed(1)} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
                     <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>{viewingProfile.avg_pace || "—"}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
                   </div>
-
                   <div style={{ display: "flex", gap: 20, marginBottom: 14 }}>
-                    <div style={{ textAlign: "center" }}>
-                      <p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followersCount}</p>
-                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followingCount}</p>
-                      <p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p>
-                    </div>
+                    <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followersCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p></div>
+                    <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followingCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p></div>
                   </div>
-
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={async () => { await handleFollow(viewingProfile.id); setViewingProfile(v => ({ ...v, followersCount: realFollowing[viewingProfile.id] ? v.followersCount - 1 : v.followersCount + 1 })); }}
-                      style={{ flex: 1, background: realFollowing[viewingProfile.id] ? "none" : "#e11d48", color: realFollowing[viewingProfile.id] ? "#666" : "#fff", border: realFollowing[viewingProfile.id] ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    <button onClick={async () => { await handleFollow(viewingProfile.id); setViewingProfile(v => ({ ...v, followersCount: realFollowing[viewingProfile.id] ? v.followersCount - 1 : v.followersCount + 1 })); }} style={{ flex: 1, background: realFollowing[viewingProfile.id] ? "none" : "#e11d48", color: realFollowing[viewingProfile.id] ? "#666" : "#fff", border: realFollowing[viewingProfile.id] ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                       {realFollowing[viewingProfile.id] ? "Seguindo" : "Seguir"}
                     </button>
                     <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
                   </div>
                 </div>
-
-                {/* Tabs */}
                 <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 100, zIndex: 9 }}>
                   {[{ id: "fotos", label: "Fotos" }, { id: "posts_v", label: "Posts" }, { id: "ativ_v", label: "Atividades" }, { id: "niveis_v", label: "Níveis" }].map((t) => (
-                    <button key={t.id} onClick={() => setViewTab(t.id)}
-                      style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: viewTab === t.id ? "#e11d48" : "#555" }}>
+                    <button key={t.id} onClick={() => setViewTab(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: viewTab === t.id ? "#e11d48" : "#555" }}>
                       {t.label}
                       {viewTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
                     </button>
                   ))}
                 </div>
-
-                {/* Fotos */}
                 {viewTab === "fotos" && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
-                    {viewPosts.filter(p => p.photo_url).map((p) => (
-                      <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}>
-                        <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      </div>
-                    ))}
-                    {viewPosts.filter(p => p.photo_url).length === 0 && (
-                      <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>
-                    )}
+                    {viewPosts.filter(p => p.photo_url).map((p) => <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}><img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}
+                    {viewPosts.filter(p => p.photo_url).length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>}
                   </div>
                 )}
-
-                {/* Posts */}
                 {viewTab === "posts_v" && (
                   <div>
                     {viewPosts.filter(p => p.text).map((p) => (
@@ -1981,8 +1601,6 @@ ${url}`).then(() => alert("Link copiado!"));
                     {viewPosts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
                   </div>
                 )}
-
-                {/* Atividades */}
                 {viewTab === "ativ_v" && (
                   <div>
                     {viewActivities.map((a) => (
@@ -1997,8 +1615,6 @@ ${url}`).then(() => alert("Link copiado!"));
                     {viewActivities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
                   </div>
                 )}
-
-                {/* Níveis */}
                 {viewTab === "niveis_v" && (
                   <div style={{ paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                     <div className="card">
@@ -2013,9 +1629,7 @@ ${url}`).then(() => alert("Link copiado!"));
                                 <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
                                 <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0-${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}-${l.max}`}</span>
                               </div>
-                              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
-                                <div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${vProgress}%` : "0%", height: 4, borderRadius: 99 }} />
-                              </div>
+                              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}><div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${vProgress}%` : "0%", height: 4, borderRadius: 99 }} /></div>
                             </div>
                             <span style={{ fontSize: 13 }}>{isPast ? "✅" : isActive ? "▶" : ""}</span>
                           </div>
@@ -2042,13 +1656,42 @@ ${url}`).then(() => alert("Link copiado!"));
               <div style={{ width:36, height:36, borderRadius:"50%", background:`${activeStory.color}33`, border:`2px solid ${activeStory.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{activeStory.emoji}</div>
               <div style={{ flex:1 }}>
                 <p style={{ fontWeight:700, fontSize:14, color:"#fff" }}>{activeStory.user}</p>
-                <p style={{ fontSize:11, color:"rgba(255,255,255,0.5)" }}>há 1h</p>
+                <p style={{ fontSize:11, color:"rgba(255,255,255,0.5)" }}>há pouco</p>
               </div>
-              <button onClick={() => setActiveStory(null)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:24, cursor:"pointer" }}>✕</button>
+              <button onClick={(e) => { e.stopPropagation(); setActiveStory(null); }} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:24, cursor:"pointer" }}>✕</button>
             </div>
-            <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", background:`linear-gradient(135deg, ${activeStory.color}44, #0a0a0f)`, margin:"0 16px", borderRadius:20, fontSize:80 }}>{activeStory.emoji}</div>
+            <div style={{ flex:1, margin:"0 16px", borderRadius:20, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", background:`linear-gradient(135deg, ${activeStory.color}44, #0a0a0f)` }}>
+              {activeStory.media_url
+                ? <img src={activeStory.media_url} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                : <span style={{ fontSize:80 }}>{activeStory.emoji}</span>
+              }
+            </div>
             <div style={{ padding:"16px 20px 48px", textAlign:"center" }}>
-              <p style={{ fontSize:16, color:"#fff", fontWeight:600, lineHeight:1.5 }}>{activeStory.text}</p>
+              <p style={{ fontSize:14, color:"rgba(255,255,255,0.7)" }}>{activeStory.user}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Modal story upload */}
+        {showStoryUpload && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+            <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <p style={{ fontWeight: 700, fontSize: 16 }}>Novo story</p>
+                <button onClick={() => { setShowStoryUpload(false); setStoryFile(null); setStoryPreview(null); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+              </div>
+              <label htmlFor="story-photo" style={{ cursor: "pointer" }}>
+                <div style={{ background: "#0a0a0f", border: `2px dashed ${storyPreview ? "#e11d48" : "#1e1e2e"}`, borderRadius: 14, aspectRatio: "9/16", maxHeight: 340, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 16 }}>
+                  {storyPreview
+                    ? <img src={storyPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <><span style={{ fontSize: 40 }}>📸</span><p style={{ fontSize: 13, color: "#555", marginTop: 10 }}>Toque para selecionar uma foto</p><p style={{ fontSize: 11, color: "#444", marginTop: 4 }}>Fica disponível por 24h</p></>
+                  }
+                </div>
+              </label>
+              <input id="story-photo" type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setStoryFile(f); setStoryPreview(URL.createObjectURL(f)); } }} />
+              <button onClick={handlePostStory} disabled={!storyFile || uploadingStory} style={{ width: "100%", background: storyFile ? "#e11d48" : "#1e1e2e", color: storyFile ? "#fff" : "#555", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: storyFile ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
+                {uploadingStory ? "Publicando..." : "Publicar story"}
+              </button>
             </div>
           </div>
         )}
@@ -2062,16 +1705,11 @@ ${url}`).then(() => alert("Link copiado!"));
                 <button onClick={() => setShowNotifications(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
               </div>
               <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
-                {notifications.length === 0 && (
-                  <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma notificação ainda.</p>
-                )}
+                {notifications.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma notificação ainda.</p>}
                 {notifications.map((n) => (
                   <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #1e1e2e", opacity: n.read ? 0.6 : 1 }}>
                     <div onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }} style={{ width: 42, height: 42, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0, overflow: "hidden", cursor: "pointer" }}>
-                      {n.from_user?.avatar_url
-                        ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        : n.from_user?.name?.charAt(0) || "?"
-                      }
+                      {n.from_user?.avatar_url ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : n.from_user?.name?.charAt(0) || "?"}
                     </div>
                     <div style={{ flex: 1, cursor: "pointer" }} onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }}>
                       <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
@@ -2080,22 +1718,19 @@ ${url}`).then(() => alert("Link copiado!"));
                         {n.type === "like" && " curtiu sua publicação"}
                         {n.type === "comment" && " comentou na sua publicação"}
                       </p>
-                      <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>
-                        {new Date(n.created_at).toLocaleDateString("pt-BR")}
-                      </p>
+                      <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
                     {n.type === "follow" && n.from_user_id && (
-  <button onClick={() => handleFollow(n.from_user_id)}
-    style={{ border: `1.5px solid ${realFollowing[n.from_user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[n.from_user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-    {realFollowing[n.from_user_id] ? "Seguindo" : "Seguir"}
-  </button>
-)}
-{n.type !== "follow" && (
-  <span style={{ fontSize: 20 }}>
-    {n.type === "like" && "❤️"}
-    {n.type === "comment" && "💬"}
-  </span>
-)}
+                      <button onClick={() => handleFollow(n.from_user_id)} style={{ border: `1.5px solid ${realFollowing[n.from_user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[n.from_user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                        {realFollowing[n.from_user_id] ? "Seguindo" : "Seguir"}
+                      </button>
+                    )}
+                    {n.type !== "follow" && (
+                      <span style={{ fontSize: 20 }}>
+                        {n.type === "like" && "❤️"}
+                        {n.type === "comment" && "💬"}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2129,9 +1764,7 @@ function PublicProfilePage({ handle }) {
       try {
         const { data } = await supabase.from("follows").select("*").eq("follower_id", currentUser.id).eq("following_id", profile.id).single();
         setIsFollowing(!!data);
-      } catch {
-        setIsFollowing(false);
-      }
+      } catch { setIsFollowing(false); }
     };
     checkFollow();
   }, [currentUser, profile]);
@@ -2157,18 +1790,12 @@ function PublicProfilePage({ handle }) {
       const { count: fc } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", p.id);
       const { count: ing } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", p.id);
       setProfile({ ...p, followersCount: fc || 0, followingCount: ing || 0 });
-      setPosts(ps || []);
-      setActivities(acts || []);
-      setLoading(false);
+      setPosts(ps || []); setActivities(acts || []); setLoading(false);
     };
     load();
   }, [handle]);
 
-  if (loading) return (
-    <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <p style={{ color: "#555", fontFamily: "sans-serif" }}>Carregando...</p>
-    </div>
-  );
+  if (loading) return <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "sans-serif" }}>Carregando...</p></div>;
 
   if (!profile) return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", color: "#f0f0f0" }}>
@@ -2199,7 +1826,6 @@ function PublicProfilePage({ handle }) {
             <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, fontSize: 16 }}>eu<span style={{ color: "#e11d48" }}>corredor</span></p>
           </div>
         </div>
-
         <div style={{ padding: "0 20px 80px" }}>
           <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2 }}>
             <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
@@ -2215,9 +1841,7 @@ function PublicProfilePage({ handle }) {
               </div>
             </div>
             {profile.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{profile.bio}</p>}
-            <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4, marginBottom: 14 }}>
-              <div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} />
-            </div>
+            <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4, marginBottom: 14 }}><div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} /></div>
             <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
               <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{profile.races_count || 0}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
               <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{Number(profile.total_km || 0).toFixed(1)} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
@@ -2228,44 +1852,30 @@ function PublicProfilePage({ handle }) {
             </div>
             {currentUser ? (
               currentUser.id !== profile.id ? (
-                <button onClick={handleFollowToggle}
-                  style={{ width: "100%", background: isFollowing ? "none" : "#e11d48", color: isFollowing ? "#666" : "#fff", border: isFollowing ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                <button onClick={handleFollowToggle} style={{ width: "100%", background: isFollowing ? "none" : "#e11d48", color: isFollowing ? "#666" : "#fff", border: isFollowing ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                   {isFollowing ? "Seguindo" : "Seguir"}
                 </button>
               ) : (
-                <a href="/" style={{ display: "block", textAlign: "center", background: "#13131a", color: "#888", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none", border: "1px solid #1e1e2e" }}>
-                  Seu perfil — voltar ao app
-                </a>
+                <a href="/" style={{ display: "block", textAlign: "center", background: "#13131a", color: "#888", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none", border: "1px solid #1e1e2e" }}>Seu perfil — voltar ao app</a>
               )
             ) : (
-              <a href="/" style={{ display: "block", textAlign: "center", background: "#e11d48", color: "#fff", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
-                Entrar no eucorredor para seguir
-              </a>
+              <a href="/" style={{ display: "block", textAlign: "center", background: "#e11d48", color: "#fff", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>Entrar no eucorredor para seguir</a>
             )}
           </div>
-
-          {/* Tabs */}
           <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f" }}>
             {[{ id: "fotos", label: "Fotos" }, { id: "posts", label: "Posts" }, { id: "ativ", label: "Atividades" }].map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: tab === t.id ? "#e11d48" : "#555" }}>
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: tab === t.id ? "#e11d48" : "#555" }}>
                 {t.label}
                 {tab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
               </button>
             ))}
           </div>
-
           {tab === "fotos" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
-              {posts.filter(p => p.photo_url).map((p) => (
-                <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}>
-                  <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                </div>
-              ))}
+              {posts.filter(p => p.photo_url).map((p) => <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}><img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}
               {posts.filter(p => p.photo_url).length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>}
             </div>
           )}
-
           {tab === "posts" && (
             <div>
               {posts.filter(p => p.text).map((p) => (
@@ -2278,7 +1888,6 @@ function PublicProfilePage({ handle }) {
               {posts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
             </div>
           )}
-
           {tab === "ativ" && (
             <div>
               {activities.map((a) => (
@@ -2306,12 +1915,9 @@ export default function App() {
   const [publicHandle, setPublicHandle] = useState(null);
 
   useEffect(() => {
-    // Verificar se a URL tem um handle de perfil público
     const path = window.location.pathname.replace("/", "").replace("@", "").toLowerCase();
     const reserved = ["privacidade", "termos", "privacy", "terms", "sobre", "contato", "favicon.ico"];
-    if (path && path !== "" && !reserved.includes(path)) {
-      setPublicHandle(path);
-    }
+    if (path && path !== "" && !reserved.includes(path)) setPublicHandle(path);
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
@@ -2324,15 +1930,9 @@ export default function App() {
     supabase.auth.onAuthStateChange((_event, session) => { setSession(session); });
   }, []);
 
-  if (loading) return (
-    <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <p style={{ color: "#555", fontFamily: "sans-serif" }}>Carregando...</p>
-    </div>
-  );
+  if (loading) return <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "sans-serif" }}>Carregando...</p></div>;
 
-  // Perfil público por URL — qualquer pessoa pode ver sem login
   if (publicHandle) return <PublicProfilePage handle={publicHandle} />;
-
   if (!session) return <AuthScreen onLogin={(user, name) => { setSession({ user }); setUserName(name); }} />;
   return <AppMain user={session.user} userName={userName} />;
 }
