@@ -665,7 +665,7 @@ function AppMain({ user, userName }) {
     if (!newComment.trim()) return;
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
     const post = posts.find(p => p.id === postId);
-    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId, comment_text: newComment.slice(0, 80) });
+    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
     setNewComment("");
     await loadComments(postId);
     await loadNotifications();
@@ -736,6 +736,8 @@ function AppMain({ user, userName }) {
   const level = getLevel(races);
   const next = getNextLevel(races);
   const progress = next ? ((races - level.min) / (next.min - level.min)) * 100 : 100;
+
+  const hasActiveStory = (profileId) => stories.some(s => s.user_id === profileId);
 
   const getAvatar = (p, size = 38) => {
     if (p?.avatar_url) return <img src={p.avatar_url} alt="av" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: `2px solid ${getLevelColor(p.level)}`, flexShrink: 0 }} />;
@@ -960,18 +962,32 @@ function AppMain({ user, userName }) {
               <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14 }}>
                 <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 4px" }}>
                   {/* Meu story */}
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }} onClick={() => setShowStoryUpload(true)}>
-                    <div style={{ position: "relative" }}>
-                      <div style={{ width: 58, height: 58, borderRadius: "50%", background: "#13131a", border: "2px dashed #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
-                        {profile?.avatar_url ? <img src={profile.avatar_url} style={{ width: 58, height: 58, borderRadius: "50%", objectFit: "cover" }}/> : "🏃"}
+                  {(() => {
+                    const myStory = stories.find(s => s.user_id === user.id);
+                    const myColor = level.color;
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }}
+                        onClick={() => myStory ? setActiveStory({ user: profile?.name, color: myColor, level: profile?.level, media_url: myStory.media_url, emoji: level.icon, isMine: true }) : setShowStoryUpload(true)}>
+                        <div style={{ position: "relative" }}>
+                          <div style={{ padding: myStory ? 2 : 0, borderRadius: "50%", background: myStory ? myColor : "transparent" }}>
+                            <div style={{ padding: myStory ? 2 : 0, borderRadius: "50%", background: myStory ? "#0a0a0f" : "transparent" }}>
+                              <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#13131a", border: myStory ? `2px solid ${myColor}` : "2px dashed #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
+                                {profile?.avatar_url ? <img src={profile.avatar_url} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}/> : "🏃"}
+                              </div>
+                            </div>
+                          </div>
+                          {!myStory && <div style={{ position: "absolute", bottom: -1, right: -1, width: 20, height: 20, background: "#e11d48", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", border: "2px solid #0a0a0f" }}>+</div>}
+                        </div>
+                        <span style={{ fontSize: 10, color: myStory ? "#f0f0f0" : "#555", fontWeight: myStory ? 700 : 600 }}>{myStory ? profile?.name?.split(" ")[0] : "Seu story"}</span>
                       </div>
-                      <div style={{ position: "absolute", bottom: -1, right: -1, width: 20, height: 20, background: "#e11d48", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", border: "2px solid #0a0a0f" }}>+</div>
-                    </div>
-                    <span style={{ fontSize: 10, color: "#555", fontWeight: 600 }}>Seu story</span>
-                  </div>
+                    );
+                  })()}
 
-                  {/* Stories reais do banco */}
-                  {stories.filter(s => s.user_id !== user.id).slice(0, 8).map((s, i) => {
+                  {/* Stories reais do banco - agrupados por usuario */}
+                  {Object.values(stories.filter(s => s.user_id !== user.id).reduce((acc, s) => {
+                    if (!acc[s.user_id]) acc[s.user_id] = s;
+                    return acc;
+                  }, {})).slice(0, 8).map((s, i) => {
                     const seen = seenStories[s.user_id];
                     const storyColor = getLevelColor(s.profiles?.level);
                     return (
@@ -1093,7 +1109,22 @@ function AppMain({ user, userName }) {
                   {posts.map((p) => (
                     <div key={p.id} className="card">
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        {getAvatar(p.profiles, 38)}
+                        <div style={{ cursor: "pointer" }} onClick={() => {
+                          const pid = p.profiles?.id;
+                          if (!pid) return;
+                          const story = stories.find(s => s.user_id === pid);
+                          if (story) { setSeenStories(st => ({...st, [pid]: true})); setActiveStory({ user: p.profiles?.name, color: getLevelColor(p.profiles?.level), level: p.profiles?.level, media_url: story.media_url, emoji: getLevelIcon(p.profiles?.level) }); }
+                          else openProfile(pid);
+                        }}>
+                          {hasActiveStory(p.profiles?.id)
+                            ? <div style={{ padding: 2, borderRadius: "50%", background: getLevelColor(p.profiles?.level), display: "inline-block" }}>
+                                <div style={{ padding: 2, borderRadius: "50%", background: "#13131a" }}>
+                                  {getAvatar(p.profiles, 34)}
+                                </div>
+                              </div>
+                            : getAvatar(p.profiles, 38)
+                          }
+                        </div>
                         <div style={{ flex: 1, cursor: "pointer" }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)}>
                           <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
                           <span style={{ fontSize: 10, color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}</span>
@@ -1112,13 +1143,7 @@ function AppMain({ user, userName }) {
                           <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
                         </button>
                         <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
-                        <button className="lbtn" style={{ marginLeft: "auto" }} onClick={() => {
-  const handle = p.profiles?.handle || (p.profiles?.name || "").toLowerCase().replace(/\s/g, "");
-  const url = `https://eucorredor.com.br/@${handle}`;
-  const text = p.text ? `${p.text.slice(0, 80)} — ${p.profiles?.name || "Corredor"} no eucorredor 🏃` : `Veja no eucorredor 🏃`;
-  if (navigator.share) navigator.share({ title: "eucorredor", text, url }).catch(() => {});
-  else navigator.clipboard?.writeText(`${text}\n${url}`).then(() => alert("Link copiado!"));
-}}>↗️</button>
+                        <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
                         {p.user_id === user.id && <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}><span style={{ fontSize: 16 }}>🗑️</span></button>}
                       </div>
                     </div>
@@ -1552,9 +1577,24 @@ function AppMain({ user, userName }) {
               <div style={{ padding: "0 20px 100px" }}>
                 <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
                   <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-                    <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
-                      {viewingProfile.avatar_url ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
-                    </div>
+                    {(() => {
+                    const story = stories.find(s => s.user_id === viewingProfile.id);
+                    const vColor = vLevel.color;
+                    return story ? (
+                      <div style={{ padding: 2, borderRadius: "50%", background: vColor, cursor: "pointer", flexShrink: 0 }}
+                        onClick={() => { setSeenStories(st => ({...st, [viewingProfile.id]: true})); setActiveStory({ user: viewingProfile.name, color: vColor, level: viewingProfile.level, media_url: story.media_url, emoji: vLevel.icon }); }}>
+                        <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
+                          <div style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e11d48, #f97316)", fontSize: 26 }}>
+                            {viewingProfile.avatar_url ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
+                        {viewingProfile.avatar_url ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
+                      </div>
+                    );
+                  })()}
                     <div style={{ flex: 1 }}>
                       <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{viewingProfile.name}</h2>
                       <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{viewingProfile.handle || viewingProfile.name?.toLowerCase().replace(/\s/g, "")}</p>
@@ -1722,7 +1762,7 @@ function AppMain({ user, userName }) {
                         <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
                         {n.type === "follow" && " começou a te seguir"}
                         {n.type === "like" && " curtiu sua publicação"}
-                        {n.type === "comment" && ` comentou na sua publicação${n.comment_text ? `: "${n.comment_text}"` : ""}`}
+                        {n.type === "comment" && " comentou na sua publicação"}
                       </p>
                       <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
