@@ -1015,7 +1015,7 @@ function AppMain({ user, userName }) {
                     const storyColor = getLevelColor(s.profiles?.level);
                     return (
                       <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }}
-                        onClick={() => { setSeenStories(st => ({...st, [s.user_id]: true})); setActiveStory({ user: s.profiles?.name, color: storyColor, level: s.profiles?.level, media_url: s.media_url, emoji: getLevelIcon(s.profiles?.level) }); }}>
+                        onClick={() => { setSeenStories(st => ({...st, [s.user_id]: true})); setActiveStory({ user: s.profiles?.name, color: storyColor, level: s.profiles?.level, media_url: s.media_url, emoji: getLevelIcon(s.profiles?.level), avatar_url: s.profiles?.avatar_url }); }}>
                         <div style={{ padding: 2, borderRadius: "50%", background: seen ? "#1e1e2e" : storyColor }}>
                           <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
                             <div style={{ width: 54, height: 54, borderRadius: "50%", background: `${storyColor}22`, border: `2px solid ${seen ? "#1e1e2e" : storyColor}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
@@ -1162,7 +1162,7 @@ function AppMain({ user, userName }) {
                           const pid = p.profiles?.id;
                           if (!pid) return;
                           const story = stories.find(s => s.user_id === pid);
-                          if (story) { setSeenStories(st => ({...st, [pid]: true})); setActiveStory({ user: p.profiles?.name, color: getLevelColor(p.profiles?.level), level: p.profiles?.level, media_url: story.media_url, emoji: getLevelIcon(p.profiles?.level) }); }
+                          if (story) { setSeenStories(st => ({...st, [pid]: true})); setActiveStory({ user: p.profiles?.name, color: getLevelColor(p.profiles?.level), level: p.profiles?.level, media_url: story.media_url, emoji: getLevelIcon(p.profiles?.level), avatar_url: p.profiles?.avatar_url }); }
                           else openProfile(pid);
                         }}>
                           {hasActiveStory(p.profiles?.id)
@@ -1636,7 +1636,7 @@ function AppMain({ user, userName }) {
                     const vColor = vLevel.color;
                     return story ? (
                       <div style={{ padding: 2, borderRadius: "50%", background: vColor, cursor: "pointer", flexShrink: 0 }}
-                        onClick={() => { setSeenStories(st => ({...st, [viewingProfile.id]: true})); setActiveStory({ user: viewingProfile.name, color: vColor, level: viewingProfile.level, media_url: story.media_url, emoji: vLevel.icon }); }}>
+                        onClick={() => { setSeenStories(st => ({...st, [viewingProfile.id]: true})); setActiveStory({ user: viewingProfile.name, color: vColor, level: viewingProfile.level, media_url: story.media_url, emoji: vLevel.icon, avatar_url: viewingProfile.avatar_url }); }}>
                         <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
                           <div style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e11d48, #f97316)", fontSize: 26 }}>
                             {viewingProfile.avatar_url ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
@@ -1753,7 +1753,12 @@ function AppMain({ user, userName }) {
               </div>
             </div>
             <div style={{ padding:"0 16px 16px", display:"flex", alignItems:"center", gap:10 }}>
-              <div style={{ width:36, height:36, borderRadius:"50%", background:`${activeStory.color}33`, border:`2px solid ${activeStory.color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{activeStory.emoji}</div>
+              <div style={{ width:36, height:36, borderRadius:"50%", border:`2px solid ${activeStory.color}`, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", background:`${activeStory.color}33`, fontSize:18, flexShrink:0 }}>
+                {activeStory.avatar_url
+                  ? <img src={activeStory.avatar_url} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                  : activeStory.emoji
+                }
+              </div>
               <div style={{ flex:1 }}>
                 <p style={{ fontWeight:700, fontSize:14, color:"#fff" }}>{activeStory.user}</p>
                 <p style={{ fontSize:11, color:"rgba(255,255,255,0.5)" }}>há pouco</p>
