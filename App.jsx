@@ -309,6 +309,10 @@ function AppMain({ user, userName }) {
   const [storyPreview, setStoryPreview] = useState(null);
   const [uploadingStory, setUploadingStory] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const touchStartY = useRef(0);
+  const touchCurrentY = useRef(0);
+  const [pullDistance, setPullDistance] = useState(0);
 
   useEffect(() => {
     if (activeStory) {
@@ -806,6 +810,32 @@ function AppMain({ user, userName }) {
 
   const handleSignOut = async () => { await supabase.auth.signOut(); window.location.reload(); };
 
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    await Promise.all([loadPosts(), loadActivities(), loadStories(), loadSuggestions(), loadNotifications()]);
+    setRefreshing(false);
+    setPullDistance(0);
+  };
+
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchCurrentY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    touchCurrentY.current = e.touches[0].clientY;
+    const scrollTop = e.currentTarget.scrollTop;
+    if (scrollTop > 0) return;
+    const dist = Math.max(0, Math.min(80, touchCurrentY.current - touchStartY.current));
+    setPullDistance(dist);
+  };
+
+  const handleTouchEnd = () => {
+    if (pullDistance >= 60) handleRefresh();
+    else setPullDistance(0);
+  };
+
   const timeAgo = (dateStr) => {
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
     if (diff < 60) return "agora";
@@ -844,6 +874,7 @@ function AppMain({ user, userName }) {
         .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.96); backdrop-filter: blur(20px); border-top: 1px solid #1e1e2e; display: flex; justify-content: space-around; align-items: center; padding: 10px 4px 28px; z-index: 100; }
         .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
@@ -937,7 +968,20 @@ function AppMain({ user, userName }) {
           ))}
         </nav>
 
-        <div style={{ padding: "20px", paddingBottom: 90 }}>
+        <div
+          style={{ padding: "20px", paddingBottom: 90 }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {(pullDistance > 0 || refreshing) && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: pullDistance || 48, overflow: "hidden", transition: refreshing ? "none" : "height 0.2s", marginTop: -20, marginBottom: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 24, height: 24, border: "2px solid #e11d48", borderTopColor: "transparent", borderRadius: "50%", animation: refreshing ? "spin 0.8s linear infinite" : "none", transform: refreshing ? "none" : `rotate(${pullDistance * 3}deg)` }} />
+                {refreshing && <span style={{ fontSize: 10, color: "#555" }}>atualizando...</span>}
+              </div>
+            </div>
+          )}
 
           {/* EVENTOS */}
           {tab === "eventos" && (
