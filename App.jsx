@@ -1902,7 +1902,7 @@ function AppMain({ user, userName }) {
                         <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
                         {n.type === "follow" && " começou a te seguir"}
                         {n.type === "like" && " curtiu sua publicação"}
-                        {n.type === "comment" && " comentou na sua publicação"}
+                        {n.type === "comment" && ` comentou na sua publicação${n.comment_text ? `: "${n.comment_text}"` : ""}`}
                       </p>
                       <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
