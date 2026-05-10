@@ -2067,13 +2067,13 @@ ${url}`).then(() => alert("Link copiado!"));
                 )}
                 {notifications.map((n) => (
                   <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #1e1e2e", opacity: n.read ? 0.6 : 1 }}>
-                    <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0, overflow: "hidden" }}>
+                    <div onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }} style={{ width: 42, height: 42, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0, overflow: "hidden", cursor: "pointer" }}>
                       {n.from_user?.avatar_url
                         ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         : n.from_user?.name?.charAt(0) || "?"
                       }
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, cursor: "pointer" }} onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }}>
                       <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
                         <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
                         {n.type === "follow" && " começou a te seguir"}
