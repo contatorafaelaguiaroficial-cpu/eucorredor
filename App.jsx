@@ -310,6 +310,7 @@ function AppMain({ user, userName }) {
   const [uploadingStory, setUploadingStory] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [levelUpData, setLevelUpData] = useState(null);
   const touchStartY = useRef(0);
   const touchCurrentY = useRef(0);
   const [pullDistance, setPullDistance] = useState(0);
@@ -581,13 +582,16 @@ function AppMain({ user, userName }) {
     if (error) { alert("Erro: " + error.message); return; }
     const newKm = (profile?.total_km || 0) + parseFloat(actForm.distance);
     const newCount = (profile?.races_count || 0) + 1;
-    await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
+    const oldLevel = getLevel(profile?.races_count || 0);
+    const newLevel = getLevel(newCount);
+    await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: newLevel.name }).eq("id", user.id);
     setActForm({ distance: "", duration: "", pace: "" });
     setShowActivityForm(false);
     setShowPublish(false);
     setPublishType(null);
     await loadProfile();
     await loadActivities();
+    if (oldLevel.name !== newLevel.name) setLevelUpData(newLevel);
   };
 
   const formatRunTime = (seconds) => {
@@ -623,8 +627,11 @@ function AppMain({ user, userName }) {
       await supabase.from("activities").insert({ user_id: user.id, distance: parseFloat(gpsDistance.toFixed(2)), duration, pace });
       const newKm = (profile?.total_km || 0) + gpsDistance;
       const newCount = (profile?.races_count || 0) + 1;
-      await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
+      const oldLevelGps = getLevel(profile?.races_count || 0);
+      const newLevelGps = getLevel(newCount);
+      await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: newLevelGps.name }).eq("id", user.id);
       await loadProfile(); await loadActivities();
+      if (oldLevelGps.name !== newLevelGps.name) setLevelUpData(newLevelGps);
     }
     setHubScreen("summary");
   };
@@ -875,6 +882,7 @@ function AppMain({ user, userName }) {
         .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes bounce { 0%,100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(0.9); } }
       `}</style>
 
       <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
@@ -1867,6 +1875,28 @@ function AppMain({ user, userName }) {
             </div>
           );
         })()}
+
+        {/* Modal celebração de nível */}
+        {levelUpData && (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+            onClick={() => setLevelUpData(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "#13131a", borderRadius: 28, padding: "40px 32px", border: `2px solid ${levelUpData.color}`, width: "100%", maxWidth: 340, textAlign: "center", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -40, left: "50%", transform: "translateX(-50%)", width: 200, height: 200, background: `radial-gradient(circle, ${levelUpData.color}30 0%, transparent 70%)`, pointerEvents: "none" }} />
+              <div style={{ fontSize: 72, marginBottom: 16, animation: "bounce 0.6s ease" }}>{levelUpData.icon}</div>
+              <p style={{ fontSize: 12, color: levelUpData.color, fontWeight: 700, letterSpacing: 2, marginBottom: 8, textTransform: "uppercase" }}>Nível atingido</p>
+              <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 8 }}>{levelUpData.name}</h2>
+              <p style={{ fontSize: 14, color: "#888", lineHeight: 1.5, marginBottom: 32 }}>Você evoluiu como corredor. Continue assim e chegue ainda mais longe! 🏅</p>
+              <div style={{ display: "flex", gap: 4, justifyContent: "center", marginBottom: 28 }}>
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: i < LEVELS.indexOf(LEVELS.find(l => l.name === levelUpData.name)) + 1 ? levelUpData.color : "#1e1e2e" }} />
+                ))}
+              </div>
+              <button onClick={() => setLevelUpData(null)} style={{ width: "100%", background: levelUpData.color, color: "#fff", border: "none", borderRadius: 14, padding: "15px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                Continuar correndo 🏃
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Story viewer */}
         {activeStory && (
