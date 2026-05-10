@@ -967,7 +967,7 @@ function AppMain({ user, userName }) {
                     const myColor = level.color;
                     return (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }}
-                        onClick={() => myStory ? setActiveStory({ user: profile?.name, color: myColor, level: profile?.level, media_url: myStory.media_url, emoji: level.icon, isMine: true }) : setShowStoryUpload(true)}>
+                        onClick={() => setShowStoryUpload(true)}>
                         <div style={{ position: "relative" }}>
                           <div style={{ padding: myStory ? 2 : 0, borderRadius: "50%", background: myStory ? myColor : "transparent" }}>
                             <div style={{ padding: myStory ? 2 : 0, borderRadius: "50%", background: myStory ? "#0a0a0f" : "transparent" }}>
@@ -976,9 +976,9 @@ function AppMain({ user, userName }) {
                               </div>
                             </div>
                           </div>
-                          {!myStory && <div style={{ position: "absolute", bottom: -1, right: -1, width: 20, height: 20, background: "#e11d48", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", border: "2px solid #0a0a0f" }}>+</div>}
+                          <div style={{ position: "absolute", bottom: -1, right: -1, width: 20, height: 20, background: "#e11d48", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", border: "2px solid #0a0a0f" }}>+</div>
                         </div>
-                        <span style={{ fontSize: 10, color: myStory ? "#f0f0f0" : "#555", fontWeight: myStory ? 700 : 600 }}>{myStory ? profile?.name?.split(" ")[0] : "Seu story"}</span>
+                        <span style={{ fontSize: 10, color: myStory ? "#f0f0f0" : "#555", fontWeight: myStory ? 700 : 600 }}>Seu story</span>
                       </div>
                     );
                   })()}
@@ -1109,7 +1109,7 @@ function AppMain({ user, userName }) {
                   {posts.map((p) => (
                     <div key={p.id} className="card">
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <div style={{ cursor: "pointer" }} onClick={() => {
+                        <div style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => {
                           const pid = p.profiles?.id;
                           if (!pid) return;
                           const story = stories.find(s => s.user_id === pid);
@@ -1117,9 +1117,9 @@ function AppMain({ user, userName }) {
                           else openProfile(pid);
                         }}>
                           {hasActiveStory(p.profiles?.id)
-                            ? <div style={{ padding: 2, borderRadius: "50%", background: getLevelColor(p.profiles?.level), display: "inline-block" }}>
+                            ? <div style={{ padding: 2, borderRadius: "50%", background: getLevelColor(p.profiles?.level) }}>
                                 <div style={{ padding: 2, borderRadius: "50%", background: "#13131a" }}>
-                                  {getAvatar(p.profiles, 34)}
+                                  {getAvatar(p.profiles, 38)}
                                 </div>
                               </div>
                             : getAvatar(p.profiles, 38)
