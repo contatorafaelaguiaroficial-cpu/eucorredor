@@ -883,15 +883,6 @@ function AppMain({ user, userName }) {
     return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   };
 
-  const timeAgo = (dateStr) => {
-    const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-    if (diff < 60) return "agora";
-    if (diff < 3600) return `${Math.floor(diff / 60)}min`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
-    return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-  };
-
   const races = profile?.races_count || 0;
   const level = getLevel(races);
   const next = getNextLevel(races);
