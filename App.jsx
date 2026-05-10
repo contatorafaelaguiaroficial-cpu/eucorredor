@@ -1114,43 +1114,64 @@ function AppMain({ user, userName }) {
               {/* Feed */}
               {commFeed === "amigos" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {posts.filter(p => realFollowing[p.user_id]).length === 0 && (
-                    <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                      <p style={{ fontSize: 28, marginBottom: 10 }}>🏃</p>
-                      <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Feed de amigos</p>
-                      <p style={{ fontSize: 13, color: "#555" }}>Siga corredores para ver as publicações deles aqui.</p>
-                    </div>
-                  )}
-                  {posts.filter(p => realFollowing[p.user_id]).map((p) => (
-                    <div key={p.id} style={{ padding: "20px 20px 0" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                        <div onClick={() => openProfile(p.user_id)} style={{ cursor: "pointer" }}>{getAvatar(p.profiles, 42)}</div>
-                        <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(p.user_id)}>
-                          <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
-                          <p style={{ fontSize: 11, color: "#444" }}>{p.created_at ? timeAgo(p.created_at) : "agora"} · <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{p.profiles?.level || "Iniciante"}</span></p>
+                  {(() => {
+                    const friendPosts = posts.filter(p => realFollowing[p.user_id]).map(p => ({ ...p, _type: "post", _date: p.created_at }));
+                    const friendActivities = activities.filter(a => realFollowing[a.user_id]).map(a => ({ ...a, _type: "activity", _date: a.created_at }));
+                    const feed = [...friendPosts, ...friendActivities].sort((a, b) => new Date(b._date) - new Date(a._date));
+                    if (feed.length === 0) return (
+                      <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                        <p style={{ fontSize: 28, marginBottom: 10 }}>🏃</p>
+                        <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Feed de amigos</p>
+                        <p style={{ fontSize: 13, color: "#555" }}>Siga corredores para ver as publicações deles aqui.</p>
+                      </div>
+                    );
+                    return feed.map((item) => item._type === "activity" ? (
+                      <div key={`act-${item.id}`} style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                          {getAvatar(item.profiles, 38)}
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontWeight: 700, fontSize: 14 }}>{item.profiles?.name || "Corredor"}</p>
+                            <p style={{ fontSize: 11, color: "#888" }}>🏃 corrida · {timeAgo(item._date)}</p>
+                          </div>
+                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#e11d48" }}>{item.distance} km</p>
                         </div>
-                        {p.user_id !== user.id && (
-                          <button onClick={() => handleFollow(p.profiles?.id || p.user_id)} style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                            {realFollowing[p.profiles?.id || p.user_id] ? "Seguindo" : "Seguir"}
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {item.duration && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{item.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>tempo</p></div>}
+                          {item.pace && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{item.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>pace</p></div>}
+                          {item.distance && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{Math.round(item.distance * 65)} kcal</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>calorias</p></div>}
+                        </div>
+                      </div>
+                    ) : (
+                      <div key={`post-${item.id}`} style={{ padding: "20px 20px 0" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                        <div onClick={() => openProfile(item.user_id)} style={{ cursor: "pointer" }}>{getAvatar(item.profiles, 42)}</div>
+                        <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(item.user_id)}>
+                          <p style={{ fontWeight: 700, fontSize: 14 }}>{item.profiles?.name || "Corredor"}</p>
+                          <p style={{ fontSize: 11, color: "#888" }}>{item.created_at ? timeAgo(item.created_at) : "agora"} · <span style={{ color: getLevelColor(item.profiles?.level), fontWeight: 700 }}>{item.profiles?.level || "Iniciante"}</span></p>
+                        </div>
+                        {item.user_id !== user.id && (
+                          <button onClick={() => handleFollow(item.profiles?.id || item.user_id)} style={{ border: `1.5px solid ${realFollowing[item.profiles?.id || item.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[item.profiles?.id || item.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                            {realFollowing[item.profiles?.id || item.user_id] ? "Seguindo" : "Seguir"}
                           </button>
                         )}
                       </div>
-                      {p.photo_url && <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 16, marginBottom: 12, overflow: "hidden" }}><img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
-                      {p.text && !p.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 12 }}>{p.text}</p>}
-                      {p.text && p.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}><span style={{ fontWeight: 700, color: "#f0f0f0" }}>{(p.profiles?.name || "").split(" ")[0].toLowerCase()} </span>{p.text}</p>}
+                      {item.photo_url && <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 16, marginBottom: 12, overflow: "hidden" }}><img src={item.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
+                      {item.text && !item.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 12 }}>{item.text}</p>}
+                      {item.text && item.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}><span style={{ fontWeight: 700, color: "#f0f0f0" }}>{(item.profiles?.name || "").split(" ")[0].toLowerCase()} </span>{item.text}</p>}
                       <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 0", borderBottom: "1px solid #1e1e2e" }}>
-                        <button onClick={() => handleLikePost(p.id, p.user_id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: liked[p.id] ? "#e11d48" : "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill={liked[p.id] ? "#e11d48" : "none"} stroke={liked[p.id] ? "#e11d48" : "#555"} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                          {(p.likes || 0) + (liked[p.id] ? 1 : 0)}
+                        <button onClick={() => handleLikePost(item.id, item.user_id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: liked[item.id] ? "#e11d48" : "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill={liked[item.id] ? "#e11d48" : "none"} stroke={liked[item.id] ? "#e11d48" : "#555"} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                          {(item.likes || 0) + (liked[item.id] ? 1 : 0)}
                         </button>
-                        <button onClick={() => { setOpenComments(p.id); loadComments(p.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+                        <button onClick={() => { setOpenComments(item.id); loadComments(item.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                          {(comments[p.id] || []).length || p.comments || 0}
+                          {(comments[item.id] || []).length || item.comments || 0}
                         </button>
-                        {p.user_id === user.id && <button onClick={() => handleDeletePost(p.id)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#555" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>}
+                        {item.user_id === user.id && <button onClick={() => handleDeletePost(item.id)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#555" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>}
                       </div>
                     </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
