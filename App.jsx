@@ -154,7 +154,7 @@ function AuthScreen({ onLogin }) {
             {mode === "forgot" ? "Recuperação de senha" : mode === "reset" ? "Nova senha" : "A comunidade dos corredores"}
           </p>
         </div>
-        <div style={{ display: "flex", background: "#13131a", borderRadius: 12, padding: 4, marginBottom: 28, display: mode === "forgot" || mode === "reset" ? "none" : "flex" }}>
+        <div style={{ background: "#13131a", borderRadius: 12, padding: 4, marginBottom: 28, display: mode === "forgot" || mode === "reset" ? "none" : "flex" }}>
           {["login", "register"].map((m) => (
             <button key={m} onClick={() => { setMode(m); setError(""); }}
               style={{ flex: 1, background: mode === m ? "#1e1e2e" : "none", border: "none", borderRadius: 9, padding: "9px 0", color: mode === m ? "#fff" : "#555", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
@@ -326,7 +326,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadMyClubs(); loadAllClubs(); loadClubMembership(); requestPushPermission(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadMyClubs(); loadAllClubs(); loadClubMembership(); requestPushPermission(); loadLikedPosts(); }, []);
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
@@ -630,6 +630,15 @@ function AppMain({ user, userName }) {
   const loadActivities = async () => {
     const { data } = await supabase.from("activities").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false }).limit(20);
     setActivities(data || []);
+  };
+
+  const loadLikedPosts = async () => {
+    const { data } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
+    if (data) {
+      const map = {};
+      data.forEach(l => { map[l.post_id] = true; });
+      setLiked(map);
+    }
   };
 
   const handlePost = async () => {
