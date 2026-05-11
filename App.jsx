@@ -1,13 +1,10 @@
 // eucorredor v3.0
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
-
 const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_ID = "7cdb56e9-0525-48ac-901f-1f5ac23fe009";
-const VAPID_PUBLIC_KEY = "BCqHJrzsjtka05tMWLJEQ_sJmeCpEDw6IYrNpBaG-lz_cD_qcCF04yjuBFVhetqN6SbmWKAmjFnXy8QWABMptYo";
-
 const LEVELS = [
   { name: "Iniciante", min: 0, max: 4, color: "#6ee7b7", icon: "🌱" },
   { name: "Intermediário", min: 5, max: 14, color: "#60a5fa", icon: "🏃" },
@@ -15,7 +12,6 @@ const LEVELS = [
   { name: "Semi-profissional", min: 30, max: 59, color: "#f97316", icon: "🔥" },
   { name: "Profissional", min: 60, max: Infinity, color: "#e11d48", icon: "🏅" },
 ];
-
 function formatTime(s) {
   const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
   if (h > 0) return `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
@@ -28,12 +24,10 @@ function calcPace(km, secs) {
   const sec = Math.round((mPerKm - min) * 60);
   return min + "'" + String(sec).padStart(2,"0") + "/km";
 }
-
 const getLevel = (n) => LEVELS.find((l) => n >= l.min && n <= l.max) || LEVELS[0];
 const getNextLevel = (n) => LEVELS.find((l) => l.min > n);
 const getLevelColor = (name) => LEVELS.find((l) => l.name === name)?.color || "#888";
 const getLevelIcon = (name) => LEVELS.find((l) => l.name === name)?.icon || "🏃";
-
 const events = [
   { id: 1, name: "Maratona de Porto Alegre", date: "15 Jun", dist: "42km", local: "Porto Alegre, RS", cat: "Maratona" },
   { id: 2, name: "Corrida das Pedras", date: "22 Jun", dist: "10km", local: "Gramado, RS", cat: "10K" },
@@ -48,9 +42,7 @@ function AuthScreen({ onLogin }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes("type=recovery") || hash.includes("access_token")) {
@@ -59,14 +51,12 @@ function AuthScreen({ onLogin }) {
       });
     }
   }, []);
-
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}` },
     });
   };
-
   const handleForgot = async () => {
     setError(""); setSuccess("");
     if (!form.email.includes("@")) return setError("Informe um e-mail válido.");
@@ -78,7 +68,6 @@ function AuthScreen({ onLogin }) {
     else setSuccess("E-mail enviado! Verifique sua caixa de entrada.");
     setLoading(false);
   };
-
   const handleReset = async () => {
     setError(""); setSuccess("");
     if (form.newPassword.length < 6) return setError("A nova senha precisa ter no mínimo 6 caracteres.");
@@ -88,7 +77,6 @@ function AuthScreen({ onLogin }) {
     else { setSuccess("Senha alterada com sucesso!"); setTimeout(() => setMode("login"), 2000); }
     setLoading(false);
   };
-
   const handleSubmit = async () => {
     setError("");
     if (mode === "register" && !form.name.trim()) return setError("Informe seu nome.");
@@ -133,7 +121,6 @@ function AuthScreen({ onLogin }) {
     }
     setLoading(false);
   };
-
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0" }}>
       <style>{`
@@ -154,7 +141,7 @@ function AuthScreen({ onLogin }) {
             {mode === "forgot" ? "Recuperação de senha" : mode === "reset" ? "Nova senha" : "A comunidade dos corredores"}
           </p>
         </div>
-        <div style={{ background: "#13131a", borderRadius: 12, padding: 4, marginBottom: 28, display: mode === "forgot" || mode === "reset" ? "none" : "flex" }}>
+        <div style={{ display: "flex", background: "#13131a", borderRadius: 12, padding: 4, marginBottom: 28, display: mode === "forgot" || mode === "reset" ? "none" : "flex" }}>
           {["login", "register"].map((m) => (
             <button key={m} onClick={() => { setMode(m); setError(""); }}
               style={{ flex: 1, background: mode === m ? "#1e1e2e" : "none", border: "none", borderRadius: 9, padding: "9px 0", color: mode === m ? "#fff" : "#555", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
@@ -243,7 +230,6 @@ function AuthScreen({ onLogin }) {
     </div>
   );
 }
-
 // ─── APP MAIN ─────────────────────────────────────────────────────────────────
 function AppMain({ user, userName }) {
   const [tab, setTab] = useState("eventos");
@@ -319,11 +305,6 @@ function AppMain({ user, userName }) {
   const [showCreateClub, setShowCreateClub] = useState(false);
   const [clubForm, setClubForm] = useState({ name: "", description: "" });
   const [newClubPost, setNewClubPost] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
-  const [pullDistance, setPullDistance] = useState(0);
-  const touchStartY = useRef(0);
-  const touchCurrentY = useRef(0);
-
   useEffect(() => {
     if (activeStory) {
       setStoryProgress(0);
@@ -339,9 +320,7 @@ function AppMain({ user, userName }) {
     }
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
-
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadMyClubs(); loadAllClubs(); loadClubMembership(); loadLikedPosts(); }, []);
-
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); }, []);
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
       .select("*, profiles(id, name, avatar_url, level, handle)")
@@ -349,7 +328,6 @@ function AppMain({ user, userName }) {
       .order("created_at", { ascending: false });
     setStories(data || []);
   };
-
   const loadSuggestions = async () => {
     const { data: followingData } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
     const followingIds = (followingData || []).map(f => f.following_id);
@@ -361,134 +339,6 @@ function AppMain({ user, userName }) {
       .limit(8);
     setSuggestions(data || []);
   };
-
-  const loadMyClubs = async () => {
-    const { data } = await supabase.from("club_members")
-      .select("*, clubs(id, name, description, avatar_url, owner_id)")
-      .eq("user_id", user.id).eq("status", "approved");
-    setMyClubs((data || []).map(m => m.clubs).filter(Boolean));
-  };
-
-  const loadAllClubs = async () => {
-    const { data } = await supabase.from("clubs").select("*").order("created_at", { ascending: false });
-    setAllClubs(data || []);
-  };
-
-  const loadClubMembership = async () => {
-    const { data } = await supabase.from("club_members").select("club_id, status").eq("user_id", user.id);
-    const map = {};
-    (data || []).forEach(m => { map[m.club_id] = m.status; });
-    setClubMembership(map);
-  };
-
-  const handleCreateClub = async () => {
-    if (!clubForm.name.trim()) return alert("Informe o nome do clube.");
-    const { data, error } = await supabase.from("clubs").insert({ name: clubForm.name, description: clubForm.description, owner_id: user.id }).select().single();
-    if (error) { alert("Erro: " + error.message); return; }
-    await supabase.from("club_members").insert({ club_id: data.id, user_id: user.id, role: "owner", status: "approved" });
-    setClubForm({ name: "", description: "" });
-    setShowCreateClub(false);
-    await loadMyClubs(); await loadAllClubs(); await loadClubMembership();
-  };
-
-  const handleRequestJoin = async (clubId) => {
-    const { error } = await supabase.from("club_members").insert({ club_id: clubId, user_id: user.id, status: "pending" });
-    if (!error) setClubMembership(m => ({ ...m, [clubId]: "pending" }));
-  };
-
-  const handleCancelRequest = async (clubId) => {
-    await supabase.from("club_members").delete().eq("club_id", clubId).eq("user_id", user.id);
-    setClubMembership(m => ({ ...m, [clubId]: null }));
-  };
-
-  const handleLeaveClub = async (clubId) => {
-    if (!window.confirm("Sair do clube?")) return;
-    await supabase.from("club_members").delete().eq("club_id", clubId).eq("user_id", user.id);
-    setClubMembership(m => ({ ...m, [clubId]: null }));
-    await loadMyClubs();
-    setActiveClub(null);
-  };
-
-  const openClub = async (club) => {
-    setActiveClub(club);
-    const { data: posts } = await supabase.from("club_posts")
-      .select("*, profiles(id, name, avatar_url, level)")
-      .eq("club_id", club.id).order("created_at", { ascending: false });
-    setClubPosts(posts || []);
-    const { data: members } = await supabase.from("club_members")
-      .select("*, profiles(id, name, avatar_url, level, handle)")
-      .eq("club_id", club.id).eq("status", "approved");
-    setClubMembers(members || []);
-    if (club.owner_id === user.id) {
-      const { data: pending } = await supabase.from("club_members")
-        .select("*, profiles(id, name, avatar_url, level, handle)")
-        .eq("club_id", club.id).eq("status", "pending");
-      setPendingRequests(pending || []);
-    }
-  };
-
-  const handleApproveMember = async (memberId) => {
-    await supabase.from("club_members").update({ status: "approved" }).eq("id", memberId);
-    await openClub(activeClub);
-  };
-
-  const handleRejectMember = async (memberId) => {
-    await supabase.from("club_members").delete().eq("id", memberId);
-    await openClub(activeClub);
-  };
-
-  const handleClubPost = async () => {
-    if (!newClubPost.trim() || !activeClub) return;
-    await supabase.from("club_posts").insert({ club_id: activeClub.id, user_id: user.id, text: newClubPost });
-    setNewClubPost("");
-    await openClub(activeClub);
-  };
-
-  const registerPush = async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const existing = await reg.pushManager.getSubscription();
-      const sub = existing || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY });
-      const { endpoint, keys } = sub.toJSON();
-      await supabase.from("push_subscriptions").upsert({ user_id: user.id, endpoint, p256dh: keys.p256dh, auth: keys.auth }, { onConflict: "user_id,endpoint" });
-    } catch (e) { console.log("Push registration failed:", e.message); }
-  };
-
-  const requestPushPermission = async () => {
-    if (!("Notification" in window)) return;
-    if (Notification.permission === "granted") { await registerPush(); return; }
-    if (Notification.permission === "denied") return;
-    const perm = await Notification.requestPermission();
-    if (perm === "granted") await registerPush();
-  };
-
-  const handleRefresh = async () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    await Promise.all([loadPosts(), loadActivities(), loadStories(), loadSuggestions(), loadNotifications()]);
-    setRefreshing(false);
-    setPullDistance(0);
-  };
-
-  const handleTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY;
-    touchCurrentY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchMove = (e) => {
-    touchCurrentY.current = e.touches[0].clientY;
-    const scrollTop = e.currentTarget.scrollTop;
-    if (scrollTop > 0) return;
-    const dist = Math.max(0, Math.min(80, touchCurrentY.current - touchStartY.current));
-    setPullDistance(dist);
-  };
-
-  const handleTouchEnd = () => {
-    if (pullDistance >= 60) handleRefresh();
-    else setPullDistance(0);
-  };
-
   const handlePostStory = async () => {
     if (!storyFile) return;
     setUploadingStory(true);
@@ -504,7 +354,6 @@ function AppMain({ user, userName }) {
     setStoryPreview(null);
     setUploadingStory(false);
   };
-
   const loadNotifications = async () => {
     const { data } = await supabase.from("notifications")
       .select("*, from_user:profiles!notifications_from_user_id_fkey(name, avatar_url, handle)")
@@ -513,12 +362,10 @@ function AppMain({ user, userName }) {
       .limit(30);
     setNotifications(data || []);
   };
-
   const markAllRead = async () => {
     await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
     await loadNotifications();
   };
-
   const handleFollow = async (targetId) => {
     const isFollowing = realFollowing[targetId];
     if (isFollowing) {
@@ -533,7 +380,6 @@ function AppMain({ user, userName }) {
     await loadNotifications();
     await loadSuggestions();
   };
-
   const handleLikePost = async (postId, postOwnerId) => {
     const isLiked = liked[postId];
     setLiked(l => ({ ...l, [postId]: !isLiked }));
@@ -546,7 +392,6 @@ function AppMain({ user, userName }) {
       await supabase.from("posts").update({ likes: Math.max((posts.find(p => p.id === postId)?.likes || 1) - 1, 0) }).eq("id", postId);
     }
   };
-
   const openProfile = async (profileId) => {
     if (profileId === user.id) return;
     const { data: p } = await supabase.from("profiles").select("*").eq("id", profileId).single();
@@ -560,7 +405,6 @@ function AppMain({ user, userName }) {
     setViewActivities(acts || []);
     setViewTab("fotos");
   };
-
   const loadFollowList = async (type) => {
     setShowFollowModal(type);
     setFollowList([]);
@@ -576,7 +420,6 @@ function AppMain({ user, userName }) {
       setFollowList((data || []).map(d => d.profiles).filter(Boolean));
     }
   };
-
   const loadRealFollowingList = async () => {
     const { data } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
     if (data) {
@@ -585,7 +428,6 @@ function AppMain({ user, userName }) {
       setRealFollowing(map);
     }
   };
-
   const handleOnboarding = async () => {
     if (!onboardingForm.terms) return alert("Você precisa aceitar os Termos de Uso e a Política de Privacidade.");
     if (!onboardingForm.name.trim()) return alert("Informe seu nome.");
@@ -596,12 +438,10 @@ function AppMain({ user, userName }) {
     await loadProfile();
     setShowOnboarding(false);
   };
-
   const loadEvents = async () => {
     const { data } = await supabase.from("events").select("*").order("created_at", { ascending: true });
     setDbEvents(data || []);
   };
-
   const handleSaveEvent = async () => {
     if (!eventForm.name || !eventForm.date || !eventForm.distance) return alert("Preencha nome, data e distância.");
     setSavingEvent(true);
@@ -610,20 +450,17 @@ function AppMain({ user, userName }) {
     await loadEvents();
     setSavingEvent(false);
   };
-
   const handleDeleteEvent = async (id) => {
     if (!window.confirm("Excluir este evento?")) return;
     await supabase.from("events").delete().eq("id", id);
     await loadEvents();
   };
-
   const loadFollowCounts = async () => {
     const { count: fc } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", user.id);
     const { count: ing } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", user.id);
     setFollowersCount(fc || 0);
     setFollowingCount(ing || 0);
   };
-
   const loadProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     setProfile(data);
@@ -635,26 +472,14 @@ function AppMain({ user, userName }) {
       setShowOnboarding(true);
     }
   };
-
   const loadPosts = async () => {
     const { data } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").order("created_at", { ascending: false }).limit(20);
     setPosts(data || []);
   };
-
   const loadActivities = async () => {
     const { data } = await supabase.from("activities").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false }).limit(20);
     setActivities(data || []);
   };
-
-  const loadLikedPosts = async () => {
-    const { data } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
-    if (data) {
-      const map = {};
-      data.forEach(l => { map[l.post_id] = true; });
-      setLiked(map);
-    }
-  };
-
   const handlePost = async () => {
     if (!newPost.trim()) return;
     setLoadingPost(true);
@@ -663,7 +488,6 @@ function AppMain({ user, userName }) {
     else { setNewPost(""); await loadPosts(); }
     setLoadingPost(false);
   };
-
   const handleActivity = async () => {
     if (!actForm.distance) return;
     const { error } = await supabase.from("activities").insert({ user_id: user.id, distance: parseFloat(actForm.distance), duration: actForm.duration, pace: actForm.pace });
@@ -678,13 +502,11 @@ function AppMain({ user, userName }) {
     await loadProfile();
     await loadActivities();
   };
-
   const formatRunTime = (seconds) => {
     const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
     if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
-
   const formatGpsPace = (km, secs) => {
     if (!km || km < 0.05 || secs < 10) return "--'--";
     const minPerKm = (secs / 60) / km;
@@ -695,13 +517,11 @@ function AppMain({ user, userName }) {
     const adjSec = sec >= 60 ? 0 : sec;
     return adjMin + "min" + String(adjSec).padStart(2, "0") + "s/km";
   };
-
   const startGpsRun = () => {
     setGpsElapsed(0); setGpsDistance(0); setGpsRoute([{ x: 195, y: 300 }]);
     setGpsPaused(false); setGpsHR(142); setGpsLocated(false); setGpsError("");
     setHubScreen("tracking");
   };
-
   const finishGpsRun = async () => {
     clearInterval(gpsIntervalRef.current);
     if (leafletMapRef.current?._watchId !== undefined) navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
@@ -717,12 +537,10 @@ function AppMain({ user, userName }) {
     }
     setHubScreen("summary");
   };
-
   const leafletMapRef = useRef(null);
   const leafletMarkerRef = useRef(null);
   const leafletPolylineRef = useRef(null);
   const leafletCoordsRef = useRef([]);
-
   useEffect(() => {
     if (hubScreen !== "tracking") return;
     const loadLeaflet = async () => {
@@ -779,7 +597,6 @@ function AppMain({ user, userName }) {
       }
     };
   }, [hubScreen]);
-
   useEffect(() => {
     if (hubScreen === "tracking") {
       if (gpsPaused) clearInterval(gpsIntervalRef.current);
@@ -791,7 +608,6 @@ function AppMain({ user, userName }) {
       }
     }
   }, [gpsPaused]);
-
   const handleShare = (type = "perfil", data = {}) => {
     const handle = profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "");
     const url = `https://eucorredor.com.br/@${handle}`;
@@ -808,24 +624,20 @@ function AppMain({ user, userName }) {
       else prompt("Copie o link:", full);
     }
   };
-
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Excluir esta publicação?")) return;
     await supabase.from("posts").delete().eq("id", postId);
     await loadPosts();
   };
-
   const handleDeleteActivity = async (actId) => {
     if (!window.confirm("Excluir esta atividade?")) return;
     await supabase.from("activities").delete().eq("id", actId);
     await loadActivities();
   };
-
   const loadComments = async (postId) => {
     const { data } = await supabase.from("comments").select("*, profiles(name, avatar_url, level)").eq("post_id", postId).order("created_at", { ascending: true });
     setComments(c => ({ ...c, [postId]: data || [] }));
   };
-
   const handleComment = async (postId) => {
     if (!newComment.trim()) return;
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
@@ -835,27 +647,23 @@ function AppMain({ user, userName }) {
     await loadComments(postId);
     await loadNotifications();
   };
-
   const handleSearch = async (query) => {
     setSearchQuery(query);
     if (!query.trim()) { setSearchResults([]); return; }
     const { data } = await supabase.from("profiles").select("id, name, handle, level, avatar_url, races_count").or(`name.ilike.%${query}%,handle.ilike.%${query}%`).neq("id", user.id).limit(10);
     setSearchResults(data || []);
   };
-
   const handleEditProfile = async () => {
     const handle = editForm.handle?.toLowerCase().replace(/[^a-z0-9_]/g, "") || (editForm.name || "").toLowerCase().replace(/\s/g, "");
     await supabase.from("profiles").update({ name: editForm.name, bio: editForm.bio, handle }).eq("id", user.id);
     await loadProfile();
     setShowEditProfile(false);
   };
-
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setAvatarPreview({ file, previewUrl: URL.createObjectURL(file) });
   };
-
   const confirmAvatarUpload = async () => {
     if (!avatarPreview) return;
     setUploadingAvatar(true);
@@ -870,7 +678,6 @@ function AppMain({ user, userName }) {
     setUploadingAvatar(false);
     setAvatarPreview(null);
   };
-
   const RouteMap = ({ route }) => {
     if (!route || route.length < 2) return null;
     const xs = route.map(p => p[0]), ys = route.map(p => p[1]);
@@ -894,9 +701,7 @@ function AppMain({ user, userName }) {
       </div>
     );
   };
-
   const handleSignOut = async () => { await supabase.auth.signOut(); window.location.reload(); };
-
   const timeAgo = (dateStr) => {
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
     if (diff < 60) return "agora";
@@ -905,19 +710,15 @@ function AppMain({ user, userName }) {
     if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
     return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   };
-
   const races = profile?.races_count || 0;
   const level = getLevel(races);
   const next = getNextLevel(races);
   const progress = next ? ((races - level.min) / (next.min - level.min)) * 100 : 100;
-
   const hasActiveStory = (profileId) => stories.some(s => s.user_id === profileId);
-
   const getAvatar = (p, size = 38) => {
     if (p?.avatar_url) return <img src={p.avatar_url} alt="av" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: `2px solid ${getLevelColor(p.level)}`, flexShrink: 0 }} />;
     return <div style={{ width: size, height: size, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.3, fontWeight: 700, color: "#fff", border: `2px solid ${getLevelColor(p?.level)}`, flexShrink: 0 }}>{p?.name?.charAt(0) || "?"}</div>;
   };
-
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", display: "flex", justifyContent: "center" }}>
       <style>{`
@@ -935,12 +736,8 @@ function AppMain({ user, userName }) {
         .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.96); backdrop-filter: blur(20px); border-top: 1px solid #1e1e2e; display: flex; justify-content: space-around; align-items: center; padding: 10px 4px 28px; z-index: 100; }
         .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes bounce { 0%,100% { transform: scale(1); } 30% { transform: scale(1.3); } 60% { transform: scale(0.9); } }
       `}</style>
-
       <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
-
         {/* Modal onboarding */}
         {showOnboarding && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 500, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28 }}>
@@ -978,7 +775,6 @@ function AppMain({ user, userName }) {
             </div>
           </div>
         )}
-
         {/* Header */}
         <div style={{ padding: "16px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 50 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -1009,7 +805,6 @@ function AppMain({ user, userName }) {
             </div>
           </div>
         </div>
-
         {/* Bottom nav */}
         <nav className="bnav">
           {[
@@ -1029,10 +824,7 @@ function AppMain({ user, userName }) {
             </button>
           ))}
         </nav>
-
         <div style={{ padding: "20px", paddingBottom: 90 }}>
-
-          {/* EVENTOS */}
           {/* EVENTOS */}
           {tab === "eventos" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1074,7 +866,6 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               ))}
-
               {/* Modal admin de eventos */}
               {showAdminEvents && user.id === ADMIN_ID && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
@@ -1121,7 +912,6 @@ function AppMain({ user, userName }) {
               )}
             </div>
           )}
-
           {/* COMUNIDADE */}
           {tab === "comunidade" && (
             <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1134,7 +924,6 @@ function AppMain({ user, userName }) {
                   </button>
                 ))}
               </div>
-
               {/* Stories */}
               <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
                 <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 4px" }}>
@@ -1159,7 +948,6 @@ function AppMain({ user, userName }) {
                       </div>
                     );
                   })()}
-
                   {/* Stories reais do banco - agrupados por usuario */}
                   {Object.values(stories.filter(s => s.user_id !== user.id).reduce((acc, s) => {
                     if (!acc[s.user_id]) acc[s.user_id] = s;
@@ -1185,7 +973,6 @@ function AppMain({ user, userName }) {
                   })}
                 </div>
               </div>
-
               {/* Sugestões de quem seguir */}
               {suggestions.length > 0 && (
                 <div style={{ marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
@@ -1211,7 +998,6 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               )}
-
               {/* Modal de comentários */}
               {openComments && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
@@ -1242,7 +1028,6 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               )}
-
               {/* Campo de busca */}
               {showSearch && (
                 <div style={{ marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
@@ -1264,10 +1049,9 @@ function AppMain({ user, userName }) {
                   {searchQuery.length > 0 && searchResults.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "16px 0" }}>Nenhum corredor encontrado.</p>}
                 </div>
               )}
-
               {/* Feed */}
-              {commFeed !== "clube" && (commFeed === "amigos" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {commFeed === "amigos" ? (
+                <div style={{ display: commFeed === "clube" ? "none" : "flex", flexDirection: "column", gap: 12 }}>
                   {(() => {
                     const friendPosts = posts.filter(p => realFollowing[p.user_id]).map(p => ({ ...p, _type: "post", _date: p.created_at }));
                     const friendActivities = activities.filter(a => realFollowing[a.user_id]).map(a => ({ ...a, _type: "activity", _date: a.created_at }));
@@ -1378,11 +1162,11 @@ function AppMain({ user, userName }) {
                     </div>
                   ))}
                 </div>
-              ))}
-
+              )}
               {/* CLUBE */}
               {commFeed === "clube" && (
                 <div>
+                  {/* Club detail view */}
                   {activeClub ? (
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -1392,6 +1176,7 @@ function AppMain({ user, userName }) {
                           <button onClick={() => handleLeaveClub(activeClub.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", fontSize: 11, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
                         )}
                       </div>
+                      {/* Solicitações pendentes (só dono vê) */}
                       {activeClub.owner_id === user.id && pendingRequests.length > 0 && (
                         <div style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #e11d4833", marginBottom: 14 }}>
                           <p style={{ fontSize: 12, fontWeight: 700, color: "#e11d48", marginBottom: 10 }}>Solicitações pendentes ({pendingRequests.length})</p>
@@ -1410,14 +1195,17 @@ function AppMain({ user, userName }) {
                           ))}
                         </div>
                       )}
+                      {/* Info do clube */}
                       {activeClub.description && <p style={{ fontSize: 13, color: "#666", marginBottom: 14, lineHeight: 1.5 }}>{activeClub.description}</p>}
                       <p style={{ fontSize: 11, color: "#555", marginBottom: 14 }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
+                      {/* Campo de post no clube */}
                       {clubMembership[activeClub.id] === "approved" && (
                         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
                           <input className="tinput" placeholder="Compartilhe algo com o clube..." value={newClubPost} onChange={(e) => setNewClubPost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleClubPost()} style={{ flex: 1 }} />
                           <button onClick={handleClubPost} className="jbtn">↑</button>
                         </div>
                       )}
+                      {/* Posts do clube */}
                       {clubPosts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma publicação ainda.</p>}
                       {clubPosts.map(p => (
                         <div key={p.id} className="card" style={{ marginBottom: 10 }}>
@@ -1434,12 +1222,13 @@ function AppMain({ user, userName }) {
                     </div>
                   ) : (
                     <div>
+                      {/* Meus clubes */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                         <p style={{ fontSize: 13, fontWeight: 700, color: "#888" }}>Meus clubes</p>
                         <button onClick={() => setShowCreateClub(true)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ Criar clube</button>
                       </div>
                       {myClubs.length === 0 && (
-                        <div style={{ textAlign: "center", padding: "24px 0", marginBottom: 16 }}>
+                        <div style={{ textAlign: "center", padding: "24px 0", marginBottom: 20 }}>
                           <p style={{ fontSize: 13, color: "#555" }}>Você ainda não faz parte de nenhum clube.</p>
                         </div>
                       )}
@@ -1455,6 +1244,7 @@ function AppMain({ user, userName }) {
                           </div>
                         </div>
                       ))}
+                      {/* Descobrir clubes */}
                       <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginBottom: 12, marginTop: 8 }}>Descobrir clubes</p>
                       {allClubs.filter(c => clubMembership[c.id] !== "approved").map(c => (
                         <div key={c.id} style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #1e1e2e", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
@@ -1479,7 +1269,6 @@ function AppMain({ user, userName }) {
                   )}
                 </div>
               )}
-
               {/* Modal publicar */}
               {showPublish && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
@@ -1554,7 +1343,6 @@ function AppMain({ user, userName }) {
               )}
             </div>
           )}
-
           {/* HUB */}
           {tab === "hub" && (
             <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1607,7 +1395,6 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               )}
-
               {hubScreen === "summary" && (
                 <div style={{ paddingBottom: 40 }}>
                   <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -1634,7 +1421,6 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               )}
-
               {hubScreen === "hub" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 20, border: "1px solid #e11d4833", position: "relative", overflow: "hidden" }}>
@@ -1676,7 +1462,6 @@ function AppMain({ user, userName }) {
               )}
             </div>
           )}
-
           {/* PERFIL */}
           {tab === "perfil" && (
             <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1756,7 +1541,6 @@ function AppMain({ user, userName }) {
                   <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
                 </div>
               </div>
-
               {avatarPreview && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
                   <p style={{ fontWeight: 700, fontSize: 16 }}>Nova foto de perfil</p>
@@ -1767,7 +1551,6 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               )}
-
               {showEditProfile && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
                   <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 24px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
@@ -1804,7 +1587,6 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               )}
-
               <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 0, zIndex: 10 }}>
                 {[{ id: "fotos", label: "Fotos" }, { id: "posts_p", label: "Posts" }, { id: "ativ_p", label: "Atividades" }, { id: "niveis_p", label: "Níveis" }].map((t) => (
                   <button key={t.id} onClick={() => setProfileTab(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: profileTab === t.id ? "#e11d48" : "#555" }}>
@@ -1813,7 +1595,6 @@ function AppMain({ user, userName }) {
                   </button>
                 ))}
               </div>
-
               {profileTab === "fotos" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
                   {posts.filter(p => p.user_id === user.id && p.photo_url).map((p) => (
@@ -1889,7 +1670,6 @@ function AppMain({ user, userName }) {
           )}
         </div>
       </div>
-
         {/* Perfil de outro usuário */}
         {viewingProfile && (() => {
           const vLevel = getLevel(viewingProfile.races_count || 0);
@@ -2017,7 +1797,6 @@ function AppMain({ user, userName }) {
             </div>
           );
         })()}
-
         {/* Modal criar clube */}
         {showCreateClub && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
@@ -2035,23 +1814,6 @@ function AppMain({ user, userName }) {
             </div>
           </div>
         )}
-
-        {/* Modal celebração de nível */}
-        {levelUpData && (
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
-            onClick={() => setLevelUpData(null)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "#13131a", borderRadius: 28, padding: "40px 32px", border: `2px solid ${levelUpData.color}`, width: "100%", maxWidth: 340, textAlign: "center", position: "relative", overflow: "hidden" }}>
-              <div style={{ fontSize: 72, marginBottom: 16, animation: "bounce 0.6s ease" }}>{levelUpData.icon}</div>
-              <p style={{ fontSize: 12, color: levelUpData.color, fontWeight: 700, letterSpacing: 2, marginBottom: 8, textTransform: "uppercase" }}>Nível atingido</p>
-              <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 8 }}>{levelUpData.name}</h2>
-              <p style={{ fontSize: 14, color: "#888", lineHeight: 1.5, marginBottom: 32 }}>Você evoluiu como corredor. Continue assim e chegue ainda mais longe!</p>
-              <button onClick={() => setLevelUpData(null)} style={{ width: "100%", background: levelUpData.color, color: "#fff", border: "none", borderRadius: 14, padding: "15px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                Continuar correndo
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Story viewer */}
         {activeStory && (
           <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"#000", zIndex:500, display:"flex", flexDirection:"column", maxWidth:390, margin:"0 auto" }}
@@ -2085,7 +1847,6 @@ function AppMain({ user, userName }) {
             </div>
           </div>
         )}
-
         {/* Modal story upload */}
         {showStoryUpload && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
@@ -2109,7 +1870,6 @@ function AppMain({ user, userName }) {
             </div>
           </div>
         )}
-
         {/* Modal notificações */}
         {showNotifications && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
@@ -2154,9 +1914,7 @@ function AppMain({ user, userName }) {
     </div>
   );
 }
-
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
-
 function PublicProfilePage({ handle }) {
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -2165,13 +1923,11 @@ function PublicProfilePage({ handle }) {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
-
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setCurrentUser(session.user);
     });
   }, []);
-
   useEffect(() => {
     const checkFollow = async () => {
       if (!currentUser || !profile) return;
@@ -2182,7 +1938,6 @@ function PublicProfilePage({ handle }) {
     };
     checkFollow();
   }, [currentUser, profile]);
-
   const handleFollowToggle = async () => {
     if (!currentUser) { window.location.href = "/"; return; }
     if (isFollowing) {
@@ -2194,7 +1949,6 @@ function PublicProfilePage({ handle }) {
       setIsFollowing(true);
     }
   };
-
   useEffect(() => {
     const load = async () => {
       const { data: p } = await supabase.from("profiles").select("*").eq("handle", handle).single();
@@ -2208,9 +1962,7 @@ function PublicProfilePage({ handle }) {
     };
     load();
   }, [handle]);
-
   if (loading) return <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "sans-serif" }}>Carregando...</p></div>;
-
   if (!profile) return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", color: "#f0f0f0" }}>
       <p style={{ fontSize: 32, marginBottom: 16 }}>🏃</p>
@@ -2219,11 +1971,9 @@ function PublicProfilePage({ handle }) {
       <a href="/" style={{ background: "#e11d48", color: "#fff", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>Ir para o app</a>
     </div>
   );
-
   const vLevel = getLevel(profile.races_count || 0);
   const vNext = getNextLevel(profile.races_count || 0);
   const vProgress = vNext ? ((profile.races_count - vLevel.min) / (vNext.min - vLevel.min)) * 100 : 100;
-
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", display: "flex", justifyContent: "center" }}>
       <style>{`
@@ -2321,18 +2071,15 @@ function PublicProfilePage({ handle }) {
     </div>
   );
 }
-
 export default function App() {
   const [session, setSession] = useState(null);
   const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(true);
   const [publicHandle, setPublicHandle] = useState(null);
-
   useEffect(() => {
     const path = window.location.pathname.replace("/", "").replace("@", "").toLowerCase();
     const reserved = ["privacidade", "termos", "privacy", "terms", "sobre", "contato", "favicon.ico"];
     if (path && path !== "" && !reserved.includes(path)) setPublicHandle(path);
-
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const { data: profile } = await supabase.from("profiles").select("name").eq("id", session.user.id).single();
@@ -2343,9 +2090,7 @@ export default function App() {
     });
     supabase.auth.onAuthStateChange((_event, session) => { setSession(session); });
   }, []);
-
   if (loading) return <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "sans-serif" }}>Carregando...</p></div>;
-
   if (publicHandle) return <PublicProfilePage handle={publicHandle} />;
   if (!session) return <AuthScreen onLogin={(user, name) => { setSession({ user }); setUserName(name); }} />;
   return <AppMain user={session.user} userName={userName} />;
