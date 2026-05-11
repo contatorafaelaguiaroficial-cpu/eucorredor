@@ -1334,6 +1334,16 @@ function AppMain({ user, userName }) {
                           <button onClick={() => handleLeaveClub(activeClub.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", fontSize: 11, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
                         )}
                       </div>
+                      <div style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 16, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0 }}>
+                          {activeClub.avatar_url ? <img src={activeClub.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{activeClub.name}</p>
+                          {activeClub.description && <p style={{ fontSize: 13, color: "#666", lineHeight: 1.5 }}>{activeClub.description}</p>}
+                          <p style={{ fontSize: 11, color: "#555", marginTop: 6 }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
+                        </div>
+                      </div>
                       {activeClub.owner_id === user.id && pendingRequests.length > 0 && (
                         <div style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #e11d4833", marginBottom: 14 }}>
                           <p style={{ fontSize: 12, fontWeight: 700, color: "#e11d48", marginBottom: 10 }}>Solicitações pendentes ({pendingRequests.length})</p>
@@ -1352,8 +1362,7 @@ function AppMain({ user, userName }) {
                           ))}
                         </div>
                       )}
-                      {activeClub.description && <p style={{ fontSize: 13, color: "#666", marginBottom: 14, lineHeight: 1.5 }}>{activeClub.description}</p>}
-                      <p style={{ fontSize: 11, color: "#555", marginBottom: 14 }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
+
                       {clubMembership[activeClub.id] === "approved" && (
                         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
                           <input className="tinput" placeholder="Compartilhe algo com o clube..." value={newClubPost} onChange={(e) => setNewClubPost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleClubPost()} style={{ flex: 1 }} />
