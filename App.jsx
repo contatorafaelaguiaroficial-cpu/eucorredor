@@ -317,6 +317,8 @@ function AppMain({ user, userName }) {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [showCreateClub, setShowCreateClub] = useState(false);
   const [clubForm, setClubForm] = useState({ name: "", description: "" });
+  const [clubAvatarFile, setClubAvatarFile] = useState(null);
+  const [clubAvatarPreview, setClubAvatarPreview] = useState(null);
   const [newClubPost, setNewClubPost] = useState("");
 
   useEffect(() => {
@@ -373,10 +375,22 @@ function AppMain({ user, userName }) {
   };
   const handleCreateClub = async () => {
     if (!clubForm.name.trim()) return alert("Informe o nome do clube.");
-    const { data, error } = await supabase.from("clubs").insert({ name: clubForm.name, description: clubForm.description, owner_id: user.id }).select().single();
+    let avatar_url = null;
+    if (clubAvatarFile) {
+      const ext = clubAvatarFile.name.split(".").pop();
+      const path = `clubs/${user.id}_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("avatars").upload(path, clubAvatarFile, { upsert: true });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+        avatar_url = urlData.publicUrl;
+      }
+    }
+    const { data, error } = await supabase.from("clubs").insert({ name: clubForm.name, description: clubForm.description, owner_id: user.id, avatar_url }).select().single();
     if (error) { alert("Erro: " + error.message); return; }
     await supabase.from("club_members").insert({ club_id: data.id, user_id: user.id, role: "owner", status: "approved" });
     setClubForm({ name: "", description: "" });
+    setClubAvatarFile(null);
+    setClubAvatarPreview(null);
     setShowCreateClub(false);
     await loadMyClubs(); await loadAllClubs(); await loadClubMembership();
   };
@@ -1354,7 +1368,9 @@ function AppMain({ user, userName }) {
                       {myClubs.length === 0 && <div style={{ textAlign: "center", padding: "24px 0", marginBottom: 16 }}><p style={{ fontSize: 13, color: "#555" }}>Você ainda não faz parte de nenhum clube.</p></div>}
                       {myClubs.map(c => (
                         <div key={c.id} onClick={() => openClub(c)} style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #1e1e2e", marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🏃</div>
+                          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, overflow: "hidden" }}>
+                            {c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
+                          </div>
                           <div style={{ flex: 1 }}>
                             <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
                             {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}</p>}
@@ -1387,9 +1403,19 @@ function AppMain({ user, userName }) {
                   <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                       <p style={{ fontWeight: 700, fontSize: 16 }}>Criar clube</p>
-                      <button onClick={() => setShowCreateClub(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                      <button onClick={() => { setShowCreateClub(false); setClubAvatarFile(null); setClubAvatarPreview(null); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                      <label htmlFor="club-avatar" style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 16, background: clubAvatarPreview ? "transparent" : "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0, border: "2px dashed #1e1e2e" }}>
+                          {clubAvatarPreview ? <img src={clubAvatarPreview} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Foto do clube</p>
+                          <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>Toque para selecionar</p>
+                        </div>
+                      </label>
+                      <input id="club-avatar" type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setClubAvatarFile(f); setClubAvatarPreview(URL.createObjectURL(f)); } }} />
                       <input className="tinput" placeholder="Nome do clube" value={clubForm.name} onChange={(e) => setClubForm(f => ({ ...f, name: e.target.value }))} />
                       <textarea className="tinput" rows={3} placeholder="Descrição (opcional)" value={clubForm.description} onChange={(e) => setClubForm(f => ({ ...f, description: e.target.value }))} />
                     </div>
