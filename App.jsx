@@ -378,11 +378,13 @@ function AppMain({ user, userName }) {
     let avatar_url = null;
     if (clubAvatarFile) {
       const ext = clubAvatarFile.name.split(".").pop();
-      const path = `clubs/${user.id}_${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("avatars").upload(path, clubAvatarFile, { upsert: true });
+      const path = `${user.id}/club_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("posts").upload(path, clubAvatarFile);
       if (!upErr) {
-        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+        const { data: urlData } = supabase.storage.from("posts").getPublicUrl(path);
         avatar_url = urlData.publicUrl;
+      } else {
+        console.error("Club avatar upload error:", upErr.message);
       }
     }
     const { data, error } = await supabase.from("clubs").insert({ name: clubForm.name, description: clubForm.description, owner_id: user.id, avatar_url }).select().single();
