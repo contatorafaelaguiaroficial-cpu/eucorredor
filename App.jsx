@@ -340,7 +340,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadMyClubs(); loadAllClubs(); loadClubMembership(); requestPushPermission(); loadLikedPosts(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadMyClubs(); loadAllClubs(); loadClubMembership(); loadLikedPosts(); }, []);
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
@@ -1030,21 +1030,9 @@ function AppMain({ user, userName }) {
           ))}
         </nav>
 
-        <div
-          style={{ padding: "20px", paddingBottom: 90 }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {(pullDistance > 0 || refreshing) && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: pullDistance || 48, overflow: "hidden", transition: refreshing ? "none" : "height 0.2s", marginTop: -20, marginBottom: 8 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                <div style={{ width: 24, height: 24, border: "2px solid #e11d48", borderTopColor: "transparent", borderRadius: "50%", animation: refreshing ? "spin 0.8s linear infinite" : "none", transform: refreshing ? "none" : `rotate(${pullDistance * 3}deg)` }} />
-                {refreshing && <span style={{ fontSize: 10, color: "#555" }}>atualizando...</span>}
-              </div>
-            </div>
-          )}
+        <div style={{ padding: "20px", paddingBottom: 90 }}>
 
+          {/* EVENTOS */}
           {/* EVENTOS */}
           {tab === "eventos" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
