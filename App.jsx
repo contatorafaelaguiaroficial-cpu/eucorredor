@@ -361,11 +361,21 @@ function AppMain({ user, userName }) {
 
   const loadMyClubs = async () => {
     const { data } = await supabase.from("club_members").select("*, clubs(id, name, description, avatar_url, owner_id)").eq("user_id", user.id).eq("status", "approved");
-    setMyClubs((data || []).map(m => m.clubs).filter(Boolean));
+    const clubs = (data || []).map(m => m.clubs).filter(Boolean);
+    const withCounts = await Promise.all(clubs.map(async c => {
+      const { count } = await supabase.from("club_members").select("*", { count: "exact", head: true }).eq("club_id", c.id).eq("status", "approved");
+      return { ...c, member_count: count || 0 };
+    }));
+    setMyClubs(withCounts);
   };
   const loadAllClubs = async () => {
     const { data } = await supabase.from("clubs").select("*").order("created_at", { ascending: false });
-    setAllClubs(data || []);
+    const clubs = data || [];
+    const withCounts = await Promise.all(clubs.map(async c => {
+      const { count } = await supabase.from("club_members").select("*", { count: "exact", head: true }).eq("club_id", c.id).eq("status", "approved");
+      return { ...c, member_count: count || 0 };
+    }));
+    setAllClubs(withCounts);
   };
   const loadClubMembership = async () => {
     const { data } = await supabase.from("club_members").select("club_id, status").eq("user_id", user.id);
@@ -1376,7 +1386,10 @@ function AppMain({ user, userName }) {
                           <div style={{ flex: 1 }}>
                             <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
                             {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}</p>}
-                            {c.owner_id === user.id && <p style={{ fontSize: 10, color: "#e11d48", fontWeight: 700, marginTop: 3 }}>Administrador</p>}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                              {c.owner_id === user.id && <span style={{ fontSize: 10, color: "#e11d48", fontWeight: 700 }}>Administrador</span>}
+                              <span style={{ fontSize: 10, color: "#555" }}>{c.member_count || 0} {(c.member_count || 0) === 1 ? "membro" : "membros"}</span>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1387,6 +1400,7 @@ function AppMain({ user, userName }) {
                           <div style={{ flex: 1 }}>
                             <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
                             {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}</p>}
+                            <p style={{ fontSize: 10, color: "#555", marginTop: 4 }}>{c.member_count || 0} {(c.member_count || 0) === 1 ? "membro" : "membros"}</p>
                           </div>
                           {clubMembership[c.id] === "pending" ? (
                             <button onClick={() => handleCancelRequest(c.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#555", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Pendente</button>
