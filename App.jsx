@@ -309,6 +309,20 @@ function AppMain({ user, userName }) {
   const [storyPreview, setStoryPreview] = useState(null);
   const [uploadingStory, setUploadingStory] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [myClubs, setMyClubs] = useState([]);
+  const [allClubs, setAllClubs] = useState([]);
+  const [clubMembership, setClubMembership] = useState({});
+  const [activeClub, setActiveClub] = useState(null);
+  const [clubPosts, setClubPosts] = useState([]);
+  const [clubMembers, setClubMembers] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [showCreateClub, setShowCreateClub] = useState(false);
+  const [clubForm, setClubForm] = useState({ name: "", description: "" });
+  const [newClubPost, setNewClubPost] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const touchStartY = useRef(0);
+  const touchCurrentY = useRef(0);
 
   useEffect(() => {
     if (activeStory) {
