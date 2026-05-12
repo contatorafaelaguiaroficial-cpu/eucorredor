@@ -277,7 +277,7 @@ function AppMain({ user, userName }) {
   const [dbEvents, setDbEvents] = useState([]);
   const [showAdminEvents, setShowAdminEvents] = useState(false);
   const [eventFilter, setEventFilter] = useState("Todos");
-  const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
+  const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "" });
   const [savingEvent, setSavingEvent] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -562,7 +562,7 @@ function AppMain({ user, userName }) {
     if (!eventForm.name || !eventForm.date || !eventForm.distance) return alert("Preencha nome, data e distância.");
     setSavingEvent(true);
     await supabase.from("events").insert({ name: eventForm.name, date: eventForm.date, city: eventForm.city, state: eventForm.state, distance: eventForm.distance, category: eventForm.category, link: eventForm.link });
-    setEventForm({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
+    setEventForm({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "" });
     await loadEvents();
     setSavingEvent(false);
   };
@@ -1212,7 +1212,7 @@ function AppMain({ user, userName }) {
                         <input className="tinput" placeholder="Estado" value={eventForm.state} onChange={(e) => setEventForm(f => ({ ...f, state: e.target.value }))} />
                       </div>
                       <select className="tinput" value={eventForm.category} onChange={(e) => setEventForm(f => ({ ...f, category: e.target.value }))}>
-                        {["Corrida de Rua", "Maratona", "Meia Maratona", "10K", "5K", "Trail Run", "Ultramaratona"].map(c => <option key={c} value={c}>{c}</option>)}
+                        {["3K", "5K", "10K", "21K", "42K", "Maratona", "Trail"].map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                       <input className="tinput" placeholder="Link de inscrição (Ticket Sports)" value={eventForm.link} onChange={(e) => setEventForm(f => ({ ...f, link: e.target.value }))} />
                     </div>
