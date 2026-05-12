@@ -334,6 +334,11 @@ function AppMain({ user, userName }) {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const gpsIntervalRef = useRef(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsView, setSettingsView] = useState("menu");
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState("");
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -1661,6 +1666,57 @@ function AppMain({ user, userName }) {
   };
 
   const handleSignOut = async () => { await supabase.auth.signOut(); window.location.reload(); };
+
+  const openSettings = () => {
+    setShowSettings(true);
+    setSettingsView("menu");
+    setDeleteConfirmationText("");
+    setDeleteAccountError("");
+  };
+
+  const closeSettings = () => {
+    if (deletingAccount) return;
+    setShowSettings(false);
+    setSettingsView("menu");
+    setDeleteConfirmationText("");
+    setDeleteAccountError("");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmationText.trim().toUpperCase() !== "EXCLUIR" || deletingAccount) return;
+    setDeletingAccount(true);
+    setDeleteAccountError("");
+
+    const removeOwnStorageFiles = async (bucket) => {
+      const { data: files, error: listError } = await supabase.storage.from(bucket).list(user.id, { limit: 1000 });
+      if (listError) throw new Error(`Não foi possível localizar seus arquivos em ${bucket}: ${listError.message}`);
+      const paths = (files || [])
+        .filter((file) => file?.name)
+        .map((file) => `${user.id}/${file.name}`);
+      if (!paths.length) return;
+      const { error: removeError } = await supabase.storage.from(bucket).remove(paths);
+      if (removeError) throw new Error(`Não foi possível remover seus arquivos em ${bucket}: ${removeError.message}`);
+    };
+
+    try {
+      await removeOwnStorageFiles("avatars");
+      await removeOwnStorageFiles("posts");
+
+      const { error } = await supabase.rpc("delete_my_account");
+      if (error) throw error;
+
+      try {
+        window.localStorage?.removeItem("eucorredor_intro_seen_v1");
+        window.localStorage?.removeItem("eucorredor_month_goal");
+      } catch (_) {}
+
+      await supabase.auth.signOut();
+      window.location.reload();
+    } catch (error) {
+      setDeleteAccountError(error?.message || "Não foi possível excluir sua conta agora.");
+      setDeletingAccount(false);
+    }
+  };
 
   const timeAgo = (dateStr) => {
     const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
@@ -3891,30 +3947,48 @@ function AppMain({ user, userName }) {
               >
                 <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 82% 10%, rgba(225,29,72,0.30), transparent 34%)", pointerEvents: "none" }} />
 
-                <button
-                  onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
-                  title="Editar perfil"
-                  style={{
-                    position: "absolute",
-                    right: 16,
-                    top: 16,
-                    width: 42,
-                    height: 42,
-                    borderRadius: "50%",
-                    border: "1px solid rgba(255,255,255,0.16)",
-                    background: "rgba(255,255,255,0.07)",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    zIndex: 2,
-                    fontSize: 17,
-                    backdropFilter: "blur(14px)"
-                  }}
-                >
-                  ✎
-                </button>
+                <div style={{ position: "absolute", right: 16, top: 16, display: "flex", gap: 10, zIndex: 2 }}>
+                  <button
+                    onClick={openSettings}
+                    title="Configurações"
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: "50%",
+                      border: "1px solid rgba(255,255,255,0.16)",
+                      background: "rgba(255,255,255,0.07)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: 17,
+                      backdropFilter: "blur(14px)"
+                    }}
+                  >
+                    ⚙
+                  </button>
+                  <button
+                    onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
+                    title="Editar perfil"
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: "50%",
+                      border: "1px solid rgba(255,255,255,0.16)",
+                      background: "rgba(255,255,255,0.07)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: 17,
+                      backdropFilter: "blur(14px)"
+                    }}
+                  >
+                    ✎
+                  </button>
+                </div>
 
                 <div style={{ position: "relative", zIndex: 1 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "92px 1fr", gap: 16, alignItems: "center", marginBottom: 18, paddingRight: 38 }}>
@@ -4145,6 +4219,137 @@ function AppMain({ user, userName }) {
                       </div>
                     </div>
                     <button onClick={async () => { await handleEditProfile(); if (avatarPreview) await confirmAvatarUpload(); }} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Salvar alterações</button>
+                  </div>
+                </div>
+              )}
+
+
+              {showSettings && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(14px)", zIndex: 770, display: "flex", alignItems: "stretch", justifyContent: "center", padding: 0 }}>
+                  <div style={{ width: "100%", maxWidth: 430, background: "linear-gradient(180deg, #0b0b12 0%, #090910 100%)", minHeight: "100vh", display: "flex", flexDirection: "column", color: "#fff", borderLeft: "1px solid rgba(255,255,255,0.08)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 76, padding: "18px 18px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                      <button
+                        onClick={() => {
+                          if (settingsView === "menu") closeSettings();
+                          else if (!deletingAccount) {
+                            setSettingsView("menu");
+                            setDeleteConfirmationText("");
+                            setDeleteAccountError("");
+                          }
+                        }}
+                        style={{ width: 42, height: 42, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: "#fff", fontSize: 20, cursor: deletingAccount ? "not-allowed" : "pointer", opacity: deletingAccount ? 0.55 : 1 }}
+                      >
+                        ←
+                      </button>
+                      <p style={{ flex: 1, textAlign: "center", fontWeight: 900, fontSize: 18, marginRight: 42 }}>
+                        {settingsView === "menu" ? "Configurações" : "Excluir minha conta"}
+                      </p>
+                    </div>
+
+                    <div style={{ flex: 1, overflowY: "auto", padding: "22px 18px 34px" }}>
+                      {settingsView === "menu" && (
+                        <>
+                          <p style={{ color: "#737383", fontSize: 11, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 10 }}>Conta</p>
+                          <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,0.03)", marginBottom: 18 }}>
+                            <button
+                              onClick={() => {
+                                setShowSettings(false);
+                                setShowEditProfile(true);
+                                setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" });
+                                setAvatarPreview(null);
+                              }}
+                              style={{ width: "100%", minHeight: 62, display: "flex", alignItems: "center", gap: 12, padding: "0 16px", background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.08)", color: "#fff", fontFamily: "inherit", cursor: "pointer", textAlign: "left" }}
+                            >
+                              <span style={{ width: 34, height: 34, borderRadius: 12, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>👤</span>
+                              <span style={{ flex: 1, fontSize: 14, fontWeight: 900 }}>Editar perfil</span>
+                              <span style={{ color: "#777", fontSize: 18 }}>›</span>
+                            </button>
+                            <button
+                              onClick={() => { setSettingsView("confirm"); setDeleteAccountError(""); }}
+                              style={{ width: "100%", minHeight: 62, display: "flex", alignItems: "center", gap: 12, padding: "0 16px", background: "rgba(225,29,72,0.08)", border: "none", color: "#ff5578", fontFamily: "inherit", cursor: "pointer", textAlign: "left" }}
+                            >
+                              <span style={{ width: 34, height: 34, borderRadius: 12, background: "rgba(225,29,72,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🗑</span>
+                              <span style={{ flex: 1, fontSize: 14, fontWeight: 900 }}>Excluir minha conta</span>
+                              <span style={{ color: "#ff5578", fontSize: 18 }}>›</span>
+                            </button>
+                          </div>
+
+                          <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 22, padding: 16, background: "rgba(255,255,255,0.03)" }}>
+                            <p style={{ fontWeight: 900, fontSize: 15, marginBottom: 7 }}>Segurança da conta</p>
+                            <p style={{ color: "#9a9aaa", fontSize: 13, lineHeight: 1.55 }}>A exclusão é permanente. Para evitar ações acidentais, pedimos uma confirmação em duas etapas antes de remover a conta.</p>
+                          </div>
+                        </>
+                      )}
+
+                      {settingsView === "confirm" && (
+                        <>
+                          <div style={{ textAlign: "center", padding: "12px 0 20px" }}>
+                            <div style={{ width: 82, height: 82, borderRadius: "50%", margin: "0 auto 16px", background: "rgba(225,29,72,0.16)", border: "1px solid rgba(225,29,72,0.28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36 }}>🗑</div>
+                            <h3 style={{ fontSize: 28, lineHeight: 1.05, fontWeight: 900, marginBottom: 10, fontFamily: "'Space Grotesk', sans-serif" }}>Tem certeza?</h3>
+                            <p style={{ color: "#b2b2bf", fontSize: 14, lineHeight: 1.55, maxWidth: 340, margin: "0 auto" }}>Esta ação é permanente e não pode ser desfeita.</p>
+                          </div>
+
+                          <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 22, background: "rgba(255,255,255,0.03)", padding: 16, marginBottom: 16 }}>
+                            <p style={{ fontWeight: 900, fontSize: 14, marginBottom: 12 }}>O que será removido:</p>
+                            {["Seu perfil e informações pessoais", "Publicações, fotos e comentários", "Atividades, treinos e histórico", "Clubes criados e participações", "Seguidores, seguindo e dados associados"].map((item) => (
+                              <div key={item} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: "#d6d6df", fontSize: 13, lineHeight: 1.45, marginBottom: 10 }}>
+                                <span style={{ color: "#ff5578", fontWeight: 900 }}>×</span>
+                                <span>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            onClick={() => setSettingsView("final")}
+                            style={{ width: "100%", height: 54, border: "none", borderRadius: 18, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontSize: 15, fontFamily: "inherit", cursor: "pointer", marginBottom: 10 }}
+                          >
+                            Continuar
+                          </button>
+                          <button
+                            onClick={() => setSettingsView("menu")}
+                            style={{ width: "100%", height: 50, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18, background: "rgba(255,255,255,0.035)", color: "#ddd", fontWeight: 900, fontSize: 14, fontFamily: "inherit", cursor: "pointer" }}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      )}
+
+                      {settingsView === "final" && (
+                        <>
+                          <div style={{ textAlign: "center", padding: "18px 0 20px" }}>
+                            <div style={{ fontSize: 54, marginBottom: 10 }}>⚠️</div>
+                            <h3 style={{ fontSize: 27, lineHeight: 1.08, fontWeight: 900, marginBottom: 10, fontFamily: "'Space Grotesk', sans-serif" }}>Confirmação final</h3>
+                            <p style={{ color: "#b2b2bf", fontSize: 14, lineHeight: 1.55, maxWidth: 340, margin: "0 auto" }}>Para confirmar a exclusão da sua conta, digite a palavra abaixo:</p>
+                          </div>
+
+                          <div style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18, background: "rgba(255,255,255,0.03)", padding: 16, textAlign: "center", color: "#ff5578", fontWeight: 900, fontSize: 16, letterSpacing: 0.8, marginBottom: 12 }}>EXCLUIR</div>
+                          <input
+                            value={deleteConfirmationText}
+                            onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                            placeholder="Digite EXCLUIR"
+                            autoCapitalize="characters"
+                            style={{ width: "100%", height: 54, borderRadius: 18, border: "1px solid rgba(255,255,255,0.10)", background: "#101018", color: "#fff", padding: "0 16px", fontSize: 15, fontWeight: 900, fontFamily: "inherit", outline: "none", textAlign: "center", marginBottom: 12 }}
+                          />
+                          {deleteAccountError && (
+                            <p style={{ color: "#ff7a92", background: "rgba(225,29,72,0.12)", border: "1px solid rgba(225,29,72,0.25)", borderRadius: 16, padding: "12px 14px", fontSize: 12.5, lineHeight: 1.5, marginBottom: 12 }}>{deleteAccountError}</p>
+                          )}
+                          <button
+                            onClick={handleDeleteAccount}
+                            disabled={deleteConfirmationText.trim().toUpperCase() !== "EXCLUIR" || deletingAccount}
+                            style={{ width: "100%", height: 54, border: "none", borderRadius: 18, background: deleteConfirmationText.trim().toUpperCase() === "EXCLUIR" && !deletingAccount ? "linear-gradient(135deg, #e11d48, #ff3d63)" : "#3a1a22", color: "#fff", fontWeight: 900, fontSize: 15, fontFamily: "inherit", cursor: deleteConfirmationText.trim().toUpperCase() === "EXCLUIR" && !deletingAccount ? "pointer" : "not-allowed", marginBottom: 10 }}
+                          >
+                            {deletingAccount ? "Excluindo conta..." : "Excluir minha conta"}
+                          </button>
+                          <button
+                            onClick={() => { setSettingsView("menu"); setDeleteConfirmationText(""); setDeleteAccountError(""); }}
+                            disabled={deletingAccount}
+                            style={{ width: "100%", height: 50, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18, background: "rgba(255,255,255,0.035)", color: "#ddd", fontWeight: 900, fontSize: 14, fontFamily: "inherit", cursor: deletingAccount ? "not-allowed" : "pointer", opacity: deletingAccount ? 0.55 : 1 }}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
