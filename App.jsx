@@ -865,7 +865,7 @@ function AppMain({ user, userName }) {
     return <div style={{ width: size, height: size, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.3, fontWeight: 700, color: "#fff", border: `2px solid ${getLevelColor(p?.level)}`, flexShrink: 0 }}>{p?.name?.charAt(0) || "?"}</div>;
   };
 
-  const eventFilters = ["Todos", "5K", "10K", "21K", "Maratona", "Trail"];
+  const eventFilters = ["Todos", "3K", "5K", "10K", "21K", "Maratona", "Trail"];
 
   const normalizeEventText = (value = "") => value.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
@@ -971,16 +971,27 @@ function AppMain({ user, userName }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, color: "#fff" }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button onClick={() => setShowSearch(!showSearch)} style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
+              <button onClick={() => setShowSearch(!showSearch)} title="Buscar" style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               </button>
-              <button onClick={() => { setShowNotifications(true); markAllRead(); }} style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
+              <button onClick={() => { setShowNotifications(true); markAllRead(); }} title="Notificações" style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 {notifications.filter(n => !n.read).length > 0 && (
-                  <span style={{ position: "absolute", top: 7, right: 7, width: 7, height: 7, background: "#e11d48", borderRadius: "50%", border: "1.5px solid #0a0a0f" }}/>
+                  <span style={{ position: "absolute", top: 7, right: 7, minWidth: 15, height: 15, padding: "0 4px", background: "#e11d48", borderRadius: 999, border: "1.5px solid #0a0a0f", color: "#fff", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+                    {notifications.filter(n => !n.read).length > 9 ? "9+" : notifications.filter(n => !n.read).length}
+                  </span>
                 )}
               </button>
-              <button onClick={handleSignOut} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "6px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
+              <button onClick={() => setTab("perfil")} title="Ver perfil" style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", padding: 0, cursor: "pointer", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Foto de perfil" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", border: `2px solid ${level.color}` }} />
+                ) : (
+                  <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#1e1e2e", border: `2px solid ${level.color}`, color: "#fff", fontSize: 14, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {(profile?.name || userName || "C").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </button>
+              <button onClick={handleSignOut} title="Sair" style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 10, padding: "7px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>Sair</button>
             </div>
           </div>
           <div style={{ background: "#13131a", borderRadius: 12, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 10 }}>
