@@ -312,6 +312,7 @@ function AppMain({ user, userName }) {
   const [searchResults, setSearchResults] = useState([]);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [selectedPhotoPost, setSelectedPhotoPost] = useState(null);
   const [seenStories, setSeenStories] = useState({});
   const [activeStory, setActiveStory] = useState(null);
   const [storyProgress, setStoryProgress] = useState(0);
@@ -2823,9 +2824,15 @@ function AppMain({ user, userName }) {
               {profileTab === "fotos" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 3, paddingTop: 3 }}>
                   {posts.filter(p => p.user_id === user.id && p.photo_url).map((p) => (
-                    <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden", cursor: "pointer", background: "#13131a" }}>
+                    <button
+                      key={p.id}
+                      onClick={() => { setSelectedPhotoPost(p); setOpenComments(p.id); loadComments(p.id); }}
+                      aria-label="Abrir publicação da foto"
+                      style={{ aspectRatio: "1", overflow: "hidden", cursor: "pointer", background: "#13131a", border: "none", padding: 0, position: "relative" }}
+                    >
                       <img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    </div>
+                      <span style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.42))", opacity: 0, transition: "opacity 0.18s ease" }} />
+                    </button>
                   ))}
                   {posts.filter(p => p.user_id === user.id && p.photo_url).length === 0 && (
                     <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "42px 0", color: "#555", fontSize: 13 }}>
@@ -3058,6 +3065,71 @@ function AppMain({ user, userName }) {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Modal de publicação da foto no perfil */}
+        {selectedPhotoPost && (() => {
+          const modalPost = posts.find((post) => post.id === selectedPhotoPost.id) || selectedPhotoPost;
+          return (
+            <div
+              style={{ position: "fixed", inset: 0, zIndex: 520, background: "rgba(0,0,0,0.94)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+              onClick={() => { setSelectedPhotoPost(null); setOpenComments(null); setNewComment(""); }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{ width: "100%", maxWidth: 390, maxHeight: "94vh", overflowY: "auto", background: "#101018", border: "1px solid rgba(255,255,255,0.10)", borderRadius: "28px 28px 0 0", boxShadow: "0 -28px 70px rgba(0,0,0,0.55)" }}
+              >
+                <div style={{ position: "sticky", top: 0, zIndex: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 18px", background: "rgba(16,16,24,0.94)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    {getAvatar(profile, 38)}
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profile?.name || userName}</p>
+                      <p style={{ color: "#777", fontSize: 11 }}>@{profile?.handle || "corredor"} · {timeAgo(modalPost.created_at)}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => { setSelectedPhotoPost(null); setOpenComments(null); setNewComment(""); }} style={{ width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#aaa", fontSize: 20, cursor: "pointer" }}>✕</button>
+                </div>
+
+                <div style={{ background: "#07070c" }}>
+                  <img src={modalPost.photo_url} alt="Publicação" style={{ width: "100%", maxHeight: "52vh", objectFit: "contain", display: "block", background: "#07070c" }} />
+                </div>
+
+                <div style={{ padding: "16px 18px 28px" }}>
+                  {modalPost.text && <p style={{ color: "#f0f0f0", fontSize: 14.5, lineHeight: 1.58, marginBottom: 15 }}>{modalPost.text}</p>}
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderTop: "1px solid rgba(255,255,255,0.08)", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "13px 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                      <button onClick={() => handleLikePost(modalPost.id, modalPost.user_id)} style={{ background: "none", border: "none", color: liked[modalPost.id] ? "#e11d48" : "#a0a0aa", fontSize: 16, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>{liked[modalPost.id] ? "♥" : "♡"} {modalPost.likes || 0}</button>
+                      <button onClick={() => { if (openComments === modalPost.id) setOpenComments(null); else { setOpenComments(modalPost.id); loadComments(modalPost.id); } }} style={{ background: "none", border: "none", color: openComments === modalPost.id ? "#e11d48" : "#a0a0aa", fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>💬 {(comments[modalPost.id] || []).length || modalPost.comments || 0}</button>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button onClick={() => handleShare("post", modalPost)} style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#aaa", fontSize: 18, cursor: "pointer" }}>↗</button>
+                      <button onClick={async () => { await handleDeletePost(modalPost.id); setSelectedPhotoPost(null); setOpenComments(null); setNewComment(""); }} style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#aaa", fontSize: 16, cursor: "pointer" }}>🗑️</button>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 16 }}>
+                    <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, marginBottom: 12 }}>Comentários</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 13 }}>
+                      {(comments[modalPost.id] || []).length > 0 ? (comments[modalPost.id] || []).map((comment) => (
+                        <div key={comment.id} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
+                          {getAvatar(comment.profiles, 28)}
+                          <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "8px 10px", flex: 1 }}>
+                            <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3 }}>{comment.profiles?.name || "Corredor"}</p>
+                            <p style={{ fontSize: 13, color: "#d7d7df", lineHeight: 1.4 }}>{comment.text}</p>
+                          </div>
+                        </div>
+                      )) : <p style={{ color: "#666", fontSize: 13 }}>Nenhum comentário ainda.</p>}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Escreva um comentário..." style={{ flex: 1, background: "#0b0b12", border: "1px solid #242435", borderRadius: 14, padding: "11px 13px", color: "#fff", outline: "none", fontSize: 13, fontFamily: "inherit" }} />
+                      <button onClick={() => handleComment(modalPost.id)} disabled={!newComment.trim()} style={{ background: newComment.trim() ? "linear-gradient(135deg, #e11d48, #ff3d63)" : "#2a2a35", color: "#fff", border: "none", borderRadius: 14, padding: "0 14px", fontSize: 13, fontWeight: 900, cursor: newComment.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>Enviar</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           );
