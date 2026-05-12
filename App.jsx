@@ -926,12 +926,11 @@ function AppMain({ user, userName }) {
 
   const handlePublishRunSummary = async () => {
     const text = (runSummary?.feedText || summaryPostText).trim();
-    if (!text) return;
-    setPublishingRunSummary(true);
     const routeSnapshot = createRouteSnapshotDataUrl(completedRunRoute);
-    const payload = routeSnapshot
-      ? { user_id: user.id, text, photo_url: routeSnapshot }
-      : { user_id: user.id, text };
+    const cannotPublishWithRoute = runSummary?.type === "Atividade curta" || !routeSnapshot;
+    if (!text || cannotPublishWithRoute) return;
+    setPublishingRunSummary(true);
+    const payload = { user_id: user.id, text, photo_url: routeSnapshot };
     const { error } = await supabase.from("posts").insert(payload);
     if (error) alert("Erro ao publicar no feed: " + error.message);
     else {
@@ -1264,6 +1263,10 @@ function AppMain({ user, userName }) {
       : Number(b?.total_km || 0) - Number(a?.total_km || 0)
     )
     .slice(0, 5);
+
+  const summaryRouteSnapshot = createRouteSnapshotDataUrl(completedRunRoute);
+  const hasSummaryRouteSnapshot = Boolean(summaryRouteSnapshot);
+  const isSummaryTooShortForFeed = runSummary?.type === "Atividade curta" || !hasSummaryRouteSnapshot;
 
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", display: "flex", justifyContent: "center" }}>
@@ -2324,15 +2327,17 @@ function AppMain({ user, userName }) {
                       <p style={{ color: "#888", fontSize: 14 }}>Seu treino foi salvo no histórico.</p>
                     </div>
 
-                    <div style={{ height: 150, borderRadius: 20, background: "radial-gradient(circle at 70% 30%, rgba(225,29,72,0.20), transparent 34%), #0d0d18", border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 16 }}>
-                      {completedRunRoute.length > 1 ? (
-                        <img src={createRouteSnapshotDataUrl(completedRunRoute)} alt="Percurso registrado" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <div style={{ minHeight: 150, borderRadius: 20, background: "radial-gradient(circle at 70% 30%, rgba(225,29,72,0.20), transparent 34%), #0d0d18", border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 16 }}>
+                      {hasSummaryRouteSnapshot ? (
+                        <img src={summaryRouteSnapshot} alt="Percurso registrado" style={{ width: "100%", height: 150, objectFit: "cover" }} />
                       ) : (
-                        <svg viewBox="0 0 320 150" style={{ width: "100%", height: "100%" }}>
-                          <g opacity="0.18" stroke="#fff"><line x1="0" y1="30" x2="320" y2="30"/><line x1="0" y1="75" x2="320" y2="75"/><line x1="0" y1="120" x2="320" y2="120"/><line x1="55" y1="0" x2="55" y2="150"/><line x1="140" y1="0" x2="140" y2="150"/><line x1="230" y1="0" x2="230" y2="150"/></g>
-                          <polyline points="28,116 62,92 98,98 132,69 166,74 205,50 252,56 286,28" fill="none" stroke="#e11d48" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
-                          <circle cx="28" cy="116" r="8" fill="#6ee7b7"/><circle cx="286" cy="28" r="9" fill="#fff"/><circle cx="286" cy="28" r="5" fill="#e11d48"/>
-                        </svg>
+                        <div style={{ minHeight: 150, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 20 }}>
+                          <div>
+                            <p style={{ fontSize: 28, marginBottom: 8 }}>📍</p>
+                            <p style={{ color: "#fff", fontWeight: 900, fontSize: 14, marginBottom: 5 }}>Percurso curto demais</p>
+                            <p style={{ color: "#8a8a96", fontSize: 12, lineHeight: 1.5 }}>Não houve rota suficiente para gerar um mapa confiável.</p>
+                          </div>
+                        </div>
                       )}
                     </div>
 
@@ -2354,14 +2359,25 @@ function AppMain({ user, userName }) {
                     </div>
 
                     <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 14, marginBottom: 16 }}>
-                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Post pronto para o feed</p>
+                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, marginBottom: 10 }}>{isSummaryTooShortForFeed ? "Resumo da atividade" : "Post pronto para o feed"}</p>
                       <div style={{ width: "100%", borderRadius: 14, border: "1px solid #1e1e2e", background: "#0f0f17", color: "#fff", padding: 12, fontSize: 13, lineHeight: 1.55, minHeight: 74 }}>{runSummary?.feedText || summaryPostText}</div>
-                      <p style={{ color: "#777", fontSize: 11.5, lineHeight: 1.45, marginTop: 10 }}>Ao publicar, o percurso registrado também aparece no post.</p>
+                      {hasSummaryRouteSnapshot ? (
+                        <>
+                          <div style={{ width: "100%", height: 148, borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", marginTop: 12, background: "#0d0d18" }}>
+                            <img src={summaryRouteSnapshot} alt="Prévia do percurso que será publicado" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          </div>
+                          <p style={{ color: "#777", fontSize: 11.5, lineHeight: 1.45, marginTop: 10 }}>Esse percurso será publicado junto com a análise da atividade.</p>
+                        </>
+                      ) : (
+                        <p style={{ color: "#777", fontSize: 11.5, lineHeight: 1.45, marginTop: 10 }}>Percurso curto demais para gerar um mapa confiável. Esta atividade foi salva no histórico, mas não gera publicação automática.</p>
+                      )}
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <button onClick={handlePublishRunSummary} disabled={publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim()} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim() ? "#3a1a22" : "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit", cursor: publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim() ? "not-allowed" : "pointer" }}>{publishingRunSummary ? "Publicando..." : "Publicar no feed"}</button>
-                      <button onClick={() => { setRunSummary(null); setCompletedRunRoute([]); setSummaryPostText(""); setHubScreen("hub"); }} style={{ width: "100%", height: 48, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, background: "rgba(255,255,255,0.035)", color: "#ddd", fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>Salvar sem publicar</button>
+                      {!isSummaryTooShortForFeed && (
+                        <button onClick={handlePublishRunSummary} disabled={publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim()} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim() ? "#3a1a22" : "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit", cursor: publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim() ? "not-allowed" : "pointer" }}>{publishingRunSummary ? "Publicando..." : "Publicar no feed"}</button>
+                      )}
+                      <button onClick={() => { setRunSummary(null); setCompletedRunRoute([]); setSummaryPostText(""); setHubScreen("hub"); }} style={{ width: "100%", height: 48, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, background: "rgba(255,255,255,0.035)", color: "#ddd", fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>{isSummaryTooShortForFeed ? "Voltar ao Hub" : "Salvar sem publicar"}</button>
                     </div>
                   </div>
                 </div>
