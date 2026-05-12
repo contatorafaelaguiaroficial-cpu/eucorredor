@@ -1856,10 +1856,9 @@ function AppMain({ user, userName }) {
                         {getAvatar(profile, 42)}
                         <span style={{ fontSize: 13, color: "#777" }}>No que você está pensando?</span>
                       </button>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: "1px solid #1e1e2e" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", borderTop: "1px solid #1e1e2e" }}>
                         {[
                           { label: "Foto", icon: "▧", type: "foto" },
-                          { label: "Treino", icon: "⌁", type: "atividade" },
                           { label: "Escrever", icon: "✎", type: "post" },
                         ].map((item, idx) => (
                           <button
@@ -1868,7 +1867,7 @@ function AppMain({ user, userName }) {
                             style={{
                               background: "none",
                               border: "none",
-                              borderRight: idx < 2 ? "1px solid #1e1e2e" : "none",
+                              borderRight: idx < 1 ? "1px solid #1e1e2e" : "none",
                               padding: "12px 6px",
                               color: "#cfcfd8",
                               fontSize: 12,
@@ -2217,7 +2216,7 @@ function AppMain({ user, userName }) {
                     </div>
                     {!publishType && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {[{ id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" }, { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" }, { id: "atividade", label: "Atividade", desc: "Registre um treino com métricas", icon: "⚡" }].map((t) => (
+                        {[{ id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" }, { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" }].map((t) => (
                           <button key={t.id} onClick={() => setPublishType(t.id)} style={{ background: "#0a0a0f", border: "1px solid #1e1e2e", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 14 }}>
                             <span style={{ fontSize: 24 }}>{t.icon}</span><div style={{ textAlign: "left" }}><p style={{ fontWeight: 900, fontSize: 14, color: "#f0f0f0" }}>{t.label}</p><p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{t.desc}</p></div>
                           </button>
