@@ -243,6 +243,56 @@ function AuthScreen({ onLogin }) {
   );
 }
 
+// ─── EMPTY STATE ────────────────────────────────────────────────────────────────
+function EmptyState({ icon = "✨", title, description, actionLabel, onAction, compact = false }) {
+  return (
+    <div style={{
+      textAlign: "center",
+      padding: compact ? "18px 14px" : "34px 20px",
+      background: compact ? "rgba(255,255,255,0.03)" : "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022))",
+      border: "1px solid rgba(255,255,255,0.10)",
+      borderRadius: compact ? 16 : 22,
+      boxShadow: compact ? "none" : "inset 0 1px 0 rgba(255,255,255,0.05)",
+      width: "100%"
+    }}>
+      <div style={{
+        width: compact ? 42 : 58,
+        height: compact ? 42 : 58,
+        borderRadius: compact ? 14 : 18,
+        margin: "0 auto 12px",
+        background: "rgba(225,29,72,0.12)",
+        border: "1px solid rgba(225,29,72,0.24)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: compact ? 20 : 27
+      }}>{icon}</div>
+      <p style={{ fontSize: compact ? 13 : 15, fontWeight: 900, color: "#f5f5f7", marginBottom: description ? 6 : 0 }}>{title}</p>
+      {description && <p style={{ color: "#777", fontSize: compact ? 12 : 13, lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>{description}</p>}
+      {actionLabel && onAction && (
+        <button
+          onClick={onAction}
+          style={{
+            marginTop: 14,
+            background: "linear-gradient(135deg, #e11d48, #ff3d63)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 999,
+            padding: compact ? "9px 14px" : "11px 16px",
+            fontSize: compact ? 12 : 13,
+            fontWeight: 900,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            boxShadow: "0 12px 28px rgba(225,29,72,0.24)"
+          }}
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── APP MAIN ─────────────────────────────────────────────────────────────────
 function AppMain({ user, userName }) {
   const [tab, setTab] = useState("eventos");
@@ -1807,18 +1857,21 @@ function AppMain({ user, userName }) {
               </div>
 
               {dbEvents.length === 0 && (
-                <div style={{ textAlign: "center", padding: "48px 18px", background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02))", border: "1px solid #1e1e2e", borderRadius: 24 }}>
-                  <p style={{ fontSize: 34, marginBottom: 12 }}>📅</p>
-                  <p style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Nenhum evento cadastrado</p>
-                  <p style={{ fontSize: 13, color: "#777" }}>Novos eventos serão adicionados em breve.</p>
-                </div>
+                <EmptyState
+                  icon="📅"
+                  title="Ainda não há eventos cadastrados"
+                  description="Assim que novas corridas entrarem na agenda, elas aparecem aqui para você explorar."
+                />
               )}
 
               {dbEvents.length > 0 && filteredEvents.length === 0 && (
-                <div style={{ textAlign: "center", padding: "34px 18px", background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 20 }}>
-                  <p style={{ fontWeight: 800, fontSize: 15, marginBottom: 6 }}>Nenhum evento nessa categoria</p>
-                  <p style={{ fontSize: 13, color: "#666" }}>Tente outro filtro para ver mais provas.</p>
-                </div>
+                <EmptyState
+                  icon="⌕"
+                  title="Nenhuma prova neste filtro"
+                  description="Tente outra distância para encontrar corridas disponíveis."
+                  actionLabel="Ver todos"
+                  onAction={() => setEventFilter("Todos")}
+                />
               )}
 
               {featuredEvent && (() => {
@@ -2174,10 +2227,13 @@ function AppMain({ user, userName }) {
                     const visiblePosts = commFeed === "amigos" ? posts.filter(p => p.user_id === user.id || realFollowing[p.user_id]) : posts;
                     if (visiblePosts.length === 0) {
                       return (
-                        <div style={{ textAlign: "center", padding: "38px 22px", background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 20 }}>
-                          <p style={{ fontWeight: 900, marginBottom: 6 }}>{commFeed === "amigos" ? "Siga mais corredores" : "Nenhuma publicação ainda"}</p>
-                          <p style={{ fontSize: 13, color: "#666" }}>{commFeed === "amigos" ? "Quanto mais amigos você seguir, mais seu feed vai ganhar vida." : "Seja o primeiro a publicar na comunidade."}</p>
-                        </div>
+                        <EmptyState
+                          icon={commFeed === "amigos" ? "👥" : "💬"}
+                          title={commFeed === "amigos" ? "Seu feed de amigos está começando" : "A comunidade ainda está quieta"}
+                          description={commFeed === "amigos" ? "Siga corredores para ver publicações só de quem você acompanha." : "Publique uma foto ou escreva algo para abrir a conversa."}
+                          actionLabel={commFeed === "amigos" ? "Ver comunidade" : "Criar publicação"}
+                          onAction={() => commFeed === "amigos" ? setCommFeed("todos") : setShowPublish(true)}
+                        />
                       );
                     }
                     return visiblePosts.map((p) => (
@@ -2236,7 +2292,12 @@ function AppMain({ user, userName }) {
                                   </div>
                                 ))
                               ) : (
-                                <p style={{ color: "#666", fontSize: 12, textAlign: "center", padding: "4px 0 2px" }}>Nenhum comentário ainda.</p>
+                                <EmptyState
+                                  compact
+                                  icon="💬"
+                                  title="Nenhum comentário ainda"
+                                  description="Seja a primeira pessoa a comentar esta publicação."
+                                />
                               )}
                             </div>
 
@@ -2373,7 +2434,13 @@ function AppMain({ user, userName }) {
                             </div>
                           )}
 
-                          {clubPosts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma publicação ainda.</p>}
+                          {clubPosts.length === 0 && (
+                            <EmptyState
+                              icon="🗣️"
+                              title="O clube ainda não tem publicações"
+                              description="Comece a conversa com um aviso, convite ou dica para os membros."
+                            />
+                          )}
 
                           {clubPosts.map((p) => (
                             <div key={p.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 20, padding: 15, marginBottom: 12 }}>
@@ -2401,7 +2468,15 @@ function AppMain({ user, userName }) {
                             </button>
                           )}
 
-                          {clubNotices.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum aviso publicado.</p>}
+                          {clubNotices.length === 0 && (
+                            <EmptyState
+                              icon="📌"
+                              title="Nenhum aviso publicado"
+                              description={activeClub.owner_id === user.id ? "Crie um aviso para organizar treinos, encontros ou recados importantes." : "Quando a administração publicar um aviso, ele aparece aqui."}
+                              actionLabel={activeClub.owner_id === user.id ? "Criar primeiro aviso" : undefined}
+                              onAction={activeClub.owner_id === user.id ? () => setShowCreateClubNotice(true) : undefined}
+                            />
+                          )}
 
                           {clubNotices.map((notice) => (
                             <div key={notice.id} style={{ background: notice.is_pinned ? "rgba(225,29,72,0.08)" : "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: notice.is_pinned ? "1px solid rgba(225,29,72,0.35)" : "1px solid rgba(255,255,255,0.10)", borderRadius: 20, padding: 15, marginBottom: 12 }}>
@@ -2474,7 +2549,17 @@ function AppMain({ user, userName }) {
                         <button onClick={() => setShowCreateClub(true)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "9px 14px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>+ Criar clube</button>
                       </div>
 
-                      {myClubs.length === 0 && <div style={{ textAlign: "center", padding: "24px 0", marginBottom: 16 }}><p style={{ fontSize: 13, color: "#555" }}>Você ainda não faz parte de nenhum clube.</p></div>}
+                      {myClubs.length === 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                          <EmptyState
+                            icon="🏃"
+                            title="Você ainda não participa de clubes"
+                            description="Crie um grupo próprio ou descubra comunidades para correr acompanhado."
+                            actionLabel="Criar clube"
+                            onAction={() => setShowCreateClub(true)}
+                          />
+                        </div>
+                      )}
 
                       {myClubs.map((club) => (
                         <div key={club.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16, marginBottom: 14, cursor: "pointer" }} onClick={() => openClub(club)}>
@@ -2732,7 +2817,14 @@ function AppMain({ user, userName }) {
                             <svg viewBox="0 0 160 80" style={{ width: "100%", height: "100%" }}><polyline points="14,62 32,45 55,49 76,34 98,39 119,22 142,15" fill="none" stroke="#e11d48" strokeWidth="4" strokeLinecap="round"/><circle cx="14" cy="62" r="5" fill="#6ee7b7"/><circle cx="142" cy="15" r="5" fill="#fff"/></svg>
                           </div>
                         </>
-                      ) : <p style={{ color: "#777", fontSize: 13, lineHeight: 1.5 }}>Nenhuma atividade registrada ainda.</p>}
+                      ) : <EmptyState
+                        compact
+                        icon="⌁"
+                        title="Nenhuma atividade recente"
+                        description="Quando você registrar uma corrida no Hub, ela aparece aqui."
+                        actionLabel="Iniciar corrida"
+                        onAction={() => setHubScreen("hub")}
+                      />}
                     </div>
                   </div>
 
@@ -3101,7 +3193,14 @@ function AppMain({ user, userName }) {
                       <button onClick={() => setShowFollowModal(null)} style={{ background: "none", border: "none", color: "#777", fontSize: 24, cursor: "pointer" }}>✕</button>
                     </div>
                     <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
-                      {followList.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>{showFollowModal === "seguidores" ? "Nenhum seguidor ainda." : "Você não segue ninguém ainda."}</p>}
+                      {followList.length === 0 && (
+                        <EmptyState
+                          icon={showFollowModal === "seguidores" ? "👥" : "🔎"}
+                          title={showFollowModal === "seguidores" ? "Nenhum seguidor ainda" : "Você ainda não segue ninguém"}
+                          description={showFollowModal === "seguidores" ? "Conforme outras pessoas encontrarem seu perfil, elas aparecem aqui." : "Explore a comunidade e siga corredores para personalizar seu feed."}
+                          compact
+                        />
+                      )}
                       {followList.map((u) => (
                         <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid #1e1e2e" }}>
                           {getAvatar(u, 48)}
@@ -3214,8 +3313,14 @@ function AppMain({ user, userName }) {
                     </button>
                   ))}
                   {posts.filter(p => p.user_id === user.id && p.photo_url).length === 0 && (
-                    <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "42px 0", color: "#555", fontSize: 13 }}>
-                      Nenhuma foto publicada ainda.
+                    <div style={{ gridColumn: "1/-1" }}>
+                      <EmptyState
+                        icon="📸"
+                        title="Sua galeria ainda está vazia"
+                        description="Publique uma foto de treino, prova ou conquista para ela aparecer aqui."
+                        actionLabel="Publicar foto"
+                        onAction={() => { setPublishType("foto"); setShowPublish(true); }}
+                      />
                     </div>
                   )}
                 </div>
@@ -3264,7 +3369,15 @@ function AppMain({ user, userName }) {
                       )}
                     </div>
                   ))}
-                  {posts.filter(p => p.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "34px 0" }}>Nenhum post ainda.</p>}
+                  {posts.filter(p => p.user_id === user.id).length === 0 && (
+                    <EmptyState
+                      icon="✍️"
+                      title="Você ainda não publicou textos"
+                      description="Compartilhe uma reflexão, treino ou conquista com a comunidade."
+                      actionLabel="Escrever post"
+                      onAction={() => { setPublishType("post"); setShowPublish(true); }}
+                    />
+                  )}
                 </div>
               )}
 
@@ -3288,7 +3401,15 @@ function AppMain({ user, userName }) {
                       <button onClick={() => handleShare("atividade", { distance: a.distance, duration: a.duration, pace: a.pace })} style={{ background: "none", border: "1px solid rgba(255,255,255,0.10)", color: "#aaa", borderRadius: 12, padding: "10px 12px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", marginTop: 12 }}>↗ Compartilhar atividade</button>
                     </div>
                   ))}
-                  {activities.filter(a => a.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "34px 0" }}>Nenhuma atividade ainda.</p>}
+                  {activities.filter(a => a.user_id === user.id).length === 0 && (
+                    <EmptyState
+                      icon="🏃"
+                      title="Nenhuma atividade registrada"
+                      description="Abra o Hub e registre sua primeira corrida com GPS."
+                      actionLabel="Ir para o Hub"
+                      onAction={() => setTab("hub")}
+                    />
+                  )}
                 </div>
               )}
 
@@ -3392,7 +3513,16 @@ function AppMain({ user, userName }) {
                 {viewTab === "fotos" && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
                     {viewPosts.filter(p => p.photo_url).map((p) => <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}><img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}
-                    {viewPosts.filter(p => p.photo_url).length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>}
+                    {viewPosts.filter(p => p.photo_url).length === 0 && (
+                      <div style={{ gridColumn: "1/-1" }}>
+                        <EmptyState
+                          compact
+                          icon="📸"
+                          title="Nenhuma foto publicada"
+                          description="As imagens deste perfil aparecerão aqui."
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
                 {viewTab === "posts_v" && (
@@ -3404,7 +3534,14 @@ function AppMain({ user, userName }) {
                         <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
                       </div>
                     ))}
-                    {viewPosts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
+                    {viewPosts.filter(p => p.text).length === 0 && (
+                      <EmptyState
+                        compact
+                        icon="✍️"
+                        title="Nenhum post publicado"
+                        description="Os textos deste perfil aparecerão aqui."
+                      />
+                    )}
                   </div>
                 )}
                 {viewTab === "ativ_v" && (
@@ -3418,7 +3555,14 @@ function AppMain({ user, userName }) {
                         </div>
                       </div>
                     ))}
-                    {viewActivities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
+                    {viewActivities.length === 0 && (
+                      <EmptyState
+                        compact
+                        icon="⌁"
+                        title="Nenhuma atividade registrada"
+                        description="As corridas deste perfil aparecerão aqui."
+                      />
+                    )}
                   </div>
                 )}
                 {viewTab === "niveis_v" && (
@@ -3503,7 +3647,12 @@ function AppMain({ user, userName }) {
                             <p style={{ fontSize: 13, color: "#d7d7df", lineHeight: 1.4 }}>{comment.text}</p>
                           </div>
                         </div>
-                      )) : <p style={{ color: "#666", fontSize: 13 }}>Nenhum comentário ainda.</p>}
+                      )) : <EmptyState
+                        compact
+                        icon="💬"
+                        title="Nenhum comentário ainda"
+                        description="Seja a primeira pessoa a comentar."
+                      />}
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Escreva um comentário..." style={{ flex: 1, background: "#0b0b12", border: "1px solid #242435", borderRadius: 14, padding: "11px 13px", color: "#fff", outline: "none", fontSize: 13, fontFamily: "inherit" }} />
@@ -3583,7 +3732,14 @@ function AppMain({ user, userName }) {
                 <button onClick={() => setShowNotifications(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
               </div>
               <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
-                {notifications.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma notificação ainda.</p>}
+                {notifications.length === 0 && (
+                  <EmptyState
+                    compact
+                    icon="🔔"
+                    title="Nenhuma notificação por enquanto"
+                    description="Curtidas, comentários e novos seguidores aparecem aqui."
+                  />
+                )}
                 {notifications.map((n) => (
                   <div
                     key={n.id}
@@ -3766,7 +3922,11 @@ function PublicProfilePage({ handle }) {
           {tab === "fotos" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
               {posts.filter(p => p.photo_url).map((p) => <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}><img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}
-              {posts.filter(p => p.photo_url).length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>}
+              {posts.filter(p => p.photo_url).length === 0 && (
+                <div style={{ gridColumn: "1/-1" }}>
+                  <EmptyState compact icon="📸" title="Nenhuma foto publicada" description="As imagens deste perfil aparecerão aqui." />
+                </div>
+              )}
             </div>
           )}
           {tab === "posts" && (
@@ -3778,7 +3938,9 @@ function PublicProfilePage({ handle }) {
                   <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
                 </div>
               ))}
-              {posts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
+              {posts.filter(p => p.text).length === 0 && (
+                <EmptyState compact icon="✍️" title="Nenhum post publicado" description="Os textos deste perfil aparecerão aqui." />
+              )}
             </div>
           )}
           {tab === "ativ" && (
@@ -3792,7 +3954,9 @@ function PublicProfilePage({ handle }) {
                   </div>
                 </div>
               ))}
-              {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
+              {activities.length === 0 && (
+                <EmptyState compact icon="⌁" title="Nenhuma atividade registrada" description="As corridas deste perfil aparecerão aqui." />
+              )}
             </div>
           )}
         </div>
