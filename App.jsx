@@ -532,6 +532,38 @@ function AppMain({ user, userName }) {
     await loadNotifications();
   };
 
+  const handleNotificationClick = async (notification) => {
+    if (!notification) return;
+    setShowNotifications(false);
+
+    if ((notification.type === "comment" || notification.type === "like") && notification.post_id) {
+      let targetPost = posts.find((post) => post.id === notification.post_id);
+      if (!targetPost) {
+        const { data } = await supabase.from("posts").select("*").eq("id", notification.post_id).single();
+        targetPost = data || null;
+      }
+
+      if (targetPost) {
+        setSelectedPhotoPost(targetPost);
+        if (notification.type === "comment") {
+          setOpenComments(targetPost.id);
+          await loadComments(targetPost.id);
+        } else {
+          setOpenComments(null);
+          setNewComment("");
+        }
+        return;
+      }
+
+      alert("Essa publicação não está mais disponível.");
+      return;
+    }
+
+    if (notification.type === "follow" && notification.from_user_id) {
+      await openProfile(notification.from_user_id);
+    }
+  };
+
   const handleFollow = async (targetId) => {
     const isFollowing = realFollowing[targetId];
     if (isFollowing) {
@@ -3102,9 +3134,11 @@ function AppMain({ user, userName }) {
                   <button onClick={() => { setSelectedPhotoPost(null); setOpenComments(null); setNewComment(""); }} style={{ width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#aaa", fontSize: 20, cursor: "pointer" }}>✕</button>
                 </div>
 
-                <div style={{ background: "#07070c" }}>
-                  <img src={modalPost.photo_url} alt="Publicação" style={{ width: "100%", maxHeight: "52vh", objectFit: "contain", display: "block", background: "#07070c" }} />
-                </div>
+                {modalPost.photo_url && (
+                  <div style={{ background: "#07070c" }}>
+                    <img src={modalPost.photo_url} alt="Publicação" style={{ width: "100%", maxHeight: "52vh", objectFit: "contain", display: "block", background: "#07070c" }} />
+                  </div>
+                )}
 
                 <div style={{ padding: "16px 18px 28px" }}>
                   {modalPost.text && <p style={{ color: "#f0f0f0", fontSize: 14.5, lineHeight: 1.58, marginBottom: 15 }}>{modalPost.text}</p>}
@@ -3213,11 +3247,15 @@ function AppMain({ user, userName }) {
               <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
                 {notifications.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma notificação ainda.</p>}
                 {notifications.map((n) => (
-                  <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #1e1e2e", opacity: n.read ? 0.6 : 1 }}>
-                    <div onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }} style={{ width: 42, height: 42, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0, overflow: "hidden", cursor: "pointer" }}>
+                  <div
+                    key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #1e1e2e", opacity: n.read ? 0.6 : 1, cursor: "pointer" }}
+                  >
+                    <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0, overflow: "hidden" }}>
                       {n.from_user?.avatar_url ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : n.from_user?.name?.charAt(0) || "?"}
                     </div>
-                    <div style={{ flex: 1, cursor: "pointer" }} onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }}>
+                    <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
                         {n.type === "comment" ? (
                           <>
@@ -3236,7 +3274,7 @@ function AppMain({ user, userName }) {
                       <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
                     {n.type === "follow" && n.from_user_id && (
-                      <button onClick={() => handleFollow(n.from_user_id)} style={{ border: `1.5px solid ${realFollowing[n.from_user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[n.from_user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                      <button onClick={(e) => { e.stopPropagation(); handleFollow(n.from_user_id); }} style={{ border: `1.5px solid ${realFollowing[n.from_user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[n.from_user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
                         {realFollowing[n.from_user_id] ? "Seguindo" : "Seguir"}
                       </button>
                     )}
