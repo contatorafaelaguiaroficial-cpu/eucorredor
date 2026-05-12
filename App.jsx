@@ -266,6 +266,8 @@ function AppMain({ user, userName }) {
   const [gpsHR, setGpsHR] = useState(142);
   const [gpsLocated, setGpsLocated] = useState(false);
   const [gpsError, setGpsError] = useState("");
+  const [showGpsPermissionModal, setShowGpsPermissionModal] = useState(false);
+  const [checkingGpsPermission, setCheckingGpsPermission] = useState(false);
   const gpsIntervalRef = useRef(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
@@ -721,10 +723,49 @@ function AppMain({ user, userName }) {
     return adjMin + "min" + String(adjSec).padStart(2, "0") + "s/km";
   };
 
-  const startGpsRun = () => {
-    setGpsElapsed(0); setGpsDistance(0); setGpsRoute([{ x: 195, y: 300 }]);
-    setGpsPaused(false); setGpsHR(142); setGpsLocated(false); setGpsError("");
+  const beginGpsRun = () => {
+    setGpsElapsed(0);
+    setGpsDistance(0);
+    setGpsRoute([{ x: 195, y: 300 }]);
+    setGpsPaused(false);
+    setGpsHR(142);
+    setGpsLocated(false);
+    setGpsError("");
+    setShowGpsPermissionModal(false);
     setHubScreen("tracking");
+  };
+
+  const startGpsRun = () => {
+    setGpsError("");
+    setShowGpsPermissionModal(true);
+  };
+
+  const requestGpsPermissionAndStart = () => {
+    setGpsError("");
+
+    if (!navigator.geolocation) {
+      setGpsError("Seu navegador não permite usar GPS neste dispositivo.");
+      return;
+    }
+
+    setCheckingGpsPermission(true);
+
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setCheckingGpsPermission(false);
+        beginGpsRun();
+      },
+      (err) => {
+        const msgs = {
+          1: "Permissão negada. Ative a localização do navegador para registrar sua corrida.",
+          2: "GPS indisponível no momento. Verifique sinal, internet e localização do aparelho.",
+          3: "Tempo esgotado. Tente novamente em um local com melhor sinal."
+        };
+        setCheckingGpsPermission(false);
+        setGpsError(msgs[err.code] || "Não foi possível acessar o GPS.");
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
   };
 
   const finishGpsRun = async () => {
@@ -779,7 +820,7 @@ function AppMain({ user, userName }) {
         navigator.geolocation.getCurrentPosition((pos) => {
           const { latitude: lat, longitude: lng } = pos.coords;
           marker.setLatLng([lat, lng]); map.setView([lat, lng], 17); setGpsLocated(true); lastCoord = [lat, lng];
-        }, (err) => { const msgs = { 1: "Permissão negada", 2: "GPS indisponível", 3: "Tempo esgotado" }; setGpsError(msgs[err.code] || "Erro GPS"); }, gpsOptions);
+        }, (err) => { const msgs = { 1: "Permissão negada. Ative a localização do navegador para registrar sua corrida.", 2: "GPS indisponível", 3: "Tempo esgotado" }; setGpsError(msgs[err.code] || "Erro GPS"); if (err.code === 1) setShowGpsPermissionModal(true); }, gpsOptions);
         const watchId = navigator.geolocation.watchPosition((pos) => {
           const { latitude: lat, longitude: lng } = pos.coords;
           const latlng = [lat, lng];
@@ -791,7 +832,7 @@ function AppMain({ user, userName }) {
             if (dist > 0.003 && dist < 0.5) { setGpsDistance(d => d + dist); leafletCoordsRef.current.push(latlng); polyline.setLatLngs(leafletCoordsRef.current); }
           } else { leafletCoordsRef.current = [latlng]; }
           map.setView(latlng, 17); lastCoord = latlng;
-        }, (err) => { const msgs = { 1: "Permissão negada", 2: "GPS indisponível", 3: "Tempo esgotado" }; setGpsError(msgs[err.code] || "Erro GPS"); }, gpsOptions);
+        }, (err) => { const msgs = { 1: "Permissão negada. Ative a localização do navegador para registrar sua corrida.", 2: "GPS indisponível", 3: "Tempo esgotado" }; setGpsError(msgs[err.code] || "Erro GPS"); if (err.code === 1) setShowGpsPermissionModal(true); }, gpsOptions);
         leafletMapRef.current._watchId = watchId;
       }
     };
@@ -1111,6 +1152,48 @@ function AppMain({ user, userName }) {
               </div>
               <button onClick={handleOnboarding} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }}>
                 Entrar no eucorredor
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showGpsPermissionModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.76)", backdropFilter: "blur(14px)", zIndex: 650, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div style={{ width: "100%", maxWidth: 360, background: "linear-gradient(180deg, rgba(19,19,26,0.98), rgba(10,10,15,0.98))", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 26, padding: 22, boxShadow: "0 28px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 18 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 18, background: "rgba(225,29,72,0.16)", border: "1px solid rgba(225,29,72,0.30)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 25 }}>
+                  📍
+                </div>
+                <button onClick={() => { setShowGpsPermissionModal(false); setCheckingGpsPermission(false); }} style={{ background: "none", border: "none", color: "#777", fontSize: 28, lineHeight: 1, cursor: "pointer" }}>×</button>
+              </div>
+
+              <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 25, lineHeight: 1.08, letterSpacing: -0.8, marginBottom: 10 }}>
+                Permita o GPS para iniciar sua corrida
+              </h2>
+
+              <p style={{ color: "#b9b9c3", fontSize: 14, lineHeight: 1.55, marginBottom: 16 }}>
+                O eucorredor precisa da sua localização para medir distância, tempo, pace e desenhar o percurso no mapa.
+              </p>
+
+              <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 14, marginBottom: 16 }}>
+                <p style={{ color: "#fff", fontSize: 13, fontWeight: 900, marginBottom: 8 }}>No iPhone, se aparecer permissão negada:</p>
+                <p style={{ color: "#8f8f9b", fontSize: 12.5, lineHeight: 1.55 }}>
+                  Ajustes → Safari ou Chrome → Localização → Permitir. Depois volte aqui e toque em tentar novamente.
+                </p>
+              </div>
+
+              {gpsError && (
+                <p style={{ color: "#ff4d6d", background: "rgba(225,29,72,0.10)", border: "1px solid rgba(225,29,72,0.22)", borderRadius: 14, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.45, marginBottom: 14 }}>
+                  {gpsError}
+                </p>
+              )}
+
+              <button onClick={requestGpsPermissionAndStart} disabled={checkingGpsPermission} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: checkingGpsPermission ? "#3a1a22" : "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontSize: 14, fontWeight: 900, fontFamily: "inherit", cursor: checkingGpsPermission ? "not-allowed" : "pointer", boxShadow: checkingGpsPermission ? "none" : "0 14px 34px rgba(225,29,72,0.26)", marginBottom: 10 }}>
+                {checkingGpsPermission ? "Solicitando permissão..." : "Permitir GPS e iniciar"}
+              </button>
+
+              <button onClick={() => { setShowGpsPermissionModal(false); setGpsError(""); }} style={{ width: "100%", height: 44, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 14, background: "rgba(255,255,255,0.035)", color: "#aaa", fontSize: 13, fontWeight: 800, fontFamily: "inherit", cursor: "pointer" }}>
+                Agora não
               </button>
             </div>
           </div>
