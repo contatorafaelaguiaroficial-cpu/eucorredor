@@ -309,6 +309,7 @@ function AppMain({ user, userName }) {
   const [storyPreview, setStoryPreview] = useState(null);
   const [uploadingStory, setUploadingStory] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [rankingUsers, setRankingUsers] = useState([]);
   const [myClubs, setMyClubs] = useState([]);
   const [allClubs, setAllClubs] = useState([]);
   const [clubMembership, setClubMembership] = useState({});
@@ -338,7 +339,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadRankingUsers(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
@@ -358,6 +359,14 @@ function AppMain({ user, userName }) {
       .order("races_count", { ascending: false })
       .limit(8);
     setSuggestions(data || []);
+  };
+
+  const loadRankingUsers = async () => {
+    const { data } = await supabase.from("profiles")
+      .select("id, name, handle, level, avatar_url, races_count, total_km")
+      .order("total_km", { ascending: false })
+      .limit(6);
+    setRankingUsers(data || []);
   };
 
   const loadMyClubs = async () => {
@@ -992,6 +1001,61 @@ function AppMain({ user, userName }) {
       year
     };
   };
+
+
+  const parseDurationToSeconds = (duration = "") => {
+    if (!duration) return 0;
+    const parts = duration.toString().split(":").map(Number).filter(n => !Number.isNaN(n));
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 1) return parts[0];
+    return 0;
+  };
+
+  const parsePaceToSeconds = (pace = "") => {
+    const txt = pace.toString().toLowerCase();
+    const match = txt.match(/(\d+)[\'min:]\s*(\d{1,2})?/);
+    if (!match) return 0;
+    return Number(match[1]) * 60 + Number(match[2] || 0);
+  };
+
+  const formatSecondsLabel = (seconds) => {
+    if (!seconds) return "00:00";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const sec = Math.floor(seconds % 60);
+    if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+    return `${m}min`;
+  };
+
+  const myActivities = activities.filter((a) => a.user_id === user.id);
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 6);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekActivities = myActivities.filter((a) => new Date(a.created_at || Date.now()) >= weekStart);
+  const weekKm = weekActivities.reduce((sum, a) => sum + Number(a.distance || 0), 0);
+  const weekSeconds = weekActivities.reduce((sum, a) => sum + parseDurationToSeconds(a.duration), 0);
+  const weekPace = weekKm > 0 ? calcPace(weekKm, weekSeconds) : "--";
+  const lastActivity = myActivities[0] || activities[0];
+  const monthGoal = 30;
+  const monthKm = Number(profile?.total_km || 0);
+  const monthProgress = Math.min(100, (monthKm / monthGoal) * 100);
+  const bestDistance = myActivities.length ? Math.max(...myActivities.map(a => Number(a.distance || 0))) : 0;
+  const bestPaceSeconds = myActivities.map(a => parsePaceToSeconds(a.pace)).filter(Boolean).sort((a, b) => a - b)[0] || 0;
+  const bestPaceLabel = bestPaceSeconds ? `${Math.floor(bestPaceSeconds / 60)}'${String(bestPaceSeconds % 60).padStart(2, "0")}/km` : "--";
+  const dayLabels = ["S", "T", "Q", "Q", "S", "S", "D"];
+  const weekBars = dayLabels.map((_, idx) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + idx);
+    const total = weekActivities
+      .filter(a => {
+        const ad = new Date(a.created_at || Date.now());
+        return ad.toDateString() === d.toDateString();
+      })
+      .reduce((sum, a) => sum + Number(a.distance || 0), 0);
+    return total;
+  });
+  const maxWeekBar = Math.max(...weekBars, 1);
 
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", display: "flex", justifyContent: "center" }}>
@@ -1829,6 +1893,156 @@ function AppMain({ user, userName }) {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+
+          {tab === "hub" && (
+            <div style={{ padding: "16px 20px 112px" }}>
+              {hubScreen === "hub" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div style={{
+                    position: "relative",
+                    overflow: "hidden",
+                    borderRadius: 26,
+                    padding: 24,
+                    minHeight: 236,
+                    border: "1px solid rgba(225,29,72,0.26)",
+                    background: "radial-gradient(circle at 84% 18%, rgba(225,29,72,0.24), transparent 32%), linear-gradient(135deg, rgba(19,19,26,0.96), rgba(9,9,14,0.98))",
+                    boxShadow: "0 24px 54px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.06)"
+                  }}>
+                    <div style={{ position: "absolute", inset: 0, opacity: 0.23, background: "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.05) 46%, transparent 47%), repeating-linear-gradient(90deg, transparent 0 34px, rgba(255,255,255,0.06) 35px, transparent 36px), repeating-linear-gradient(0deg, transparent 0 34px, rgba(255,255,255,0.04) 35px, transparent 36px)" }} />
+                    <svg viewBox="0 0 240 150" style={{ position: "absolute", right: -18, top: 20, width: 190, opacity: 0.9 }}>
+                      <polyline points="22,118 62,92 98,100 126,76 152,78 190,45 210,20" fill="none" stroke="#e11d48" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+                      <circle cx="22" cy="118" r="11" fill="#e11d48" />
+                      <circle cx="210" cy="20" r="11" fill="#fff" />
+                      <circle cx="210" cy="20" r="7" fill="#e11d48" />
+                    </svg>
+                    <div style={{ position: "relative", zIndex: 1 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, padding: "7px 11px", color: "#d9d9df", fontSize: 12, fontWeight: 800, marginBottom: 18 }}>
+                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : "#6ee7b7", boxShadow: "0 0 14px #6ee7b7" }} /> GPS
+                      </span>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 36, lineHeight: 1.02, letterSpacing: -1.5, marginBottom: 10 }}>Pronto para correr?</h2>
+                      <p style={{ color: "#b9b9c3", fontSize: 15, lineHeight: 1.55, maxWidth: 245, marginBottom: 18 }}>Registre sua corrida, acompanhe seu desempenho e supere seus limites.</p>
+                      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", color: "#aaa", fontSize: 12, fontWeight: 800, marginBottom: 22 }}>
+                        <span>⌖ GPS ativo</span><span>♥ FC</span><span>▥ Sinal forte</span>
+                      </div>
+                      <button onClick={startGpsRun} style={{ width: "100%", maxWidth: 270, height: 56, border: "none", borderRadius: 999, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontSize: 17, fontWeight: 900, fontFamily: "inherit", cursor: "pointer", boxShadow: "0 18px 40px rgba(225,29,72,0.28)" }}>▶ Iniciar corrida</button>
+                    </div>
+                  </div>
+
+                  <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 24, padding: 18 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                      <h3 style={{ fontSize: 19, fontWeight: 900, letterSpacing: -0.4 }}>Resumo da semana</h3>
+                      <span style={{ color: "#777", fontSize: 12, fontWeight: 800 }}>últimos 7 dias</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
+                      <div><p style={{ color: "#e11d48", fontSize: 22, fontWeight: 900 }}>{weekKm.toFixed(2).replace(".", ",")}</p><p style={{ color: "#777", fontSize: 11 }}>km</p></div>
+                      <div><p style={{ color: "#fff", fontSize: 22, fontWeight: 900 }}>{weekActivities.length}</p><p style={{ color: "#777", fontSize: 11 }}>corridas</p></div>
+                      <div><p style={{ color: "#fff", fontSize: 22, fontWeight: 900 }}>{weekPace}</p><p style={{ color: "#777", fontSize: 11 }}>pace médio</p></div>
+                      <div><p style={{ color: "#fff", fontSize: 22, fontWeight: 900 }}>{formatSecondsLabel(weekSeconds)}</p><p style={{ color: "#777", fontSize: 11 }}>tempo</p></div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10, alignItems: "end", height: 90, padding: "0 4px" }}>
+                      {weekBars.map((km, idx) => (
+                        <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+                          <div style={{ width: 18, height: Math.max(10, (km / maxWeekBar) * 62), borderRadius: 5, background: km > 0 ? "linear-gradient(180deg, #ff3d63, #e11d48)" : "rgba(255,255,255,0.16)" }} />
+                          <span style={{ color: "#777", fontSize: 10, fontWeight: 800 }}>{dayLabels[idx]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 22, padding: 16 }}>
+                      <p style={{ color: "#fff", fontSize: 16, fontWeight: 900, marginBottom: 18 }}>🎯 Meta do mês</p>
+                      <p style={{ fontSize: 27, fontWeight: 900, marginBottom: 12 }}><span style={{ color: "#e11d48" }}>{monthKm.toFixed(1).replace(".", ",")}</span> / {monthGoal} km</p>
+                      <div style={{ height: 9, borderRadius: 999, background: "#252536", overflow: "hidden", marginBottom: 12 }}><div style={{ width: `${monthProgress}%`, height: "100%", background: "linear-gradient(90deg, #e11d48, #ff3d63)", borderRadius: 999 }} /></div>
+                      <p style={{ color: "#888", fontSize: 13, lineHeight: 1.45 }}>Faltam {Math.max(monthGoal - monthKm, 0).toFixed(1).replace(".", ",")} km para bater sua meta.</p>
+                    </div>
+
+                    <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 22, padding: 16 }}>
+                      <p style={{ color: "#fff", fontSize: 16, fontWeight: 900, marginBottom: 14 }}>⚡ Última atividade</p>
+                      {lastActivity ? (
+                        <>
+                          <p style={{ fontSize: 28, fontWeight: 900, marginBottom: 6 }}>{Number(lastActivity.distance || 0).toFixed(2).replace(".", ",")} km</p>
+                          <p style={{ color: "#ddd", fontSize: 14, fontWeight: 800, marginBottom: 4 }}>⏱ {lastActivity.duration || "--"}</p>
+                          <p style={{ color: "#ddd", fontSize: 14, fontWeight: 800 }}>◴ {lastActivity.pace || "--"}</p>
+                          <div style={{ marginTop: 14, height: 80, borderRadius: 16, background: "radial-gradient(circle at 70% 40%, rgba(225,29,72,0.22), transparent 30%), #0d0d18", border: "1px solid rgba(255,255,255,0.08)", position: "relative", overflow: "hidden" }}>
+                            <svg viewBox="0 0 160 80" style={{ width: "100%", height: "100%" }}><polyline points="14,62 32,45 55,49 76,34 98,39 119,22 142,15" fill="none" stroke="#e11d48" strokeWidth="4" strokeLinecap="round"/><circle cx="14" cy="62" r="5" fill="#6ee7b7"/><circle cx="142" cy="15" r="5" fill="#fff"/></svg>
+                          </div>
+                        </>
+                      ) : <p style={{ color: "#777", fontSize: 13, lineHeight: 1.5 }}>Nenhuma atividade registrada ainda.</p>}
+                    </div>
+                  </div>
+
+                  <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 22, padding: 16 }}>
+                    <p style={{ color: "#fff", fontSize: 16, fontWeight: 900, marginBottom: 14 }}>🏆 Seus melhores números</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#e11d48", fontSize: 19, fontWeight: 900 }}>5K</p><p style={{ color: "#aaa", fontSize: 12 }}>{bestPaceLabel}</p></div>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{bestDistance.toFixed(1).replace(".", ",")}</p><p style={{ color: "#aaa", fontSize: 12 }}>maior km</p></div>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{bestPaceLabel}</p><p style={{ color: "#aaa", fontSize: 12 }}>melhor pace</p></div>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{races}</p><p style={{ color: "#aaa", fontSize: 12 }}>corridas</p></div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <p style={{ color: "#fff", fontSize: 16, fontWeight: 900 }}>⭐ Ranking da comunidade</p>
+                      <span style={{ color: "#777", fontSize: 12, fontWeight: 800 }}>por km total</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {(rankingUsers.length ? rankingUsers : [profile].filter(Boolean)).slice(0, 5).map((runner, idx) => (
+                        <div key={runner.id || idx} style={{ display: "grid", gridTemplateColumns: "26px 38px 1fr auto", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: idx < Math.min((rankingUsers.length || 1), 5) - 1 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
+                          <span style={{ color: idx === 0 ? "#e11d48" : "#777", fontSize: 13, fontWeight: 900 }}>#{idx + 1}</span>
+                          {getAvatar(runner, 38)}
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{runner?.name || "Corredor"}</p>
+                            <p style={{ color: getLevelColor(runner?.level), fontSize: 11, fontWeight: 800 }}>{getLevelIcon(runner?.level)} {runner?.level || "Iniciante"}</p>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <p style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>{Number(runner?.total_km || 0).toFixed(1).replace(".", ",")} km</p>
+                            <p style={{ color: "#777", fontSize: 10 }}>{runner?.races_count || 0} corridas</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {hubScreen === "tracking" && (
+                <div style={{ minHeight: "calc(100vh - 170px)", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div id="leaflet-map" style={{ height: 330, borderRadius: 26, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", background: "#0d0d18" }} />
+                  <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 24, padding: 18 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, textAlign: "center", marginBottom: 18 }}>
+                      <div><p style={{ fontSize: 26, fontWeight: 900 }}>{gpsDistance.toFixed(2).replace(".", ",")}</p><p style={{ color: "#777", fontSize: 12 }}>km</p></div>
+                      <div><p style={{ fontSize: 26, fontWeight: 900 }}>{formatRunTime(gpsElapsed)}</p><p style={{ color: "#777", fontSize: 12 }}>tempo</p></div>
+                      <div><p style={{ fontSize: 26, fontWeight: 900 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p><p style={{ color: "#777", fontSize: 12 }}>pace</p></div>
+                    </div>
+                    {gpsError && <p style={{ color: "#e11d48", fontSize: 12, marginBottom: 12 }}>GPS: {gpsError}</p>}
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => setGpsPaused(p => !p)} style={{ flex: 1, height: 50, borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: "#fff", fontWeight: 900, fontFamily: "inherit" }}>{gpsPaused ? "Retomar" : "Pausar"}</button>
+                      <button onClick={finishGpsRun} style={{ flex: 1, height: 50, borderRadius: 16, border: "none", background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit" }}>Finalizar</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {hubScreen === "summary" && (
+                <div style={{ padding: "24px 0", textAlign: "center" }}>
+                  <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 26, padding: 24 }}>
+                    <p style={{ fontSize: 42, marginBottom: 8 }}>🏅</p>
+                    <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8 }}>Corrida finalizada</h2>
+                    <p style={{ color: "#888", fontSize: 14, marginBottom: 22 }}>Seu treino foi salvo no histórico.</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+                      <div className="sbox"><strong>{gpsDistance.toFixed(2).replace(".", ",")}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>km</span></div>
+                      <div className="sbox"><strong>{formatRunTime(gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>tempo</span></div>
+                      <div className="sbox"><strong>{formatGpsPace(gpsDistance, gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>pace</span></div>
+                    </div>
+                    <button onClick={() => setHubScreen("hub")} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit" }}>Voltar ao Hub</button>
                   </div>
                 </div>
               )}
