@@ -1054,7 +1054,7 @@ function AppMain({ user, userName }) {
 
         {/* Header */}
         <div style={{ padding: "16px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 50 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 0 }}>
             <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, color: "#fff" }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button onClick={() => setShowSearch(!showSearch)} title="Buscar" style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
@@ -1078,18 +1078,6 @@ function AppMain({ user, userName }) {
                 )}
               </button>
               <button onClick={handleSignOut} title="Sair" style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 10, padding: "7px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>Sair</button>
-            </div>
-          </div>
-          <div style={{ background: "#13131a", borderRadius: 12, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: `${level.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{level.icon}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: level.color }}>{level.name}</span>
-                {next && <span style={{ fontSize: 11, color: "#444" }}>{races}/{next.min} corridas</span>}
-              </div>
-              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}>
-                <div style={{ background: level.color, width: `${progress}%`, height: 4, borderRadius: 99 }} />
-              </div>
             </div>
           </div>
         </div>
