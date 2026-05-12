@@ -337,6 +337,18 @@ function AppMain({ user, userName }) {
   const [clubAvatarFile, setClubAvatarFile] = useState(null);
   const [clubAvatarPreview, setClubAvatarPreview] = useState(null);
   const [newClubPost, setNewClubPost] = useState("");
+  const [clubNotices, setClubNotices] = useState([]);
+  const [activeClubTab, setActiveClubTab] = useState("posts");
+  const [showCreateClubNotice, setShowCreateClubNotice] = useState(false);
+  const [savingClubNotice, setSavingClubNotice] = useState(false);
+  const [clubNoticeForm, setClubNoticeForm] = useState({
+    title: "",
+    body: "",
+    location: "",
+    time: "",
+    distance: "",
+    is_pinned: true,
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshMessage, setRefreshMessage] = useState("");
@@ -417,24 +429,47 @@ function AppMain({ user, userName }) {
     setRankingUsers(data || []);
   };
 
-  const loadMyClubs = async () => {
-    const { data } = await supabase.from("club_members").select("*, clubs(id, name, description, avatar_url, owner_id)").eq("user_id", user.id).eq("status", "approved");
-    const clubs = (data || []).map(m => m.clubs).filter(Boolean);
-    const withCounts = await Promise.all(clubs.map(async c => {
-      const { count } = await supabase.from("club_members").select("*", { count: "exact", head: true }).eq("club_id", c.id).eq("status", "approved");
-      return { ...c, member_count: count || 0 };
-    }));
-    setMyClubs(withCounts);
+  const enrichClubCard = async (club) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [
+      { count: memberCount },
+      { data: latestNotices },
+      { count: postsToday },
+    ] = await Promise.all([
+      supabase.from("club_members").select("*", { count: "exact", head: true }).eq("club_id", club.id).eq("status", "approved"),
+      supabase.from("club_notices").select("*").eq("club_id", club.id).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }).limit(1),
+      supabase.from("club_posts").select("*", { count: "exact", head: true }).eq("club_id", club.id).gte("created_at", today.toISOString()),
+    ]);
+
+    return {
+      ...club,
+      member_count: memberCount || 0,
+      latest_notice: latestNotices?.[0] || null,
+      posts_today: postsToday || 0,
+    };
   };
+
+  const loadMyClubs = async () => {
+    const { data } = await supabase
+      .from("club_members")
+      .select("*, clubs(id, name, description, avatar_url, owner_id)")
+      .eq("user_id", user.id)
+      .eq("status", "approved");
+
+    const clubs = (data || []).map((m) => m.clubs).filter(Boolean);
+    const enriched = await Promise.all(clubs.map(enrichClubCard));
+    setMyClubs(enriched);
+  };
+
   const loadAllClubs = async () => {
     const { data } = await supabase.from("clubs").select("*").order("created_at", { ascending: false });
     const clubs = data || [];
-    const withCounts = await Promise.all(clubs.map(async c => {
-      const { count } = await supabase.from("club_members").select("*", { count: "exact", head: true }).eq("club_id", c.id).eq("status", "approved");
-      return { ...c, member_count: count || 0 };
-    }));
-    setAllClubs(withCounts);
+    const enriched = await Promise.all(clubs.map(enrichClubCard));
+    setAllClubs(enriched);
   };
+
   const loadClubMembership = async () => {
     const { data } = await supabase.from("club_members").select("club_id, status").eq("user_id", user.id);
     const map = {};
@@ -478,17 +513,36 @@ function AppMain({ user, userName }) {
     setClubMembership(m => ({ ...m, [clubId]: null }));
     await loadMyClubs(); setActiveClub(null);
   };
-  const openClub = async (club) => {
+  const openClub = async (club, preferredTab = "posts") => {
     setActiveClub(club);
-    const { data: cp } = await supabase.from("club_posts").select("*, profiles(id, name, avatar_url, level)").eq("club_id", club.id).order("created_at", { ascending: false });
-    setClubPosts(cp || []);
-    const { data: cm } = await supabase.from("club_members").select("*, profiles(id, name, avatar_url, level, handle)").eq("club_id", club.id).eq("status", "approved");
-    setClubMembers(cm || []);
+    setActiveClubTab(preferredTab);
+
+    const [
+      { data: postsData },
+      { data: membersData },
+      { data: noticesData },
+    ] = await Promise.all([
+      supabase.from("club_posts").select("*, profiles(id, name, avatar_url, level, handle)").eq("club_id", club.id).order("created_at", { ascending: false }),
+      supabase.from("club_members").select("*, profiles(id, name, avatar_url, level, handle)").eq("club_id", club.id).eq("status", "approved"),
+      supabase.from("club_notices").select("*").eq("club_id", club.id).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }),
+    ]);
+
+    setClubPosts(postsData || []);
+    setClubMembers(membersData || []);
+    setClubNotices(noticesData || []);
+
     if (club.owner_id === user.id) {
-      const { data: pr } = await supabase.from("club_members").select("*, profiles(id, name, avatar_url, level, handle)").eq("club_id", club.id).eq("status", "pending");
-      setPendingRequests(pr || []);
+      const { data: pendingData } = await supabase
+        .from("club_members")
+        .select("*, profiles(id, name, avatar_url, level, handle)")
+        .eq("club_id", club.id)
+        .eq("status", "pending");
+      setPendingRequests(pendingData || []);
+    } else {
+      setPendingRequests([]);
     }
   };
+
   const handleApproveMember = async (memberId) => {
     await supabase.from("club_members").update({ status: "approved" }).eq("id", memberId);
     await openClub(activeClub);
@@ -500,8 +554,72 @@ function AppMain({ user, userName }) {
   const handleClubPost = async () => {
     if (!newClubPost.trim() || !activeClub) return;
     await supabase.from("club_posts").insert({ club_id: activeClub.id, user_id: user.id, text: newClubPost });
-    setNewClubPost(""); await openClub(activeClub);
+    setNewClubPost("");
+    await openClub(activeClub, "posts");
+    await loadMyClubs();
   };
+
+  const resetClubNoticeForm = () => {
+    setClubNoticeForm({
+      title: "",
+      body: "",
+      location: "",
+      time: "",
+      distance: "",
+      is_pinned: true,
+    });
+  };
+
+  const handleCreateClubNotice = async () => {
+    if (!activeClub || activeClub.owner_id !== user.id) return;
+    if (!clubNoticeForm.title.trim()) return alert("Informe o título do aviso.");
+
+    setSavingClubNotice(true);
+    try {
+      if (clubNoticeForm.is_pinned) {
+        await supabase.from("club_notices").update({ is_pinned: false }).eq("club_id", activeClub.id);
+      }
+
+      const { error } = await supabase.from("club_notices").insert({
+        club_id: activeClub.id,
+        author_id: user.id,
+        title: clubNoticeForm.title.trim(),
+        body: clubNoticeForm.body.trim() || null,
+        location: clubNoticeForm.location.trim() || null,
+        notice_time: clubNoticeForm.time.trim() || null,
+        distance: clubNoticeForm.distance.trim() || null,
+        is_pinned: clubNoticeForm.is_pinned,
+      });
+
+      if (error) throw error;
+
+      setShowCreateClubNotice(false);
+      resetClubNoticeForm();
+      await openClub(activeClub, "avisos");
+      await loadMyClubs();
+    } catch (err) {
+      alert("Erro ao criar aviso: " + (err.message || "tente novamente."));
+    } finally {
+      setSavingClubNotice(false);
+    }
+  };
+
+  const handlePinClubNotice = async (noticeId) => {
+    if (!activeClub || activeClub.owner_id !== user.id) return;
+    await supabase.from("club_notices").update({ is_pinned: false }).eq("club_id", activeClub.id);
+    await supabase.from("club_notices").update({ is_pinned: true }).eq("id", noticeId);
+    await openClub(activeClub, "avisos");
+    await loadMyClubs();
+  };
+
+  const handleDeleteClubNotice = async (noticeId) => {
+    if (!activeClub || activeClub.owner_id !== user.id) return;
+    if (!window.confirm("Excluir este aviso?")) return;
+    await supabase.from("club_notices").delete().eq("id", noticeId);
+    await openClub(activeClub, "avisos");
+    await loadMyClubs();
+  };
+
   const handlePostStory = async () => {
     if (!storyFile) return;
     setUploadingStory(true);
@@ -2128,55 +2246,175 @@ function AppMain({ user, userName }) {
                   {activeClub ? (
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                        <button onClick={() => setActiveClub(null)} style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#fff", fontSize: 18, cursor: "pointer" }}>←</button>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontWeight: 900, fontSize: 17 }}>{activeClub.name}</p>
-                          <p style={{ fontSize: 12, color: "#666" }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
+                        <button
+                          onClick={() => {
+                            setActiveClub(null);
+                            setClubNotices([]);
+                            setClubPosts([]);
+                            setClubMembers([]);
+                            setPendingRequests([]);
+                            setActiveClubTab("posts");
+                          }}
+                          style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#fff", fontSize: 18, cursor: "pointer" }}
+                        >
+                          ←
+                        </button>
+
+                        <div style={{ width: 54, height: 54, borderRadius: 16, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, overflow: "hidden", flexShrink: 0 }}>
+                          {activeClub.avatar_url ? <img src={activeClub.avatar_url} alt={activeClub.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
                         </div>
-                        {activeClub.owner_id !== user.id && clubMembership[activeClub.id] === "approved" && (
-                          <button onClick={() => handleLeaveClub(activeClub.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 12, padding: "7px 11px", fontSize: 11, color: "#777", cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Sair</button>
-                        )}
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontWeight: 900, fontSize: 18, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{activeClub.name}</p>
+                          <p style={{ fontSize: 12, color: "#777", marginTop: 3 }}>
+                            {clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}
+                            {activeClub.owner_id === user.id && <span style={{ color: "#e11d48", fontWeight: 900 }}> · você é administrador</span>}
+                          </p>
+                        </div>
+
+                        {activeClub.owner_id === user.id ? (
+                          <button
+                            onClick={() => setShowCreateClubNotice(true)}
+                            style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 999, padding: "10px 13px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}
+                          >
+                            + Novo aviso
+                          </button>
+                        ) : clubMembership[activeClub.id] === "approved" ? (
+                          <button onClick={() => handleLeaveClub(activeClub.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 12, padding: "8px 11px", fontSize: 11, color: "#777", cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Sair</button>
+                        ) : null}
                       </div>
 
-                      <div style={{ background: "linear-gradient(135deg, rgba(225,29,72,0.14), rgba(255,255,255,0.04))", borderRadius: 24, padding: 18, border: "1px solid rgba(255,255,255,0.10)", display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-                        <div style={{ width: 68, height: 68, borderRadius: 18, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, overflow: "hidden", flexShrink: 0 }}>
-                          {activeClub.avatar_url ? <img src={activeClub.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontWeight: 900, fontSize: 17, marginBottom: 4 }}>{activeClub.name}</p>
-                          {activeClub.description && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.45 }}>{activeClub.description}</p>}
-                          <p style={{ fontSize: 11, color: "#777", marginTop: 7 }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
-                        </div>
+                      {clubNotices.find((n) => n.is_pinned) && (() => {
+                        const pinnedNotice = clubNotices.find((n) => n.is_pinned);
+                        return (
+                          <div style={{ background: "linear-gradient(135deg, rgba(225,29,72,0.17), rgba(255,255,255,0.035))", border: "1px solid rgba(225,29,72,0.46)", borderRadius: 22, padding: 16, marginBottom: 18, boxShadow: "0 20px 40px rgba(0,0,0,0.22)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                              <p style={{ color: "#ff4a70", fontSize: 11, fontWeight: 900 }}>📌 Aviso fixado</p>
+                              {activeClub.owner_id === user.id && <p style={{ color: "#777", fontSize: 10, fontWeight: 800 }}>Fixado por você 👑</p>}
+                            </div>
+                            <p style={{ fontSize: 18, fontWeight: 900, marginBottom: 10 }}>{pinnedNotice.title}</p>
+                            {pinnedNotice.body && <p style={{ fontSize: 13, color: "#ddd", lineHeight: 1.5, marginBottom: 10 }}>{pinnedNotice.body}</p>}
+                            <div style={{ display: "grid", gap: 6 }}>
+                              {pinnedNotice.location && <p style={{ fontSize: 13, color: "#eee" }}>⌖ <strong>Local:</strong> {pinnedNotice.location}</p>}
+                              {pinnedNotice.notice_time && <p style={{ fontSize: 13, color: "#eee" }}>◷ <strong>Horário:</strong> {pinnedNotice.notice_time}</p>}
+                              {pinnedNotice.distance && <p style={{ fontSize: 13, color: "#eee" }}>⌁ <strong>Distância:</strong> {pinnedNotice.distance}</p>}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", marginBottom: 16 }}>
+                        {[
+                          { id: "posts", label: "Posts" },
+                          { id: "avisos", label: "Avisos" },
+                          { id: "membros", label: "Membros" },
+                        ].map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => setActiveClubTab(item.id)}
+                            style={{ flex: 1, background: "none", border: "none", color: activeClubTab === item.id ? "#fff" : "#666", fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", padding: "12px 0" }}
+                          >
+                            {item.label}
+                            {activeClubTab === item.id && <div style={{ width: 28, height: 2, background: "#e11d48", borderRadius: 2, margin: "7px auto 0" }} />}
+                          </button>
+                        ))}
                       </div>
 
-                      {activeClub.owner_id === user.id && pendingRequests.length > 0 && (
-                        <div style={{ background: "#13131a", borderRadius: 18, padding: 14, border: "1px solid rgba(225,29,72,0.28)", marginBottom: 14 }}>
-                          <p style={{ fontSize: 12, fontWeight: 900, color: "#e11d48", marginBottom: 10 }}>Solicitações pendentes ({pendingRequests.length})</p>
-                          {pendingRequests.map(r => (
-                            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                              {getAvatar(r.profiles, 36)}
-                              <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 800 }}>{r.profiles?.name}</p><p style={{ fontSize: 11, color: "#555" }}>@{r.profiles?.handle}</p></div>
-                              <button onClick={() => handleApproveMember(r.id)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 9, padding: "6px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Aceitar</button>
-                              <button onClick={() => handleRejectMember(r.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#777", borderRadius: 9, padding: "6px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Recusar</button>
+                      {activeClubTab === "posts" && (
+                        <div>
+                          {clubMembership[activeClub.id] === "approved" && (
+                            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                              <input className="tinput" placeholder="Compartilhe algo com o clube..." value={newClubPost} onChange={(e) => setNewClubPost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleClubPost()} style={{ flex: 1 }} />
+                              <button onClick={handleClubPost} className="jbtn" style={{ borderRadius: 12 }}>↑</button>
+                            </div>
+                          )}
+
+                          {clubPosts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma publicação ainda.</p>}
+
+                          {clubPosts.map((p) => (
+                            <div key={p.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 20, padding: 15, marginBottom: 12 }}>
+                              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                                {getAvatar(p.profiles, 38)}
+                                <div style={{ flex: 1 }}>
+                                  <p style={{ fontSize: 14, fontWeight: 900 }}>{p.profiles?.name || "Corredor"}</p>
+                                  <p style={{ fontSize: 11, color: "#777" }}>{timeAgo(p.created_at)}</p>
+                                </div>
+                              </div>
+                              <p style={{ fontSize: 14, lineHeight: 1.55, color: "#f4f4f6" }}>{p.text}</p>
                             </div>
                           ))}
                         </div>
                       )}
 
-                      {clubMembership[activeClub.id] === "approved" && (
-                        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                          <input className="tinput" placeholder="Compartilhe um aviso com o clube..." value={newClubPost} onChange={(e) => setNewClubPost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleClubPost()} style={{ flex: 1 }} />
-                          <button onClick={handleClubPost} className="jbtn" style={{ borderRadius: 12 }}>↑</button>
+                      {activeClubTab === "avisos" && (
+                        <div>
+                          {activeClub.owner_id === user.id && (
+                            <button
+                              onClick={() => setShowCreateClubNotice(true)}
+                              style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 16, padding: 14, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", marginBottom: 14 }}
+                            >
+                              + Criar novo aviso
+                            </button>
+                          )}
+
+                          {clubNotices.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum aviso publicado.</p>}
+
+                          {clubNotices.map((notice) => (
+                            <div key={notice.id} style={{ background: notice.is_pinned ? "rgba(225,29,72,0.08)" : "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: notice.is_pinned ? "1px solid rgba(225,29,72,0.35)" : "1px solid rgba(255,255,255,0.10)", borderRadius: 20, padding: 15, marginBottom: 12 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                                <p style={{ color: notice.is_pinned ? "#ff4a70" : "#777", fontSize: 11, fontWeight: 900 }}>{notice.is_pinned ? "📌 Aviso fixado" : "Aviso do clube"}</p>
+                                {activeClub.owner_id === user.id && (
+                                  <div style={{ display: "flex", gap: 8 }}>
+                                    {!notice.is_pinned && <button onClick={() => handlePinClubNotice(notice.id)} style={{ background: "none", border: "none", color: "#e11d48", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Fixar</button>}
+                                    <button onClick={() => handleDeleteClubNotice(notice.id)} style={{ background: "none", border: "none", color: "#777", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Excluir</button>
+                                  </div>
+                                )}
+                              </div>
+                              <p style={{ fontSize: 16, fontWeight: 900, marginBottom: 8 }}>{notice.title}</p>
+                              {notice.body && <p style={{ fontSize: 13, color: "#ddd", lineHeight: 1.5, marginBottom: 10 }}>{notice.body}</p>}
+                              <div style={{ display: "grid", gap: 5 }}>
+                                {notice.location && <p style={{ fontSize: 12, color: "#aaa" }}>⌖ {notice.location}</p>}
+                                {notice.notice_time && <p style={{ fontSize: 12, color: "#aaa" }}>◷ {notice.notice_time}</p>}
+                                {notice.distance && <p style={{ fontSize: 12, color: "#aaa" }}>⌁ {notice.distance}</p>}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
 
-                      {clubPosts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma publicação ainda.</p>}
-                      {clubPosts.map(p => (
-                        <div key={p.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 20, padding: 15, marginBottom: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>{getAvatar(p.profiles, 38)}<div><p style={{ fontWeight: 900, fontSize: 13 }}>{p.profiles?.name}</p><p style={{ fontSize: 10, color: "#666" }}>{timeAgo(p.created_at)}</p></div></div>
-                          <p style={{ fontSize: 13, color: "#ddd", lineHeight: 1.55 }}>{p.text}</p>
+                      {activeClubTab === "membros" && (
+                        <div>
+                          {activeClub.owner_id === user.id && pendingRequests.length > 0 && (
+                            <div style={{ background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.22)", borderRadius: 18, padding: 14, marginBottom: 16 }}>
+                              <p style={{ fontSize: 12, fontWeight: 900, color: "#e11d48", marginBottom: 10 }}>Solicitações pendentes ({pendingRequests.length})</p>
+                              {pendingRequests.map((request) => (
+                                <div key={request.id} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                                  {getAvatar(request.profiles, 34)}
+                                  <div style={{ flex: 1 }}>
+                                    <p style={{ fontSize: 13, fontWeight: 900 }}>{request.profiles?.name || "Corredor"}</p>
+                                    <p style={{ fontSize: 11, color: "#777" }}>@{request.profiles?.handle || "usuario"}</p>
+                                  </div>
+                                  <button onClick={() => handleApproveMember(request.id)} style={{ background: "#e11d48", border: "none", color: "#fff", borderRadius: 999, padding: "7px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Aceitar</button>
+                                  <button onClick={() => handleRejectMember(request.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 999, padding: "7px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Recusar</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {clubMembers.map((member) => (
+                            <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 18, padding: 13, marginBottom: 10 }}>
+                              {getAvatar(member.profiles, 42)}
+                              <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: 14, fontWeight: 900 }}>{member.profiles?.name || "Corredor"}</p>
+                                <p style={{ fontSize: 11, color: "#777" }}>@{member.profiles?.handle || "usuario"} · {member.role === "owner" ? "Administrador" : "Membro"}</p>
+                              </div>
+                              {member.profiles?.id && member.profiles.id !== user.id && (
+                                <button onClick={() => openProfile(member.profiles.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#ddd", borderRadius: 999, padding: "7px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver</button>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   ) : (
                     <div>
@@ -2184,44 +2422,61 @@ function AppMain({ user, userName }) {
                         <p style={{ fontSize: 15, fontWeight: 900, color: "#f4f4f6" }}>Meus clubes</p>
                         <button onClick={() => setShowCreateClub(true)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "9px 14px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>+ Criar clube</button>
                       </div>
+
                       {myClubs.length === 0 && <div style={{ textAlign: "center", padding: "24px 0", marginBottom: 16 }}><p style={{ fontSize: 13, color: "#555" }}>Você ainda não faz parte de nenhum clube.</p></div>}
-                      {myClubs.map(c => (
-                        <div key={c.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16, marginBottom: 14, cursor: "pointer" }} onClick={() => openClub(c)}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                            <div style={{ width: 62, height: 62, borderRadius: 18, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0 }}>
-                              {c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
+
+                      {myClubs.map((club) => (
+                        <div key={club.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16, marginBottom: 14, cursor: "pointer" }} onClick={() => openClub(club)}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                            <div style={{ width: 64, height: 64, borderRadius: 18, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0 }}>
+                              {club.avatar_url ? <img src={club.avatar_url} alt={club.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
                             </div>
                             <div style={{ flex: 1 }}>
-                              <p style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>{c.name}</p>
-                              <p style={{ fontSize: 11, color: "#e11d48", fontWeight: 900 }}>Administrador <span style={{ color: "#666", marginLeft: 6 }}>{c.member_count || 0} {(c.member_count || 0) === 1 ? "membro" : "membros"}</span></p>
+                              <p style={{ fontWeight: 900, fontSize: 16, marginBottom: 4 }}>{club.name}</p>
+                              <p style={{ fontSize: 11, color: "#e11d48", fontWeight: 900 }}>
+                                {club.owner_id === user.id ? "Administrador" : "Membro"}
+                                <span style={{ color: "#666", marginLeft: 6 }}>{club.member_count || 0} {(club.member_count || 0) === 1 ? "membro" : "membros"}</span>
+                              </p>
                             </div>
+                            <button onClick={(event) => { event.stopPropagation(); openClub(club); }} style={{ background: "#e11d48", border: "none", color: "#fff", borderRadius: 12, padding: "10px 13px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Entrar</button>
                           </div>
                           <div style={{ borderTop: "1px solid #1e1e2e", paddingTop: 12 }}>
                             <p style={{ fontSize: 11, color: "#777", fontWeight: 900, marginBottom: 5 }}>Último aviso</p>
-                            <p style={{ fontSize: 13, color: "#ddd" }}>{c.description || "Treinos, avisos e conversas do clube."}</p>
+                            <p style={{ fontSize: 13, color: "#ddd", lineHeight: 1.4 }}>{club.latest_notice?.title || club.description || "Treinos, avisos e conversas do clube."}</p>
+                            <p style={{ fontSize: 11, color: "#6ee7b7", fontWeight: 900, marginTop: 8 }}>
+                              ● {club.posts_today || 0} {(club.posts_today || 0) === 1 ? "novo post hoje" : "novos posts hoje"}
+                            </p>
                           </div>
                         </div>
                       ))}
 
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "22px 0 12px" }}>
-                        <p style={{ fontSize: 15, fontWeight: 900, color: "#f4f4f6" }}>Descobrir clubes</p>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 8px" }}>
+                        <div>
+                          <p style={{ fontSize: 15, fontWeight: 900, color: "#f4f4f6" }}>Descobrir clubes</p>
+                          <p style={{ color: "#777", fontSize: 12, marginTop: 4 }}>Encontre grupos para correr junto.</p>
+                        </div>
                         <button style={{ background: "none", border: "none", color: "#e11d48", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver todos</button>
                       </div>
-                      {allClubs.filter(c => clubMembership[c.id] !== "approved").map(c => (
-                        <div key={c.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", borderRadius: 18, padding: 13, border: "1px solid rgba(255,255,255,0.09)", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 54, height: 54, borderRadius: 14, background: "linear-gradient(135deg, #1e1e2e, #2a2a3e)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, overflow: "hidden" }}>{c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}</div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontWeight: 900, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</p>
-                            {c.description && <p style={{ fontSize: 11, color: "#777", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.description}</p>}
-                            <p style={{ fontSize: 10, color: "#555", marginTop: 4 }}>{c.member_count || 0} {(c.member_count || 0) === 1 ? "membro" : "membros"}</p>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        {allClubs.filter((club) => clubMembership[club.id] !== "approved").map((club) => (
+                          <div key={club.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", borderRadius: 18, padding: 13, border: "1px solid rgba(255,255,255,0.09)", display: "flex", flexDirection: "column", minHeight: 208 }}>
+                            <div style={{ width: 56, height: 56, borderRadius: 14, background: "linear-gradient(135deg, #1e1e2e, #2a2a3e)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, overflow: "hidden", marginBottom: 10 }}>
+                              {club.avatar_url ? <img src={club.avatar_url} alt={club.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
+                            </div>
+                            <p style={{ fontWeight: 900, fontSize: 14, marginBottom: 4 }}>{club.name}</p>
+                            <p style={{ fontSize: 11, color: "#777", lineHeight: 1.4, minHeight: 34 }}>{club.description || "Grupo de corredores."}</p>
+                            <p style={{ fontSize: 10, color: "#555", marginTop: 8 }}>{club.member_count || 0} {(club.member_count || 0) === 1 ? "membro" : "membros"}</p>
+                            <div style={{ marginTop: "auto", paddingTop: 12 }}>
+                              {clubMembership[club.id] === "pending" ? (
+                                <button onClick={() => handleCancelRequest(club.id)} style={{ width: "100%", background: "none", border: "1px solid #1e1e2e", color: "#777", borderRadius: 999, padding: "9px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Pendente</button>
+                              ) : (
+                                <button onClick={() => handleRequestJoin(club.id)} style={{ width: "100%", background: "none", border: "1px solid #e11d48", color: "#e11d48", borderRadius: 999, padding: "9px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Solicitar</button>
+                              )}
+                            </div>
                           </div>
-                          {clubMembership[c.id] === "pending" ? (
-                            <button onClick={() => handleCancelRequest(c.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#777", borderRadius: 999, padding: "7px 12px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Pendente</button>
-                          ) : (
-                            <button onClick={() => handleRequestJoin(c.id)} style={{ background: "none", border: "1px solid #e11d48", color: "#e11d48", borderRadius: 999, padding: "7px 12px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Solicitar</button>
-                          )}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2245,6 +2500,38 @@ function AppMain({ user, userName }) {
                     </div>
                     <p style={{ fontSize: 11, color: "#555", marginBottom: 16, lineHeight: 1.5 }}>Novos membros precisam da sua aprovação para entrar no clube.</p>
                     <button onClick={handleCreateClub} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Criar clube</button>
+                  </div>
+                </div>
+              )}
+
+              {showCreateClubNotice && activeClub && activeClub.owner_id === user.id && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 320, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "92vh", overflowY: "auto" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                      <p style={{ fontWeight: 900, fontSize: 17 }}>Novo aviso</p>
+                      <button onClick={() => { setShowCreateClubNotice(false); resetClubNoticeForm(); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <input className="tinput" placeholder="Título do aviso. Ex: Treino de sábado" value={clubNoticeForm.title} onChange={(e) => setClubNoticeForm((form) => ({ ...form, title: e.target.value }))} />
+                      <textarea className="tinput" rows={3} placeholder="Mensagem opcional para os membros" value={clubNoticeForm.body} onChange={(e) => setClubNoticeForm((form) => ({ ...form, body: e.target.value }))} />
+                      <input className="tinput" placeholder="Local. Ex: Parcão" value={clubNoticeForm.location} onChange={(e) => setClubNoticeForm((form) => ({ ...form, location: e.target.value }))} />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <input className="tinput" placeholder="Horário. Ex: 7h" value={clubNoticeForm.time} onChange={(e) => setClubNoticeForm((form) => ({ ...form, time: e.target.value }))} />
+                        <input className="tinput" placeholder="Distância. Ex: 5 km" value={clubNoticeForm.distance} onChange={(e) => setClubNoticeForm((form) => ({ ...form, distance: e.target.value }))} />
+                      </div>
+
+                      <button
+                        onClick={() => setClubNoticeForm((form) => ({ ...form, is_pinned: !form.is_pinned }))}
+                        style={{ width: "100%", background: clubNoticeForm.is_pinned ? "rgba(225,29,72,0.12)" : "#0a0a0f", border: clubNoticeForm.is_pinned ? "1px solid rgba(225,29,72,0.35)" : "1px solid #1e1e2e", color: clubNoticeForm.is_pinned ? "#ff4a70" : "#888", borderRadius: 14, padding: 13, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+                      >
+                        {clubNoticeForm.is_pinned ? "📌 Este aviso ficará fixado no topo" : "Fixar este aviso no topo"}
+                      </button>
+                    </div>
+
+                    <button onClick={handleCreateClubNotice} disabled={savingClubNotice || !clubNoticeForm.title.trim()} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 900, cursor: savingClubNotice || !clubNoticeForm.title.trim() ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: savingClubNotice || !clubNoticeForm.title.trim() ? 0.55 : 1, marginTop: 18 }}>
+                      {savingClubNotice ? "Salvando..." : "Publicar aviso"}
+                    </button>
                   </div>
                 </div>
               )}
