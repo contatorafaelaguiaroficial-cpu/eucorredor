@@ -268,6 +268,17 @@ function AppMain({ user, userName }) {
   const [gpsError, setGpsError] = useState("");
   const [showGpsPermissionModal, setShowGpsPermissionModal] = useState(false);
   const [checkingGpsPermission, setCheckingGpsPermission] = useState(false);
+  const [gpsLocked, setGpsLocked] = useState(false);
+  const [runMood, setRunMood] = useState("");
+  const [summaryPostText, setSummaryPostText] = useState("");
+  const [publishingRunSummary, setPublishingRunSummary] = useState(false);
+  const [rankingMode, setRankingMode] = useState("km");
+  const [monthGoal, setMonthGoal] = useState(() => {
+    const saved = Number(window.localStorage?.getItem("eucorredor_month_goal"));
+    return Number.isFinite(saved) && saved > 0 ? saved : 30;
+  });
+  const [goalDraft, setGoalDraft] = useState(String(monthGoal));
+  const [showGoalEditor, setShowGoalEditor] = useState(false);
   const gpsIntervalRef = useRef(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", bio: "" });
@@ -728,6 +739,9 @@ function AppMain({ user, userName }) {
     setGpsDistance(0);
     setGpsRoute([{ x: 195, y: 300 }]);
     setGpsPaused(false);
+    setGpsLocked(false);
+    setRunMood("");
+    setSummaryPostText("");
     setGpsHR(142);
     setGpsLocated(false);
     setGpsError("");
@@ -772,16 +786,46 @@ function AppMain({ user, userName }) {
     clearInterval(gpsIntervalRef.current);
     if (leafletMapRef.current?._watchId !== undefined) navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
     if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; }
+
+    const pace = formatGpsPace(gpsDistance, gpsElapsed);
+    const duration = formatRunTime(gpsElapsed);
+
     if (gpsDistance > 0) {
-      const pace = formatGpsPace(gpsDistance, gpsElapsed);
-      const duration = formatRunTime(gpsElapsed);
       await supabase.from("activities").insert({ user_id: user.id, distance: parseFloat(gpsDistance.toFixed(2)), duration, pace });
       const newKm = (profile?.total_km || 0) + gpsDistance;
       const newCount = (profile?.races_count || 0) + 1;
       await supabase.from("profiles").update({ total_km: newKm, races_count: newCount, level: getLevel(newCount).name }).eq("id", user.id);
-      await loadProfile(); await loadActivities();
+      await loadProfile();
+      await loadActivities();
+      await loadRankingUsers();
     }
+
+    setSummaryPostText(`Finalizei uma corrida de ${gpsDistance.toFixed(2).replace(".", ",")} km em ${duration}, com pace de ${pace}. 🏃`);
     setHubScreen("summary");
+  };
+
+  const handleSaveMonthGoal = () => {
+    const nextGoal = Number(String(goalDraft).replace(",", "."));
+    if (!Number.isFinite(nextGoal) || nextGoal <= 0) return alert("Informe uma meta válida em quilômetros.");
+    setMonthGoal(nextGoal);
+    window.localStorage?.setItem("eucorredor_month_goal", String(nextGoal));
+    setShowGoalEditor(false);
+  };
+
+  const handlePublishRunSummary = async () => {
+    const text = summaryPostText.trim();
+    if (!text) return;
+    setPublishingRunSummary(true);
+    const moodPrefix = runMood ? `${runMood} ` : "";
+    const { error } = await supabase.from("posts").insert({ user_id: user.id, text: `${moodPrefix}${text}` });
+    if (error) alert("Erro ao publicar no feed: " + error.message);
+    else {
+      await loadPosts();
+      setTab("comunidade");
+      setCommFeed("todos");
+      setHubScreen("hub");
+    }
+    setPublishingRunSummary(false);
   };
 
   const leafletMapRef = useRef(null);
@@ -1078,7 +1122,6 @@ function AppMain({ user, userName }) {
   const weekSeconds = weekActivities.reduce((sum, a) => sum + parseDurationToSeconds(a.duration), 0);
   const weekPace = weekKm > 0 ? calcPace(weekKm, weekSeconds) : "--";
   const lastActivity = myActivities[0] || activities[0];
-  const monthGoal = 30;
   const monthKm = Number(profile?.total_km || 0);
   const monthProgress = Math.min(100, (monthKm / monthGoal) * 100);
   const bestDistance = myActivities.length ? Math.max(...myActivities.map(a => Number(a.distance || 0))) : 0;
@@ -1097,6 +1140,12 @@ function AppMain({ user, userName }) {
     return total;
   });
   const maxWeekBar = Math.max(...weekBars, 1);
+  const rankedRunners = [...(rankingUsers.length ? rankingUsers : [profile].filter(Boolean))]
+    .sort((a, b) => rankingMode === "corridas"
+      ? Number(b?.races_count || 0) - Number(a?.races_count || 0)
+      : Number(b?.total_km || 0) - Number(a?.total_km || 0)
+    )
+    .slice(0, 5);
 
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", display: "flex", justifyContent: "center" }}>
@@ -2006,12 +2055,12 @@ function AppMain({ user, userName }) {
                     </svg>
                     <div style={{ position: "relative", zIndex: 1 }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, padding: "7px 11px", color: "#d9d9df", fontSize: 12, fontWeight: 800, marginBottom: 18 }}>
-                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : "#6ee7b7", boxShadow: "0 0 14px #6ee7b7" }} /> GPS
+                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#6ee7b7", boxShadow: "0 0 14px #6ee7b7" }} /> GPS disponível
                       </span>
                       <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 36, lineHeight: 1.02, letterSpacing: -1.5, marginBottom: 10 }}>Pronto para correr?</h2>
-                      <p style={{ color: "#b9b9c3", fontSize: 15, lineHeight: 1.55, maxWidth: 245, marginBottom: 18 }}>Registre sua corrida, acompanhe seu desempenho e supere seus limites.</p>
+                      <p style={{ color: "#b9b9c3", fontSize: 15, lineHeight: 1.55, maxWidth: 245, marginBottom: 18 }}>Registre sua corrida, acompanhe seu desempenho e transforme cada treino em evolução.</p>
                       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", color: "#aaa", fontSize: 12, fontWeight: 800, marginBottom: 22 }}>
-                        <span>⌖ GPS ativo</span><span>♥ FC</span><span>▥ Sinal forte</span>
+                        <span>⌖ GPS</span><span>◷ pace</span><span>▥ rota</span>
                       </div>
                       <button onClick={startGpsRun} style={{ width: "100%", maxWidth: 270, height: 56, border: "none", borderRadius: 999, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontSize: 17, fontWeight: 900, fontFamily: "inherit", cursor: "pointer", boxShadow: "0 18px 40px rgba(225,29,72,0.28)" }}>▶ Iniciar corrida</button>
                     </div>
@@ -2040,14 +2089,17 @@ function AppMain({ user, userName }) {
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                     <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 22, padding: 16 }}>
-                      <p style={{ color: "#fff", fontSize: 16, fontWeight: 900, marginBottom: 18 }}>🎯 Meta do mês</p>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 18 }}>
+                        <p style={{ color: "#fff", fontSize: 16, fontWeight: 900 }}>🎯 Meta do mês</p>
+                        <button onClick={() => { setGoalDraft(String(monthGoal)); setShowGoalEditor(true); }} style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)", color: "#aaa", borderRadius: 999, padding: "5px 9px", fontSize: 10, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Editar</button>
+                      </div>
                       <p style={{ fontSize: 27, fontWeight: 900, marginBottom: 12 }}><span style={{ color: "#e11d48" }}>{monthKm.toFixed(1).replace(".", ",")}</span> / {monthGoal} km</p>
                       <div style={{ height: 9, borderRadius: 999, background: "#252536", overflow: "hidden", marginBottom: 12 }}><div style={{ width: `${monthProgress}%`, height: "100%", background: "linear-gradient(90deg, #e11d48, #ff3d63)", borderRadius: 999 }} /></div>
                       <p style={{ color: "#888", fontSize: 13, lineHeight: 1.45 }}>Faltam {Math.max(monthGoal - monthKm, 0).toFixed(1).replace(".", ",")} km para bater sua meta.</p>
                     </div>
 
                     <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 22, padding: 16 }}>
-                      <p style={{ color: "#fff", fontSize: 16, fontWeight: 900, marginBottom: 14 }}>⚡ Última atividade</p>
+                      <p style={{ color: "#fff", fontSize: 16, fontWeight: 900, marginBottom: 14 }}>⚡ Sua última corrida</p>
                       {lastActivity ? (
                         <>
                           <p style={{ fontSize: 28, fontWeight: 900, marginBottom: 6 }}>{Number(lastActivity.distance || 0).toFixed(2).replace(".", ",")} km</p>
@@ -2072,13 +2124,17 @@ function AppMain({ user, userName }) {
                   </div>
 
                   <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 12 }}>
                       <p style={{ color: "#fff", fontSize: 16, fontWeight: 900 }}>⭐ Ranking da comunidade</p>
-                      <span style={{ color: "#777", fontSize: 12, fontWeight: 800 }}>por km total</span>
+                      <div style={{ display: "flex", gap: 6, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 999, padding: 4 }}>
+                        {[{ id: "km", label: "Km" }, { id: "corridas", label: "Corridas" }].map((mode) => (
+                          <button key={mode.id} onClick={() => setRankingMode(mode.id)} style={{ border: "none", borderRadius: 999, padding: "6px 9px", background: rankingMode === mode.id ? "#e11d48" : "transparent", color: rankingMode === mode.id ? "#fff" : "#888", fontSize: 10, fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>{mode.label}</button>
+                        ))}
+                      </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {(rankingUsers.length ? rankingUsers : [profile].filter(Boolean)).slice(0, 5).map((runner, idx) => (
-                        <div key={runner.id || idx} style={{ display: "grid", gridTemplateColumns: "26px 38px 1fr auto", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: idx < Math.min((rankingUsers.length || 1), 5) - 1 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
+                      {rankedRunners.map((runner, idx) => (
+                        <div key={runner.id || idx} style={{ display: "grid", gridTemplateColumns: "26px 38px 1fr auto", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: idx < rankedRunners.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
                           <span style={{ color: idx === 0 ? "#e11d48" : "#777", fontSize: 13, fontWeight: 900 }}>#{idx + 1}</span>
                           {getAvatar(runner, 38)}
                           <div style={{ minWidth: 0 }}>
@@ -2086,8 +2142,8 @@ function AppMain({ user, userName }) {
                             <p style={{ color: getLevelColor(runner?.level), fontSize: 11, fontWeight: 800 }}>{getLevelIcon(runner?.level)} {runner?.level || "Iniciante"}</p>
                           </div>
                           <div style={{ textAlign: "right" }}>
-                            <p style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>{Number(runner?.total_km || 0).toFixed(1).replace(".", ",")} km</p>
-                            <p style={{ color: "#777", fontSize: 10 }}>{runner?.races_count || 0} corridas</p>
+                            <p style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>{rankingMode === "corridas" ? `${runner?.races_count || 0}` : `${Number(runner?.total_km || 0).toFixed(1).replace(".", ",")} km`}</p>
+                            <p style={{ color: "#777", fontSize: 10 }}>{rankingMode === "corridas" ? "corridas" : `${runner?.races_count || 0} corridas`}</p>
                           </div>
                         </div>
                       ))}
@@ -2098,34 +2154,104 @@ function AppMain({ user, userName }) {
 
               {hubScreen === "tracking" && (
                 <div style={{ minHeight: "calc(100vh - 170px)", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, background: gpsError ? "rgba(225,29,72,0.12)" : "rgba(110,231,183,0.12)", border: `1px solid ${gpsError ? "rgba(225,29,72,0.24)" : "rgba(110,231,183,0.22)"}`, borderRadius: 999, padding: "8px 12px", color: gpsError ? "#ff6b82" : "#6ee7b7", fontSize: 12, fontWeight: 900 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: gpsError ? "#e11d48" : gpsLocated ? "#6ee7b7" : "#f59e0b" }} />
+                      {gpsError ? "GPS precisa de atenção" : gpsLocated ? "GPS conectado" : "GPS ajustando sinal..."}
+                    </span>
+                    <button onClick={() => setGpsLocked(true)} style={{ border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: "#fff", borderRadius: 999, padding: "8px 12px", fontSize: 12, fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>🔒 Bloquear</button>
+                  </div>
+
                   <div id="leaflet-map" style={{ height: 330, borderRadius: 26, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)", background: "#0d0d18" }} />
+
                   <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 24, padding: 18 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, textAlign: "center", marginBottom: 18 }}>
-                      <div><p style={{ fontSize: 26, fontWeight: 900 }}>{gpsDistance.toFixed(2).replace(".", ",")}</p><p style={{ color: "#777", fontSize: 12 }}>km</p></div>
-                      <div><p style={{ fontSize: 26, fontWeight: 900 }}>{formatRunTime(gpsElapsed)}</p><p style={{ color: "#777", fontSize: 12 }}>tempo</p></div>
-                      <div><p style={{ fontSize: 26, fontWeight: 900 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p><p style={{ color: "#777", fontSize: 12 }}>pace</p></div>
+                    <div style={{ textAlign: "center", paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 16 }}>
+                      <p style={{ color: "#e11d48", fontSize: 46, lineHeight: 1, fontWeight: 900, letterSpacing: -1.8 }}>{gpsDistance.toFixed(2).replace(".", ",")}</p>
+                      <p style={{ color: "#777", fontSize: 13, fontWeight: 800, marginTop: 4 }}>quilômetros</p>
                     </div>
-                    {gpsError && <p style={{ color: "#e11d48", fontSize: 12, marginBottom: 12 }}>GPS: {gpsError}</p>}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, textAlign: "center", marginBottom: 18 }}>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 14 }}><p style={{ fontSize: 24, fontWeight: 900 }}>{formatRunTime(gpsElapsed)}</p><p style={{ color: "#777", fontSize: 12 }}>tempo</p></div>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 14 }}><p style={{ fontSize: 22, fontWeight: 900 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p><p style={{ color: "#777", fontSize: 12 }}>pace</p></div>
+                    </div>
+                    {gpsError && <p style={{ color: "#ff6b82", background: "rgba(225,29,72,0.10)", border: "1px solid rgba(225,29,72,0.20)", borderRadius: 14, padding: "10px 12px", fontSize: 12.5, marginBottom: 12 }}>{gpsError}</p>}
                     <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={() => setGpsPaused(p => !p)} style={{ flex: 1, height: 50, borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: "#fff", fontWeight: 900, fontFamily: "inherit" }}>{gpsPaused ? "Retomar" : "Pausar"}</button>
-                      <button onClick={finishGpsRun} style={{ flex: 1, height: 50, borderRadius: 16, border: "none", background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit" }}>Finalizar</button>
+                      <button onClick={() => setGpsPaused(p => !p)} style={{ flex: 1, height: 52, borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)", background: gpsPaused ? "rgba(245,158,11,0.16)" : "rgba(255,255,255,0.05)", color: "#fff", fontWeight: 900, fontFamily: "inherit" }}>{gpsPaused ? "Retomar" : "Pausar"}</button>
+                      <button onClick={finishGpsRun} style={{ flex: 1, height: 52, borderRadius: 16, border: "none", background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit" }}>Finalizar</button>
+                    </div>
+                  </div>
+
+                  {gpsLocked && (
+                    <div style={{ position: "fixed", inset: 0, zIndex: 720, background: "rgba(5,5,9,0.96)", backdropFilter: "blur(18px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+                      <div style={{ width: "100%", maxWidth: 340, textAlign: "center" }}>
+                        <p style={{ fontSize: 42, marginBottom: 12 }}>🔒</p>
+                        <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, lineHeight: 1.1, marginBottom: 10 }}>Tela bloqueada</h2>
+                        <p style={{ color: "#aaa", fontSize: 14, lineHeight: 1.55, marginBottom: 24 }}>Evite toques acidentais enquanto corre. O treino continua sendo registrado.</p>
+                        <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 22, padding: 18, marginBottom: 18 }}>
+                          <p style={{ color: "#e11d48", fontSize: 42, fontWeight: 900, lineHeight: 1 }}>{gpsDistance.toFixed(2).replace(".", ",")} km</p>
+                          <p style={{ color: "#fff", fontSize: 20, fontWeight: 900, marginTop: 10 }}>{formatRunTime(gpsElapsed)} · {formatGpsPace(gpsDistance, gpsElapsed)}</p>
+                        </div>
+                        <button onClick={() => setGpsLocked(false)} style={{ width: "100%", height: 54, border: "none", borderRadius: 18, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontSize: 15, fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>Desbloquear tela</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {hubScreen === "summary" && (
+                <div style={{ padding: "12px 0 20px" }}>
+                  <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 26, padding: 22, boxShadow: "0 24px 54px rgba(0,0,0,0.30)" }}>
+                    <div style={{ textAlign: "center", marginBottom: 20 }}>
+                      <p style={{ fontSize: 42, marginBottom: 8 }}>🏁</p>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 29, fontWeight: 900, marginBottom: 8 }}>Corrida concluída!</h2>
+                      <p style={{ color: "#888", fontSize: 14 }}>Seu treino foi salvo no histórico.</p>
+                    </div>
+
+                    <div style={{ height: 150, borderRadius: 20, background: "radial-gradient(circle at 70% 30%, rgba(225,29,72,0.20), transparent 34%), #0d0d18", border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 16 }}>
+                      <svg viewBox="0 0 320 150" style={{ width: "100%", height: "100%" }}>
+                        <g opacity="0.18" stroke="#fff"><line x1="0" y1="30" x2="320" y2="30"/><line x1="0" y1="75" x2="320" y2="75"/><line x1="0" y1="120" x2="320" y2="120"/><line x1="55" y1="0" x2="55" y2="150"/><line x1="140" y1="0" x2="140" y2="150"/><line x1="230" y1="0" x2="230" y2="150"/></g>
+                        <polyline points="28,116 62,92 98,98 132,69 166,74 205,50 252,56 286,28" fill="none" stroke="#e11d48" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="28" cy="116" r="8" fill="#6ee7b7"/><circle cx="286" cy="28" r="9" fill="#fff"/><circle cx="286" cy="28" r="5" fill="#e11d48"/>
+                      </svg>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
+                      <div className="sbox"><strong>{gpsDistance.toFixed(2).replace(".", ",")}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>km</span></div>
+                      <div className="sbox"><strong>{formatRunTime(gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>tempo</span></div>
+                      <div className="sbox"><strong>{formatGpsPace(gpsDistance, gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>pace</span></div>
+                    </div>
+
+                    <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 16, marginBottom: 16 }}>
+                      <p style={{ color: "#fff", fontSize: 15, fontWeight: 900, marginBottom: 12 }}>Como foi o treino?</p>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                        {[{ value: "🙂", label: "Leve" }, { value: "🔥", label: "Bom" }, { value: "⚡", label: "Intenso" }].map((mood) => (
+                          <button key={mood.label} onClick={() => setRunMood(mood.value)} style={{ borderRadius: 16, border: runMood === mood.value ? "1px solid rgba(225,29,72,0.55)" : "1px solid rgba(255,255,255,0.08)", background: runMood === mood.value ? "rgba(225,29,72,0.18)" : "rgba(255,255,255,0.035)", color: "#fff", padding: "12px 8px", fontFamily: "inherit", cursor: "pointer", fontWeight: 900 }}><span style={{ display: "block", fontSize: 20, marginBottom: 4 }}>{mood.value}</span><span style={{ fontSize: 11 }}>{mood.label}</span></button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 14, marginBottom: 16 }}>
+                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Compartilhar no feed</p>
+                      <textarea value={summaryPostText} onChange={(e) => setSummaryPostText(e.target.value)} rows={3} style={{ width: "100%", resize: "none", borderRadius: 14, border: "1px solid #1e1e2e", background: "#0f0f17", color: "#fff", padding: 12, fontSize: 13, lineHeight: 1.5, fontFamily: "inherit", outline: "none" }} />
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <button onClick={handlePublishRunSummary} disabled={publishingRunSummary || !summaryPostText.trim()} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: publishingRunSummary || !summaryPostText.trim() ? "#3a1a22" : "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit", cursor: publishingRunSummary || !summaryPostText.trim() ? "not-allowed" : "pointer" }}>{publishingRunSummary ? "Publicando..." : "Publicar no feed"}</button>
+                      <button onClick={() => setHubScreen("hub")} style={{ width: "100%", height: 48, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, background: "rgba(255,255,255,0.035)", color: "#ddd", fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>Salvar sem publicar</button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {hubScreen === "summary" && (
-                <div style={{ padding: "24px 0", textAlign: "center" }}>
-                  <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 26, padding: 24 }}>
-                    <p style={{ fontSize: 42, marginBottom: 8 }}>🏅</p>
-                    <h2 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8 }}>Corrida finalizada</h2>
-                    <p style={{ color: "#888", fontSize: 14, marginBottom: 22 }}>Seu treino foi salvo no histórico.</p>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
-                      <div className="sbox"><strong>{gpsDistance.toFixed(2).replace(".", ",")}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>km</span></div>
-                      <div className="sbox"><strong>{formatRunTime(gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>tempo</span></div>
-                      <div className="sbox"><strong>{formatGpsPace(gpsDistance, gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>pace</span></div>
+              {showGoalEditor && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.76)", backdropFilter: "blur(14px)", zIndex: 710, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                  <div style={{ width: "100%", maxWidth: 340, background: "#13131a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 24, padding: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                      <h3 style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>Definir meta mensal</h3>
+                      <button onClick={() => setShowGoalEditor(false)} style={{ border: "none", background: "none", color: "#888", fontSize: 25, cursor: "pointer" }}>×</button>
                     </div>
-                    <button onClick={() => setHubScreen("hub")} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit" }}>Voltar ao Hub</button>
+                    <p style={{ color: "#aaa", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>Quantos quilômetros você quer correr neste mês?</p>
+                    <input value={goalDraft} onChange={(e) => setGoalDraft(e.target.value.replace(/[^0-9,.]/g, ""))} inputMode="decimal" placeholder="Ex: 30" style={{ width: "100%", height: 52, borderRadius: 16, border: "1px solid #1e1e2e", background: "#0f0f17", color: "#fff", padding: "0 14px", fontSize: 16, fontWeight: 900, fontFamily: "inherit", outline: "none", marginBottom: 12 }} />
+                    <button onClick={handleSaveMonthGoal} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>Salvar meta</button>
                   </div>
                 </div>
               )}
