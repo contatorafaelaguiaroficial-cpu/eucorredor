@@ -1148,9 +1148,18 @@ function AppMain({ user, userName }) {
 
   const handleComment = async (postId) => {
     if (!newComment.trim()) return;
-    await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
+    const commentText = newComment.trim();
+    await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: commentText });
     const post = posts.find(p => p.id === postId);
-    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
+    if (post && post.user_id !== user.id) {
+      await supabase.from("notifications").insert({
+        user_id: post.user_id,
+        from_user_id: user.id,
+        type: "comment",
+        post_id: postId,
+        comment_text: commentText,
+      });
+    }
     setNewComment("");
     await loadComments(postId);
     await loadNotifications();
@@ -3210,10 +3219,19 @@ function AppMain({ user, userName }) {
                     </div>
                     <div style={{ flex: 1, cursor: "pointer" }} onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }}>
                       <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
-                        <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
-                        {n.type === "follow" && " começou a te seguir"}
-                        {n.type === "like" && " curtiu sua publicação"}
-                        {n.type === "comment" && " comentou na sua publicação"}
+                        {n.type === "comment" ? (
+                          <>
+                            <span style={{ fontWeight: 700 }}>@{n.from_user?.handle || (n.from_user?.name || "alguem").toLowerCase().replace(/\s+/g, "")}</span>
+                            {" comentou na sua publicação "}
+                            <span style={{ color: "#d7d7df" }}>“{n.comment_text || "novo comentário"}”</span>
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
+                            {n.type === "follow" && " começou a te seguir"}
+                            {n.type === "like" && " curtiu sua publicação"}
+                          </>
+                        )}
                       </p>
                       <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
