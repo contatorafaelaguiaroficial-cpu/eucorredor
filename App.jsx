@@ -1982,8 +1982,8 @@ function AppMain({ user, userName }) {
 
 
         {showProductOnboarding && !showOnboarding && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 760, background: "radial-gradient(circle at 50% 10%, rgba(225,29,72,0.18), transparent 34%), #08080f", display: "flex", justifyContent: "center", overflowY: "auto", padding: "16px 14px 28px" }}>
-            <div style={{ width: "100%", maxWidth: 390, minHeight: "calc(100vh - 44px)", borderRadius: 34, border: "1px solid rgba(255,255,255,0.14)", background: "linear-gradient(180deg, rgba(13,13,21,0.98), rgba(8,8,14,0.98))", boxShadow: "0 30px 110px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.06)", padding: "20px 20px 22px", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 760, background: "radial-gradient(circle at 50% 10%, rgba(225,29,72,0.18), transparent 34%), #08080f", display: "flex", justifyContent: "center", alignItems: "flex-start", overflow: "hidden", padding: "max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom))" }}>
+            <div style={{ width: "100%", maxWidth: 390, height: "calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))", maxHeight: 920, borderRadius: 34, border: "1px solid rgba(255,255,255,0.14)", background: "linear-gradient(180deg, rgba(13,13,21,0.98), rgba(8,8,14,0.98))", boxShadow: "0 30px 110px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.06)", padding: "20px 20px 18px", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 78% 76%, rgba(225,29,72,0.16), transparent 28%), radial-gradient(circle at 12% 92%, rgba(225,29,72,0.09), transparent 24%)" }} />
 
               <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 34 }}>
@@ -1993,7 +1993,7 @@ function AppMain({ user, userName }) {
                 ) : <span />}
               </div>
 
-              <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", paddingTop: 20 }}>
+              <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", paddingTop: 20, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", paddingRight: 2, scrollbarWidth: "none" }}>
                 {productOnboardingStep === 0 && (
                   <>
                     <div>
@@ -2151,7 +2151,7 @@ function AppMain({ user, userName }) {
                   </>
                 )}
 
-                <div style={{ position: "relative", zIndex: 1, paddingTop: 18 }}>
+                <div style={{ position: "sticky", bottom: 0, zIndex: 5, paddingTop: 18, paddingBottom: 2, marginTop: 18, background: "linear-gradient(180deg, rgba(8,8,14,0), rgba(8,8,14,0.97) 26%)" }}>
                   <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 18 }}>
                     {[0,1,2,3,4].map((dot) => <span key={dot} style={{ width: dot === productOnboardingStep ? 22 : 8, height: 8, borderRadius: 999, background: dot === productOnboardingStep ? "#e11d48" : "rgba(255,255,255,0.16)", transition: "all .2s ease" }} />)}
                   </div>
