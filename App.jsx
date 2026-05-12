@@ -324,6 +324,8 @@ function AppMain({ user, userName }) {
   const [summaryPostText, setSummaryPostText] = useState("");
   const [publishingRunSummary, setPublishingRunSummary] = useState(false);
   const [rankingMode, setRankingMode] = useState("km");
+  const [rankingPeriod, setRankingPeriod] = useState("semanal");
+  const [rankingRecentActivities, setRankingRecentActivities] = useState([]);
   const [monthGoal, setMonthGoal] = useState(() => {
     const saved = Number(window.localStorage?.getItem("eucorredor_month_goal"));
     return Number.isFinite(saved) && saved > 0 ? saved : 30;
@@ -529,11 +531,24 @@ function AppMain({ user, userName }) {
   };
 
   const loadRankingUsers = async () => {
-    const { data } = await supabase.from("profiles")
-      .select("id, name, handle, level, avatar_url, races_count, total_km")
-      .order("total_km", { ascending: false })
-      .limit(6);
-    setRankingUsers(data || []);
+    const monthAgo = new Date();
+    monthAgo.setDate(monthAgo.getDate() - 29);
+    monthAgo.setHours(0, 0, 0, 0);
+
+    const [{ data: profilesData }, { data: recentActivitiesData }] = await Promise.all([
+      supabase.from("profiles")
+        .select("id, name, handle, level, avatar_url, races_count, total_km")
+        .order("total_km", { ascending: false })
+        .limit(500),
+      supabase.from("activities")
+        .select("user_id, distance, created_at, profiles(id, name, handle, level, avatar_url, races_count, total_km)")
+        .gte("created_at", monthAgo.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(2000),
+    ]);
+
+    setRankingUsers(profilesData || []);
+    setRankingRecentActivities(recentActivitiesData || []);
     setLoadingSections((prev) => ({ ...prev, ranking: false }));
   };
 
@@ -1631,12 +1646,72 @@ function AppMain({ user, userName }) {
     return total;
   });
   const maxWeekBar = Math.max(...weekBars, 1);
-  const rankedRunners = [...(rankingUsers.length ? rankingUsers : [profile].filter(Boolean))]
-    .sort((a, b) => rankingMode === "corridas"
-      ? Number(b?.races_count || 0) - Number(a?.races_count || 0)
-      : Number(b?.total_km || 0) - Number(a?.total_km || 0)
-    )
-    .slice(0, 5);
+  const rankingWeekStart = new Date();
+  rankingWeekStart.setDate(rankingWeekStart.getDate() - 6);
+  rankingWeekStart.setHours(0, 0, 0, 0);
+
+  const rankingMonthStart = new Date();
+  rankingMonthStart.setDate(rankingMonthStart.getDate() - 29);
+  rankingMonthStart.setHours(0, 0, 0, 0);
+
+  const rankingPool = (() => {
+    if (rankingPeriod === "geral") {
+      return (rankingUsers.length ? rankingUsers : [profile].filter(Boolean)).map((runner) => ({
+        ...runner,
+        rankingKm: Number(runner?.total_km || 0),
+        rankingRaces: Number(runner?.races_count || 0),
+      }));
+    }
+
+    const rankingStart = rankingPeriod === "mensal" ? rankingMonthStart : rankingWeekStart;
+    const profilesById = new Map((rankingUsers || []).map((runner) => [runner.id, runner]));
+    const aggregate = {};
+
+    (rankingRecentActivities || []).forEach((activity) => {
+      if (!activity?.user_id || new Date(activity.created_at || Date.now()) < rankingStart) return;
+      const baseProfile = activity.profiles || profilesById.get(activity.user_id) || {};
+
+      if (!aggregate[activity.user_id]) {
+        aggregate[activity.user_id] = {
+          id: activity.user_id,
+          name: baseProfile?.name || "Corredor",
+          handle: baseProfile?.handle || "",
+          level: baseProfile?.level || "Iniciante",
+          avatar_url: baseProfile?.avatar_url || null,
+          total_km: Number(baseProfile?.total_km || 0),
+          races_count: Number(baseProfile?.races_count || 0),
+          rankingKm: 0,
+          rankingRaces: 0,
+        };
+      }
+
+      aggregate[activity.user_id].rankingKm += Number(activity.distance || 0);
+      aggregate[activity.user_id].rankingRaces += 1;
+    });
+
+    return Object.values(aggregate);
+  })();
+
+  const rankedRunners = [...rankingPool].sort((a, b) => rankingMode === "corridas"
+    ? Number(b?.rankingRaces || 0) - Number(a?.rankingRaces || 0)
+    : Number(b?.rankingKm || 0) - Number(a?.rankingKm || 0)
+  );
+
+  const podiumRunners = rankedRunners.slice(0, 3);
+  const visibleRankedRunners = rankedRunners.slice(0, 5);
+  const currentRankingIndex = rankedRunners.findIndex((runner) => runner?.id === user.id);
+  const currentRankingPosition = currentRankingIndex >= 0 ? currentRankingIndex + 1 : null;
+  const currentRankingRunner = currentRankingIndex >= 0
+    ? rankedRunners[currentRankingIndex]
+    : {
+        ...(profile || {}),
+        id: user.id,
+        rankingKm: 0,
+        rankingRaces: 0,
+      };
+  const currentRankingLabel = rankingMode === "corridas"
+    ? `${Number(currentRankingRunner?.rankingRaces || 0)} corridas`
+    : `${Number(currentRankingRunner?.rankingKm || 0).toFixed(1).replace(".", ",")} km`;
 
   const summaryRouteSnapshot = createRouteSnapshotDataUrl(completedRunRoute);
   const hasSummaryRouteSnapshot = Boolean(summaryRouteSnapshot);
@@ -3188,31 +3263,102 @@ function AppMain({ user, userName }) {
                     </div>
                   </div>
 
-                  <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 12 }}>
-                      <p style={{ color: "#fff", fontSize: 16, fontWeight: 900 }}>⭐ Ranking da comunidade</p>
-                      <div style={{ display: "flex", gap: 6, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 999, padding: 4 }}>
-                        {[{ id: "km", label: "Km" }, { id: "corridas", label: "Corridas" }].map((mode) => (
-                          <button key={mode.id} onClick={() => setRankingMode(mode.id)} style={{ border: "none", borderRadius: 999, padding: "6px 9px", background: rankingMode === mode.id ? "#e11d48" : "transparent", color: rankingMode === mode.id ? "#fff" : "#888", fontSize: 10, fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>{mode.label}</button>
-                        ))}
+                  <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 24, padding: 16, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+                      <div>
+                        <p style={{ color: "#fff", fontSize: 17, fontWeight: 900, letterSpacing: -0.35 }}>🏆 Ranking do Hub</p>
+                        <p style={{ color: "#7b7b89", fontSize: 12, marginTop: 3 }}>Acompanhe quem mais corre na comunidade.</p>
                       </div>
+                      <span style={{ color: "#e11d48", fontSize: 11, fontWeight: 900, whiteSpace: "nowrap", paddingTop: 3 }}>Atualizado</span>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {rankedRunners.map((runner, idx) => (
-                        <div key={runner.id || idx} style={{ display: "grid", gridTemplateColumns: "26px 38px 1fr auto", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: idx < rankedRunners.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
-                          <span style={{ color: idx === 0 ? "#e11d48" : "#777", fontSize: 13, fontWeight: 900 }}>#{idx + 1}</span>
-                          {getAvatar(runner, 38)}
-                          <div style={{ minWidth: 0 }}>
-                            <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{runner?.name || "Corredor"}</p>
-                            <p style={{ color: getLevelColor(runner?.level), fontSize: 11, fontWeight: 800 }}>{getLevelIcon(runner?.level)} {runner?.level || "Iniciante"}</p>
-                          </div>
-                          <div style={{ textAlign: "right" }}>
-                            <p style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>{rankingMode === "corridas" ? `${runner?.races_count || 0}` : `${Number(runner?.total_km || 0).toFixed(1).replace(".", ",")} km`}</p>
-                            <p style={{ color: "#777", fontSize: 10 }}>{rankingMode === "corridas" ? "corridas" : `${runner?.races_count || 0} corridas`}</p>
-                          </div>
-                        </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 4, marginBottom: 10 }}>
+                      {[
+                        { id: "semanal", label: "Semanal" },
+                        { id: "mensal", label: "Mensal" },
+                        { id: "geral", label: "Geral" },
+                      ].map((period) => (
+                        <button key={period.id} onClick={() => setRankingPeriod(period.id)} style={{ border: "none", borderRadius: 12, minHeight: 38, background: rankingPeriod === period.id ? "linear-gradient(135deg, #e11d48, #ff3d63)" : "transparent", color: rankingPeriod === period.id ? "#fff" : "#8a8a96", fontSize: 11, fontWeight: 900, fontFamily: "inherit", cursor: "pointer", boxShadow: rankingPeriod === period.id ? "0 10px 24px rgba(225,29,72,0.18)" : "none" }}>{period.label}</button>
                       ))}
                     </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 4, marginBottom: 16 }}>
+                      {[{ id: "km", label: "Distância (km)" }, { id: "corridas", label: "Corridas" }].map((mode) => (
+                        <button key={mode.id} onClick={() => setRankingMode(mode.id)} style={{ border: "none", borderRadius: 12, minHeight: 40, background: rankingMode === mode.id ? "rgba(225,29,72,0.16)" : "transparent", color: rankingMode === mode.id ? "#fff" : "#8a8a96", outline: rankingMode === mode.id ? "1px solid rgba(225,29,72,0.55)" : "none", fontSize: 11, fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>{mode.label}</button>
+                      ))}
+                    </div>
+
+                    {rankedRunners.length > 0 ? (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.12fr 1fr", gap: 8, alignItems: "end", marginBottom: 16 }}>
+                          {[podiumRunners[1], podiumRunners[0], podiumRunners[2]].map((runner, placeIdx) => {
+                            if (!runner) return <div key={`empty-${placeIdx}`} />;
+                            const actualPosition = placeIdx === 1 ? 1 : placeIdx === 0 ? 2 : 3;
+                            const medal = actualPosition === 1 ? "🥇" : actualPosition === 2 ? "🥈" : "🥉";
+                            const featured = actualPosition === 1;
+                            return (
+                              <div key={runner.id || placeIdx} style={{ background: featured ? "linear-gradient(180deg, rgba(225,29,72,0.16), rgba(255,255,255,0.035))" : "rgba(255,255,255,0.03)", border: featured ? "1px solid rgba(225,29,72,0.42)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: featured ? "14px 8px 12px" : "11px 8px", textAlign: "center", minHeight: featured ? 168 : 148, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", boxShadow: featured ? "0 18px 40px rgba(225,29,72,0.12)" : "none" }}>
+                                <span style={{ fontSize: 18 }}>{medal}</span>
+                                <div style={{ padding: featured ? 2 : 1, borderRadius: "50%", background: featured ? "linear-gradient(135deg, #facc15, #e11d48)" : "rgba(255,255,255,0.16)" }}>
+                                  <div style={{ borderRadius: "50%", background: "#0a0a0f", padding: 2 }}>{getAvatar(runner, featured ? 52 : 44)}</div>
+                                </div>
+                                <div style={{ minWidth: 0, width: "100%" }}>
+                                  <p style={{ color: "#fff", fontSize: 12.5, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{runner?.name || "Corredor"}</p>
+                                  <p style={{ color: featured ? "#ff5575" : "#c8c8d1", fontSize: 11, fontWeight: 900, marginTop: 4 }}>{rankingMode === "corridas" ? `${Number(runner?.rankingRaces || 0)} corridas` : `${Number(runner?.rankingKm || 0).toFixed(1).replace(".", ",")} km`}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div style={{ background: "linear-gradient(135deg, rgba(225,29,72,0.14), rgba(255,255,255,0.035))", border: "1px solid rgba(225,29,72,0.28)", borderRadius: 18, padding: 14, display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", marginBottom: 14 }}>
+                          <div style={{ width: 48, height: 48, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e11d48", fontSize: 20, fontWeight: 900 }}>{currentRankingPosition ? `${currentRankingPosition}º` : "—"}</div>
+                          <div>
+                            <p style={{ color: "#fff", fontSize: 13.5, fontWeight: 900 }}>Sua posição</p>
+                            <p style={{ color: "#aaa", fontSize: 11.5, marginTop: 3 }}>{currentRankingPosition ? `Você aparece no ranking ${rankingPeriod}.` : `Registre uma atividade para entrar no ranking ${rankingPeriod}.`}</p>
+                          </div>
+                          <p style={{ color: "#fff", fontSize: 13, fontWeight: 900, whiteSpace: "nowrap" }}>{currentRankingLabel}</p>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                          {visibleRankedRunners.map((runner, idx) => (
+                            <div key={runner.id || idx} style={{ display: "grid", gridTemplateColumns: "26px 38px 1fr auto", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: idx < visibleRankedRunners.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
+                              <span style={{ color: idx === 0 ? "#e11d48" : "#777", fontSize: 13, fontWeight: 900 }}>#{idx + 1}</span>
+                              {getAvatar(runner, 38)}
+                              <div style={{ minWidth: 0 }}>
+                                <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{runner?.name || "Corredor"}</p>
+                                <p style={{ color: getLevelColor(runner?.level), fontSize: 11, fontWeight: 800 }}>{getLevelIcon(runner?.level)} {runner?.level || "Iniciante"}</p>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <p style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>{rankingMode === "corridas" ? `${Number(runner?.rankingRaces || 0)} corridas` : `${Number(runner?.rankingKm || 0).toFixed(1).replace(".", ",")} km`}</p>
+                                <p style={{ color: "#777", fontSize: 10 }}>{rankingPeriod === "geral" ? "total" : rankingPeriod}</p>
+                              </div>
+                            </div>
+                          ))}
+
+                          {currentRankingPosition && currentRankingPosition > 5 && (
+                            <div style={{ marginTop: 10, background: "rgba(225,29,72,0.08)", border: "1px solid rgba(225,29,72,0.24)", borderRadius: 16, padding: "11px 12px", display: "grid", gridTemplateColumns: "26px 38px 1fr auto", gap: 10, alignItems: "center" }}>
+                              <span style={{ color: "#e11d48", fontSize: 13, fontWeight: 900 }}>#{currentRankingPosition}</span>
+                              {getAvatar(currentRankingRunner, 38)}
+                              <div style={{ minWidth: 0 }}>
+                                <p style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>Você</p>
+                                <p style={{ color: "#ff6b82", fontSize: 11, fontWeight: 800 }}>Continue evoluindo</p>
+                              </div>
+                              <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, whiteSpace: "nowrap" }}>{currentRankingLabel}</p>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <EmptyState
+                        compact
+                        icon="🏆"
+                        title="Ranking começando"
+                        description={`Ainda não há atividades para o ranking ${rankingPeriod}.`}
+                        actionLabel="Registrar corrida"
+                        onAction={() => setShowGpsPermissionModal(true)}
+                      />
+                    )}
                   </div>
                 </div>
                 )
