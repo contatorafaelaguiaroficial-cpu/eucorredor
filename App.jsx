@@ -339,6 +339,8 @@ function AppMain({ user, userName }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loadingPost, setLoadingPost] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showProductOnboarding, setShowProductOnboarding] = useState(false);
+  const [productOnboardingStep, setProductOnboardingStep] = useState(0);
   const [onboardingForm, setOnboardingForm] = useState({ name: "", handle: "", terms: false });
   const [dbEvents, setDbEvents] = useState([]);
   const [showAdminEvents, setShowAdminEvents] = useState(false);
@@ -888,6 +890,21 @@ function AppMain({ user, userName }) {
     setShowOnboarding(false);
   };
 
+  const finishProductOnboarding = () => {
+    try { window.localStorage?.setItem("eucorredor_intro_seen_v1", "true"); } catch (_) {}
+    setProductOnboardingStep(0);
+    setShowProductOnboarding(false);
+  };
+
+  const goToNextProductOnboardingStep = () => {
+    if (productOnboardingStep >= 4) return finishProductOnboarding();
+    setProductOnboardingStep((step) => Math.min(step + 1, 4));
+  };
+
+  const goToPreviousProductOnboardingStep = () => {
+    setProductOnboardingStep((step) => Math.max(step - 1, 0));
+  };
+
   const loadEvents = async () => {
     const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: true });
     if (error) {
@@ -994,8 +1011,14 @@ function AppMain({ user, userName }) {
     if (!hasHandle) {
       const suggestedHandle = user.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9_]/g, "") || "";
       const suggestedName = user.user_metadata?.full_name || user.user_metadata?.name || data?.name || "";
-      setOnboardingForm({ name: suggestedName, handle: suggestedHandle });
+      setOnboardingForm({ name: suggestedName, handle: suggestedHandle, terms: false });
       setShowOnboarding(true);
+    } else {
+      const introSeen = window.localStorage?.getItem("eucorredor_intro_seen_v1") === "true";
+      if (!introSeen) {
+        setProductOnboardingStep(0);
+        setShowProductOnboarding(true);
+      }
     }
   };
 
@@ -1876,6 +1899,14 @@ function AppMain({ user, userName }) {
           0% { background-position: 100% 0; }
           100% { background-position: -120% 0; }
         }
+        @keyframes onboardingFloat {
+          0%, 100% { transform: translateY(0px) rotate(var(--tilt, 0deg)); }
+          50% { transform: translateY(-8px) rotate(var(--tilt, 0deg)); }
+        }
+        @keyframes onboardingPulse {
+          0%, 100% { opacity: 0.72; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.045); }
+        }
       `}</style>
 
       <div
@@ -1945,6 +1976,195 @@ function AppMain({ user, userName }) {
               <button onClick={handleOnboarding} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }}>
                 Entrar no eucorredor
               </button>
+            </div>
+          </div>
+        )}
+
+
+        {showProductOnboarding && !showOnboarding && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 760, background: "radial-gradient(circle at 50% 10%, rgba(225,29,72,0.18), transparent 34%), #08080f", display: "flex", justifyContent: "center", overflowY: "auto", padding: "16px 14px 28px" }}>
+            <div style={{ width: "100%", maxWidth: 390, minHeight: "calc(100vh - 44px)", borderRadius: 34, border: "1px solid rgba(255,255,255,0.14)", background: "linear-gradient(180deg, rgba(13,13,21,0.98), rgba(8,8,14,0.98))", boxShadow: "0 30px 110px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.06)", padding: "20px 20px 22px", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 78% 76%, rgba(225,29,72,0.16), transparent 28%), radial-gradient(circle at 12% 92%, rgba(225,29,72,0.09), transparent 24%)" }} />
+
+              <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 34 }}>
+                <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: -0.5 }}>eu<span style={{ color: "#e11d48" }}>corredor</span></div>
+                {productOnboardingStep < 4 ? (
+                  <button onClick={finishProductOnboarding} style={{ background: "none", border: "none", color: "#777", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>Pular</button>
+                ) : <span />}
+              </div>
+
+              <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", paddingTop: 20 }}>
+                {productOnboardingStep === 0 && (
+                  <>
+                    <div>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 35, lineHeight: 0.98, letterSpacing: -1.45, marginBottom: 12 }}>Tudo da corrida<br/>em <span style={{ color: "#e11d48" }}>um só lugar.</span></h2>
+                      <p style={{ color: "#c7c7d1", fontSize: 14, lineHeight: 1.6, maxWidth: 330 }}>Encontre provas, registre treinos e faça parte da comunidade que corre com você.</p>
+                    </div>
+                    <div style={{ position: "relative", height: 330, margin: "26px 0 18px" }}>
+                      <div style={{ '--tilt': '-7deg', position: "absolute", left: 4, top: 10, width: 174, borderRadius: 22, padding: 15, background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))", border: "1px solid rgba(225,29,72,0.26)", animation: "onboardingFloat 4.4s ease-in-out infinite", boxShadow: "0 18px 50px rgba(0,0,0,0.28)" }}>
+                        <p style={{ color: "#ff4169", fontSize: 10, fontWeight: 900, letterSpacing: 0.7, marginBottom: 10 }}>EVENTOS</p>
+                        <p style={{ fontSize: 12, color: "#aaa", marginBottom: 5 }}>27 abr</p>
+                        <p style={{ fontWeight: 900, fontSize: 14, lineHeight: 1.2 }}>Maratona de Porto Alegre</p>
+                        <p style={{ color: "#e11d48", fontSize: 12, fontWeight: 900, marginTop: 10 }}>42K</p>
+                      </div>
+                      <div style={{ '--tilt': '5deg', position: "absolute", right: 8, top: 24, width: 178, borderRadius: 22, padding: 15, background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))", border: "1px solid rgba(255,255,255,0.11)", animation: "onboardingFloat 4.9s ease-in-out infinite", boxShadow: "0 18px 50px rgba(0,0,0,0.28)" }}>
+                        <p style={{ color: "#ff4169", fontSize: 10, fontWeight: 900, letterSpacing: 0.7, marginBottom: 10 }}>HUB / GPS</p>
+                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, marginBottom: 10 }}>8,42 km</p>
+                        <div style={{ height: 58, borderRadius: 16, background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.08)", position: "relative", overflow: "hidden" }}>
+                          <div style={{ position: "absolute", left: 18, bottom: 12, width: 100, height: 38, borderLeft: "4px solid #e11d48", borderBottom: "4px solid #e11d48", transform: "skewX(-20deg)", borderRadius: "0 0 0 18px" }} />
+                          <div style={{ position: "absolute", right: 18, top: 12, width: 12, height: 12, borderRadius: "50%", background: "#fff", border: "3px solid #e11d48" }} />
+                        </div>
+                      </div>
+                      <div style={{ '--tilt': '-4deg', position: "absolute", left: 18, bottom: 26, width: 182, borderRadius: 22, padding: 15, background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))", border: "1px solid rgba(255,255,255,0.11)", animation: "onboardingFloat 5.2s ease-in-out infinite", boxShadow: "0 18px 50px rgba(0,0,0,0.28)" }}>
+                        <p style={{ color: "#ff4169", fontSize: 10, fontWeight: 900, letterSpacing: 0.7, marginBottom: 10 }}>COMUNIDADE</p>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {[0,1,2].map((n) => <div key={n} style={{ width: 32, height: 32, borderRadius: "50%", border: "2px solid #e11d48", background: "rgba(225,29,72,0.18)" }} />)}
+                          <span style={{ fontSize: 11, color: "#9b9ba7", fontWeight: 800 }}>+124</span>
+                        </div>
+                        <p style={{ marginTop: 12, color: "#6ee7b7", fontSize: 11, fontWeight: 900 }}>● 21 online</p>
+                      </div>
+                      <div style={{ '--tilt': '4deg', position: "absolute", right: 6, bottom: 8, width: 174, borderRadius: 22, padding: 15, background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))", border: "1px solid rgba(255,255,255,0.11)", animation: "onboardingFloat 4.6s ease-in-out infinite", boxShadow: "0 18px 50px rgba(0,0,0,0.28)" }}>
+                        <p style={{ color: "#ff4169", fontSize: 10, fontWeight: 900, letterSpacing: 0.7, marginBottom: 10 }}>CLUBES</p>
+                        <p style={{ fontSize: 14, fontWeight: 900, marginBottom: 5 }}>Runners POA</p>
+                        <p style={{ color: "#9b9ba7", fontSize: 12 }}>248 membros</p>
+                      </div>
+                      <div style={{ position: "absolute", left: -14, right: -14, bottom: -12, height: 72, background: "radial-gradient(circle at 50% 20%, rgba(225,29,72,0.48), transparent 62%)", opacity: 0.66, filter: "blur(8px)" }} />
+                    </div>
+                  </>
+                )}
+
+                {productOnboardingStep === 1 && (
+                  <>
+                    <div>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 35, lineHeight: 0.98, letterSpacing: -1.45, marginBottom: 12 }}>Descubra sua<br/><span style={{ color: "#e11d48" }}>próxima prova.</span></h2>
+                      <p style={{ color: "#c7c7d1", fontSize: 14, lineHeight: 1.6 }}>Veja datas, distâncias e links de inscrição em um calendário feito para corredores.</p>
+                    </div>
+                    <div style={{ marginTop: 26, borderRadius: 28, border: "1px solid rgba(255,255,255,0.12)", background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022))", padding: 16, boxShadow: "0 24px 64px rgba(0,0,0,0.34)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                        <p style={{ fontSize: 15, fontWeight: 900 }}>Corridas</p>
+                        <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>⌕</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 7, overflow: "hidden", marginBottom: 14 }}>
+                        {['Todos','3K','5K','10K','21K'].map((chip, index) => <span key={chip} style={{ flexShrink: 0, borderRadius: 999, padding: "7px 10px", fontSize: 10, fontWeight: 900, background: index === 0 ? "#e11d48" : "rgba(255,255,255,0.04)", border: index === 0 ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(255,255,255,0.08)" }}>{chip}</span>)}
+                      </div>
+                      <div style={{ borderRadius: 24, padding: 16, background: "linear-gradient(135deg, rgba(225,29,72,0.19), rgba(0,0,0,0.46)), radial-gradient(circle at 84% 20%, rgba(225,29,72,0.32), transparent 31%)", border: "1px solid rgba(225,29,72,0.28)", minHeight: 238, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                        <div>
+                          <span style={{ display: "inline-flex", borderRadius: 999, padding: "6px 10px", border: "1px solid #e11d48", color: "#fff", fontSize: 10, fontWeight: 900, marginBottom: 14 }}>★ DESTAQUE</span>
+                          <p style={{ color: "#ff4169", fontSize: 12, fontWeight: 900, marginBottom: 7 }}>31 MAI 2026</p>
+                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 25, lineHeight: 1.08, letterSpacing: -0.8, fontWeight: 800 }}>Maratona Internacional de Porto Alegre</p>
+                          <p style={{ marginTop: 8, color: "#c7c7d1", fontSize: 12 }}>⌖ Porto Alegre, RS</p>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                          <div style={{ display: "flex", gap: 7 }}>
+                            {['42K','21K','10K'].map((d) => <span key={d} style={{ padding: "7px 9px", borderRadius: 999, background: "rgba(0,0,0,0.30)", border: "1px solid rgba(255,255,255,0.12)", fontSize: 10, fontWeight: 900 }}>{d}</span>)}
+                          </div>
+                          <button style={{ background: "linear-gradient(135deg,#e11d48,#ff4169)", color: "#fff", border: "none", borderRadius: 999, padding: "11px 14px", fontSize: 11, fontWeight: 900, fontFamily: "inherit" }}>Inscrever</button>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+                        <div style={{ height: 52, borderRadius: 18, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)" }} />
+                        <div style={{ height: 52, borderRadius: 18, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)" }} />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {productOnboardingStep === 2 && (
+                  <>
+                    <div>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 35, lineHeight: 0.98, letterSpacing: -1.45, marginBottom: 12 }}>Corra. O <span style={{ color: "#e11d48" }}>app cuida<br/>do resto.</span></h2>
+                      <p style={{ color: "#c7c7d1", fontSize: 14, lineHeight: 1.6 }}>Registre distância, tempo, pace e publique seu percurso automaticamente.</p>
+                    </div>
+                    <div style={{ marginTop: 25, borderRadius: 28, border: "1px solid rgba(255,255,255,0.12)", background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022))", padding: 15 }}>
+                      <div style={{ borderRadius: 24, minHeight: 242, background: "linear-gradient(180deg, rgba(0,0,0,0.26), rgba(0,0,0,0.62)), radial-gradient(circle at 82% 15%, rgba(225,29,72,0.24), transparent 28%)", border: "1px solid rgba(255,255,255,0.08)", padding: 15, position: "relative", overflow: "hidden" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 999, background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.12)", color: "#6ee7b7", fontSize: 10, fontWeight: 900 }}>● GPS</span>
+                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 33, fontWeight: 800, letterSpacing: -1, marginTop: 12 }}>7,36 <span style={{ fontSize: 17 }}>km</span></p>
+                        <p style={{ fontSize: 23, fontWeight: 900, marginTop: 4 }}>00:38:42</p>
+                        <p style={{ fontSize: 17, color: "#ddd", marginTop: 4 }}>5'16” <span style={{ color: "#8e8e9c", fontSize: 12 }}>/km</span></p>
+                        <div style={{ position: "absolute", right: 14, top: 30, width: 156, height: 150 }}>
+                          <div style={{ position: "absolute", left: 8, bottom: 22, width: 124, height: 92, borderLeft: "4px solid #e11d48", borderBottom: "4px solid #e11d48", transform: "skewX(-24deg) rotate(-8deg)", borderRadius: "0 0 0 22px" }} />
+                          <div style={{ position: "absolute", right: 12, top: 6, width: 15, height: 15, borderRadius: "50%", background: "#fff", border: "4px solid #e11d48" }} />
+                          <div style={{ position: "absolute", left: 14, bottom: 18, width: 14, height: 14, borderRadius: "50%", background: "#6ee7b7", border: "3px solid #fff" }} />
+                        </div>
+                        <div style={{ position: "absolute", left: 15, right: 15, bottom: 14, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                          {[['ritmo','5’16”'],['elevação','48 m'],['calorias','512']].map(([label, value]) => <div key={label} style={{ borderRadius: 14, padding: "9px 7px", background: "rgba(0,0,0,0.34)", border: "1px solid rgba(255,255,255,0.08)" }}><p style={{ color: "#777", fontSize: 9, marginBottom: 4 }}>{label}</p><p style={{ fontSize: 11, fontWeight: 900 }}>{value}</p></div>)}
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 12, borderRadius: 20, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.035)", padding: 12 }}>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 9 }}>
+                          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(225,29,72,0.18)", border: "1px solid rgba(225,29,72,0.28)" }} />
+                          <div><p style={{ fontSize: 12, fontWeight: 900 }}>João Silva</p><p style={{ color: "#8e8e9c", fontSize: 10 }}>Treino leve de terça! ☀️</p></div>
+                        </div>
+                        <p style={{ color: "#a9a9b5", fontSize: 11 }}>7,36 km · 38:42 · 5’16”/km</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {productOnboardingStep === 3 && (
+                  <>
+                    <div>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 35, lineHeight: 0.98, letterSpacing: -1.45, marginBottom: 12 }}>Compartilhe e<br/><span style={{ color: "#e11d48" }}>corra junto.</span></h2>
+                      <p style={{ color: "#c7c7d1", fontSize: 14, lineHeight: 1.6 }}>Publique momentos, siga corredores e participe de clubes com avisos e treinos.</p>
+                    </div>
+                    <div style={{ marginTop: 24, display: "grid", gap: 12 }}>
+                      <div style={{ borderRadius: 24, padding: 15, border: "1px solid rgba(255,255,255,0.11)", background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022))" }}>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(225,29,72,0.18)", border: "1px solid rgba(225,29,72,0.28)" }} />
+                          <div><p style={{ fontSize: 12, fontWeight: 900 }}>Marina Costa</p><p style={{ color: "#8e8e9c", fontSize: 10 }}>Hoje às 08:32 · Porto Alegre, RS</p></div>
+                        </div>
+                        <p style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Domingo de longão com o grupo! 🔥</p>
+                        <div style={{ height: 96, borderRadius: 18, background: "linear-gradient(135deg, rgba(225,29,72,0.20), rgba(255,255,255,0.04))", border: "1px solid rgba(255,255,255,0.08)" }} />
+                        <div style={{ display: "flex", gap: 14, color: "#a9a9b5", fontSize: 11, marginTop: 12 }}><span>♡ 128</span><span>◌ 18</span></div>
+                      </div>
+                      <div style={{ borderRadius: 24, padding: 15, border: "1px solid rgba(255,255,255,0.11)", background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022))" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 12 }}>
+                          <div><p style={{ fontSize: 13, fontWeight: 900 }}>Runners POA</p><p style={{ color: "#8e8e9c", fontSize: 10 }}>Clube · 248 membros</p></div>
+                          <div style={{ padding: "7px 10px", borderRadius: 999, background: "rgba(225,29,72,0.14)", color: "#ff4169", border: "1px solid rgba(225,29,72,0.25)", fontSize: 10, fontWeight: 900 }}>Aviso</div>
+                        </div>
+                        <div style={{ borderRadius: 18, border: "1px solid rgba(225,29,72,0.20)", background: "rgba(225,29,72,0.08)", padding: 12 }}>
+                          <p style={{ fontSize: 11, fontWeight: 900, color: "#ffd36b", marginBottom: 5 }}>Treino de tiros amanhã às 6h</p>
+                          <p style={{ fontSize: 11, color: "#c7c7d1" }}>Chegue 15 min antes! 🚀</p>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 12 }}>
+                          {[0,1,2,3,4].map((n) => <div key={n} style={{ width: 24, height: 24, borderRadius: "50%", border: "2px solid #6ee7b7", background: "rgba(110,231,183,0.18)" }} />)}
+                          <span style={{ fontSize: 10, color: "#8e8e9c", fontWeight: 900 }}>+36 online</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {productOnboardingStep === 4 && (
+                  <>
+                    <div style={{ textAlign: "center", paddingTop: 28 }}>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 39, lineHeight: 0.98, letterSpacing: -1.7, marginBottom: 14 }}>Pronto para<br/><span style={{ color: "#e11d48" }}>começar?</span></h2>
+                      <p style={{ color: "#c7c7d1", fontSize: 14, lineHeight: 1.6, maxWidth: 280, margin: "0 auto" }}>Crie sua rotina, encontre corridas e faça parte do eucorredor.</p>
+                    </div>
+                    <div style={{ position: "relative", height: 335, marginTop: 16, overflow: "hidden", borderRadius: 30, border: "1px solid rgba(255,255,255,0.08)", background: "linear-gradient(180deg, rgba(225,29,72,0.10), rgba(0,0,0,0.42)), radial-gradient(circle at 50% 36%, rgba(225,29,72,0.42), transparent 33%)" }}>
+                      <div style={{ position: "absolute", left: "50%", top: 38, width: 230, height: 230, transform: "translateX(-50%)", borderRadius: "50%", border: "2px solid rgba(225,29,72,0.72)", boxShadow: "0 0 40px rgba(225,29,72,0.26)", animation: "onboardingPulse 3s ease-in-out infinite" }} />
+                      <div style={{ position: "absolute", left: "50%", top: 95, transform: "translateX(-50%)", width: 54, height: 130, borderRadius: 999, background: "linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.10))", opacity: 0.20 }} />
+                      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 120, background: "linear-gradient(180deg, transparent, rgba(225,29,72,0.28))" }} />
+                      <div style={{ position: "absolute", left: -10, right: -10, bottom: 28, height: 4, background: "linear-gradient(90deg, transparent, #e11d48, transparent)", transform: "rotate(-7deg)", boxShadow: "0 0 24px rgba(225,29,72,0.78)" }} />
+                      <div style={{ position: "absolute", left: -10, right: -10, bottom: 58, height: 3, background: "linear-gradient(90deg, transparent, rgba(225,29,72,0.76), transparent)", transform: "rotate(8deg)" }} />
+                    </div>
+                  </>
+                )}
+
+                <div style={{ position: "relative", zIndex: 1, paddingTop: 18 }}>
+                  <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 18 }}>
+                    {[0,1,2,3,4].map((dot) => <span key={dot} style={{ width: dot === productOnboardingStep ? 22 : 8, height: 8, borderRadius: 999, background: dot === productOnboardingStep ? "#e11d48" : "rgba(255,255,255,0.16)", transition: "all .2s ease" }} />)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: productOnboardingStep === 0 || productOnboardingStep === 4 ? "1fr" : "0.72fr 1.28fr", gap: 12 }}>
+                    {productOnboardingStep > 0 && productOnboardingStep < 4 && (
+                      <button onClick={goToPreviousProductOnboardingStep} style={{ minHeight: 54, borderRadius: 999, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.16)", color: "#fff", fontWeight: 900, fontSize: 14, fontFamily: "inherit", cursor: "pointer" }}>Voltar</button>
+                    )}
+                    <button onClick={goToNextProductOnboardingStep} style={{ minHeight: 54, borderRadius: 999, background: "linear-gradient(135deg,#e11d48,#ff4169)", border: "none", color: "#fff", fontWeight: 900, fontSize: 15, fontFamily: "inherit", cursor: "pointer", boxShadow: "0 18px 42px rgba(225,29,72,0.24)" }}>
+                      {productOnboardingStep === 4 ? "Entrar no app →" : "Continuar →"}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
