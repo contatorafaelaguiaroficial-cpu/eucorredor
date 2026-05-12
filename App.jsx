@@ -276,6 +276,7 @@ function AppMain({ user, userName }) {
   const [onboardingForm, setOnboardingForm] = useState({ name: "", handle: "", terms: false });
   const [dbEvents, setDbEvents] = useState([]);
   const [showAdminEvents, setShowAdminEvents] = useState(false);
+  const [eventFilter, setEventFilter] = useState("Todos");
   const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
   const [savingEvent, setSavingEvent] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
@@ -864,6 +865,48 @@ function AppMain({ user, userName }) {
     return <div style={{ width: size, height: size, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.3, fontWeight: 700, color: "#fff", border: `2px solid ${getLevelColor(p?.level)}`, flexShrink: 0 }}>{p?.name?.charAt(0) || "?"}</div>;
   };
 
+  const eventFilters = ["Todos", "5K", "10K", "21K", "Maratona", "Trail"];
+
+  const normalizeEventText = (value = "") => value.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  const eventMatchesFilter = (event, filter) => {
+    if (filter === "Todos") return true;
+    const haystack = normalizeEventText(`${event.name || ""} ${event.distance || ""} ${event.category || ""}`);
+    return haystack.includes(normalizeEventText(filter));
+  };
+
+  const filteredEvents = dbEvents.filter((event) => eventMatchesFilter(event, eventFilter));
+  const featuredEvent = filteredEvents[0];
+  const listEvents = featuredEvent ? filteredEvents.slice(1) : filteredEvents;
+
+  const getEventImage = (event) => {
+    const text = normalizeEventText(`${event?.name || ""} ${event?.category || ""} ${event?.city || ""}`);
+    if (text.includes("porto alegre") || text.includes("maratona")) return "https://images.unsplash.com/photo-1543385426-191664295b58?w=900&q=80";
+    if (text.includes("night")) return "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=700&q=80";
+    if (text.includes("trail") || text.includes("serra") || text.includes("bento") || text.includes("caxias")) return "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=700&q=80";
+    if (text.includes("gramado") || text.includes("pedras")) return "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=700&q=80";
+    return "https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=700&q=80";
+  };
+
+  const getDateParts = (date = "") => {
+    const raw = date.toString();
+    const months = {
+      janeiro: "JAN", jan: "JAN", fevereiro: "FEV", fev: "FEV", marco: "MAR", março: "MAR", mar: "MAR", abril: "ABR", abr: "ABR",
+      maio: "MAI", mai: "MAI", junho: "JUN", jun: "JUN", julho: "JUL", jul: "JUL", agosto: "AGO", ago: "AGO",
+      setembro: "SET", set: "SET", outubro: "OUT", out: "OUT", novembro: "NOV", nov: "NOV", dezembro: "DEZ", dez: "DEZ"
+    };
+    const normalized = normalizeEventText(raw);
+    const foundMonth = Object.keys(months).find((m) => normalized.includes(m));
+    const numbers = raw.match(/\d+/g) || [];
+    const year = numbers.find((n) => n.length === 4) || "";
+    const days = numbers.filter((n) => n.length !== 4).slice(0, 2);
+    return {
+      day: days.length > 1 ? `${days[0]} e ${days[1]}` : (days[0] || raw),
+      month: foundMonth ? months[foundMonth] : "",
+      year
+    };
+  };
+
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", display: "flex", justifyContent: "center" }}>
       <style>{`
@@ -978,40 +1021,160 @@ function AppMain({ user, userName }) {
 
           {/* EVENTOS */}
           {tab === "eventos" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700 }}>Próximos eventos</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
+                <div>
+                  <h2 style={{ fontSize: 30, fontWeight: 900, letterSpacing: -1.2, lineHeight: 1.05, marginBottom: 8 }}>
+                    Corridas no RS<span style={{ color: "#e11d48" }}>.</span>
+                  </h2>
+                  <p style={{ fontSize: 14, color: "#8b8b96", lineHeight: 1.45 }}>Encontre sua próxima prova.</p>
+                </div>
                 {user.id === ADMIN_ID && (
-                  <button onClick={() => setShowAdminEvents(true)} style={{ background: "#1e1e2e", border: "none", color: "#888", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ Gerenciar</button>
+                  <button
+                    onClick={() => setShowAdminEvents(true)}
+                    title="Gerenciar eventos"
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 18,
+                      background: "rgba(255,255,255,0.045)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      color: "#f0f0f0",
+                      fontSize: 20,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                      flexShrink: 0
+                    }}
+                  >
+                    ⚙
+                  </button>
                 )}
               </div>
+
+              <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2, marginLeft: -2, marginRight: -2 }}>
+                {eventFilters.map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setEventFilter(filter)}
+                    style={{
+                      flex: "0 0 auto",
+                      background: eventFilter === filter ? "linear-gradient(135deg, #e11d48, #ff3d63)" : "rgba(255,255,255,0.035)",
+                      border: eventFilter === filter ? "1px solid rgba(255,255,255,0.18)" : "1px solid #1e1e2e",
+                      color: eventFilter === filter ? "#fff" : "#c9c9d1",
+                      borderRadius: 14,
+                      padding: "11px 17px",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      boxShadow: eventFilter === filter ? "0 12px 26px rgba(225,29,72,0.22)" : "none"
+                    }}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+
               {dbEvents.length === 0 && (
-                <div style={{ textAlign: "center", padding: "40px 0" }}>
-                  <p style={{ fontSize: 28, marginBottom: 10 }}>📅</p>
-                  <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Nenhum evento cadastrado</p>
-                  <p style={{ fontSize: 13, color: "#555" }}>Novos eventos serão adicionados em breve.</p>
+                <div style={{ textAlign: "center", padding: "48px 18px", background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02))", border: "1px solid #1e1e2e", borderRadius: 24 }}>
+                  <p style={{ fontSize: 34, marginBottom: 12 }}>📅</p>
+                  <p style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Nenhum evento cadastrado</p>
+                  <p style={{ fontSize: 13, color: "#777" }}>Novos eventos serão adicionados em breve.</p>
                 </div>
               )}
-              {dbEvents.map((e) => (
-                <div key={e.id} style={{ background: "#13131a", borderRadius: 18, padding: "18px", border: "1px solid #1e1e2e" }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ background: "#1e1e2e", color: "#888", borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 700 }}>{e.category}</span>
-                  </div>
-                  <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{e.name}</p>
-                  <p style={{ fontSize: 12, color: "#555", marginBottom: 14 }}>{e.city}, {e.state}</p>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", gap: 14 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#e11d48" }}>{e.date}</span>
-                      <span style={{ fontSize: 13, color: "#888", fontWeight: 600 }}>{e.distance}</span>
+
+              {dbEvents.length > 0 && filteredEvents.length === 0 && (
+                <div style={{ textAlign: "center", padding: "34px 18px", background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 20 }}>
+                  <p style={{ fontWeight: 800, fontSize: 15, marginBottom: 6 }}>Nenhum evento nessa categoria</p>
+                  <p style={{ fontSize: 13, color: "#666" }}>Tente outro filtro para ver mais provas.</p>
+                </div>
+              )}
+
+              {featuredEvent && (() => {
+                const date = getDateParts(featuredEvent.date);
+                return (
+                  <div style={{
+                    position: "relative",
+                    overflow: "hidden",
+                    borderRadius: 24,
+                    padding: 20,
+                    minHeight: 245,
+                    border: "1px solid rgba(255,255,255,0.13)",
+                    background: `linear-gradient(90deg, rgba(10,10,15,0.94), rgba(10,10,15,0.70), rgba(10,10,15,0.90)), url(${getEventImage(featuredEvent)}) center/cover`,
+                    boxShadow: "0 22px 46px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, height: "100%", position: "relative", zIndex: 1 }}>
+                      <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 205, maxWidth: 230 }}>
+                        <div>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#fff", border: "1px solid #e11d48", background: "rgba(225,29,72,0.10)", borderRadius: 10, padding: "7px 10px", fontSize: 11, fontWeight: 900, letterSpacing: 0.3, marginBottom: 18 }}>
+                            ☆ DESTAQUE
+                          </span>
+                          <p style={{ fontWeight: 900, fontSize: 23, lineHeight: 1.12, letterSpacing: -0.8, marginBottom: 12 }}>{featuredEvent.name}</p>
+                          <p style={{ fontSize: 14, color: "#b9b9c3", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span>⌖</span> {featuredEvent.city}, {featuredEvent.state}
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 18 }}>
+                          {(featuredEvent.distance || "").split(/,| e |\|/).map((dist, idx) => dist.trim()).filter(Boolean).map((dist, idx) => (
+                            <span key={idx} style={{ border: "1px solid rgba(255,255,255,0.14)", background: "rgba(0,0,0,0.26)", color: "#fff", borderRadius: 999, padding: "8px 12px", fontSize: 13, fontWeight: 800 }}>{dist}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ width: 96, display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexShrink: 0 }}>
+                        <div style={{ textAlign: "right", letterSpacing: 4, textTransform: "uppercase" }}>
+                          <p style={{ color: "#a7a7b2", fontSize: 18, fontWeight: 800, marginBottom: 4 }}>{date.day}</p>
+                          <p style={{ color: "#e11d48", fontSize: 40, fontWeight: 900, lineHeight: 0.9 }}>{date.month || ""}</p>
+                          <p style={{ color: "#8a8a96", fontSize: 18, fontWeight: 800, marginTop: 8 }}>{date.year}</p>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {user.id === ADMIN_ID && (
+                            <button onClick={() => handleDeleteEvent(featuredEvent.id)} style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.12)", color: "#777", borderRadius: 12, width: 38, height: 38, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                          )}
+                          {featuredEvent.link ? (
+                            <a href={featuredEvent.link} target="_blank" rel="noopener noreferrer" style={{ background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", borderRadius: 14, padding: "12px 17px", fontSize: 13, fontWeight: 900, textDecoration: "none", whiteSpace: "nowrap", boxShadow: "0 12px 28px rgba(225,29,72,0.28)" }}>Inscrever</a>
+                          ) : (
+                            <button className="jbtn" style={{ opacity: 0.55, cursor: "not-allowed", borderRadius: 14, padding: "12px 17px", whiteSpace: "nowrap" }}>Em breve</button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  </div>
+                );
+              })()}
+
+              {listEvents.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                  <h3 style={{ fontSize: 19, fontWeight: 900, letterSpacing: -0.4 }}>Próximos eventos</h3>
+                  <span style={{ color: "#555", fontSize: 12, fontWeight: 800 }}>{listEvents.length} provas</span>
+                </div>
+              )}
+
+              {listEvents.map((e) => (
+                <div key={e.id} style={{ display: "grid", gridTemplateColumns: "86px 1fr", gap: 14, background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", borderRadius: 22, padding: 14, border: "1px solid rgba(255,255,255,0.10)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+                  <div style={{ height: 92, borderRadius: 16, background: `linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.26)), url(${getEventImage(e)}) center/cover`, border: "1px solid rgba(255,255,255,0.08)" }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                      <span style={{ border: "1px solid #e11d48", color: "#ff4164", background: "rgba(225,29,72,0.08)", borderRadius: 8, padding: "5px 8px", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.3 }}>{e.category}</span>
                       {user.id === ADMIN_ID && (
-                        <button onClick={() => handleDeleteEvent(e.id)} style={{ background: "none", border: "none", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                        <button onClick={() => handleDeleteEvent(e.id)} style={{ background: "none", border: "none", color: "#555", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
                       )}
+                    </div>
+                    <p style={{ fontWeight: 900, fontSize: 15.5, lineHeight: 1.2, letterSpacing: -0.3, marginBottom: 7, textTransform: "uppercase" }}>{e.name}</p>
+                    <p style={{ fontSize: 12.5, color: "#8b8b96", marginBottom: 12 }}>⌖ {e.city}, {e.state}</p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                      <div style={{ minWidth: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 12, fontWeight: 900, color: "#e11d48" }}>▣ {e.date}</span>
+                        <span style={{ width: 1, height: 14, background: "#333" }} />
+                        <span style={{ fontSize: 12, color: "#aaa", fontWeight: 800 }}>{e.distance}</span>
+                      </div>
                       {e.link ? (
-                        <a href={e.link} target="_blank" rel="noopener noreferrer" style={{ background: "#e11d48", color: "#fff", borderRadius: 10, padding: "8px 18px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>Inscrever</a>
+                        <a href={e.link} target="_blank" rel="noopener noreferrer" style={{ background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", borderRadius: 12, padding: "9px 12px", fontSize: 12, fontWeight: 900, textDecoration: "none", whiteSpace: "nowrap" }}>Inscrever</a>
                       ) : (
-                        <button className="jbtn" style={{ opacity: 0.5, cursor: "not-allowed", borderRadius: 10 }}>Em breve</button>
+                        <button className="jbtn" style={{ opacity: 0.55, cursor: "not-allowed", borderRadius: 12, padding: "9px 12px", whiteSpace: "nowrap" }}>Em breve</button>
                       )}
                     </div>
                   </div>
