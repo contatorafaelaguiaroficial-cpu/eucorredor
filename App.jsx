@@ -374,6 +374,20 @@ function AppMain({ user, userName }) {
   const [storyPreview, setStoryPreview] = useState(null);
   const [uploadingStory, setUploadingStory] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [loadingSections, setLoadingSections] = useState({
+    profile: true,
+    posts: true,
+    activities: true,
+    events: true,
+    notifications: true,
+    stories: true,
+    suggestions: true,
+    ranking: true,
+    myClubs: true,
+    allClubs: true,
+    clubDetails: false,
+  });
+  const [commentsLoading, setCommentsLoading] = useState({});
   const [rankingUsers, setRankingUsers] = useState([]);
   const [myClubs, setMyClubs] = useState([]);
   const [allClubs, setAllClubs] = useState([]);
@@ -498,6 +512,7 @@ function AppMain({ user, userName }) {
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false });
     setStories(data || []);
+    setLoadingSections((prev) => ({ ...prev, stories: false }));
   };
 
   const loadSuggestions = async () => {
@@ -510,6 +525,7 @@ function AppMain({ user, userName }) {
       .order("races_count", { ascending: false })
       .limit(8);
     setSuggestions(data || []);
+    setLoadingSections((prev) => ({ ...prev, suggestions: false }));
   };
 
   const loadRankingUsers = async () => {
@@ -518,6 +534,7 @@ function AppMain({ user, userName }) {
       .order("total_km", { ascending: false })
       .limit(6);
     setRankingUsers(data || []);
+    setLoadingSections((prev) => ({ ...prev, ranking: false }));
   };
 
   const enrichClubCard = async (club) => {
@@ -552,6 +569,7 @@ function AppMain({ user, userName }) {
     const clubs = (data || []).map((m) => m.clubs).filter(Boolean);
     const enriched = await Promise.all(clubs.map(enrichClubCard));
     setMyClubs(enriched);
+    setLoadingSections((prev) => ({ ...prev, myClubs: false }));
   };
 
   const loadAllClubs = async () => {
@@ -559,6 +577,7 @@ function AppMain({ user, userName }) {
     const clubs = data || [];
     const enriched = await Promise.all(clubs.map(enrichClubCard));
     setAllClubs(enriched);
+    setLoadingSections((prev) => ({ ...prev, allClubs: false }));
   };
 
   const loadClubMembership = async () => {
@@ -605,6 +624,7 @@ function AppMain({ user, userName }) {
     await loadMyClubs(); setActiveClub(null);
   };
   const openClub = async (club, preferredTab = "posts") => {
+    setLoadingSections((prev) => ({ ...prev, clubDetails: true }));
     setActiveClub(club);
     setActiveClubTab(preferredTab);
 
@@ -632,6 +652,7 @@ function AppMain({ user, userName }) {
     } else {
       setPendingRequests([]);
     }
+    setLoadingSections((prev) => ({ ...prev, clubDetails: false }));
   };
 
   const handleApproveMember = async (memberId) => {
@@ -734,6 +755,7 @@ function AppMain({ user, userName }) {
       .order("created_at", { ascending: false })
       .limit(30);
     setNotifications(data || []);
+    setLoadingSections((prev) => ({ ...prev, notifications: false }));
   };
 
   const markAllRead = async () => {
@@ -856,6 +878,7 @@ function AppMain({ user, userName }) {
     if (error) {
       console.error("Erro ao carregar eventos:", error.message);
       setDbEvents([]);
+      setLoadingSections((prev) => ({ ...prev, events: false }));
       return;
     }
 
@@ -865,6 +888,7 @@ function AppMain({ user, userName }) {
     });
 
     setDbEvents(sortedEvents);
+    setLoadingSections((prev) => ({ ...prev, events: false }));
   };
 
   const handleSaveEvent = async () => {
@@ -950,6 +974,7 @@ function AppMain({ user, userName }) {
   const loadProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     setProfile(data);
+    setLoadingSections((prev) => ({ ...prev, profile: false }));
     const hasHandle = data?.handle && data.handle.trim() !== "";
     if (!hasHandle) {
       const suggestedHandle = user.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9_]/g, "") || "";
@@ -962,11 +987,13 @@ function AppMain({ user, userName }) {
   const loadPosts = async () => {
     const { data } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").order("created_at", { ascending: false }).limit(20);
     setPosts(data || []);
+    setLoadingSections((prev) => ({ ...prev, posts: false }));
   };
 
   const loadActivities = async () => {
     const { data } = await supabase.from("activities").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false }).limit(20);
     setActivities(data || []);
+    setLoadingSections((prev) => ({ ...prev, activities: false }));
   };
 
   const refreshAllData = async () => {
@@ -1383,8 +1410,10 @@ function AppMain({ user, userName }) {
   };
 
   const loadComments = async (postId) => {
+    setCommentsLoading((prev) => ({ ...prev, [postId]: true }));
     const { data } = await supabase.from("comments").select("*, profiles(name, avatar_url, level)").eq("post_id", postId).order("created_at", { ascending: true });
     setComments(c => ({ ...c, [postId]: data || [] }));
+    setCommentsLoading((prev) => ({ ...prev, [postId]: false }));
   };
 
   const handleComment = async (postId) => {
@@ -1613,6 +1642,138 @@ function AppMain({ user, userName }) {
   const hasSummaryRouteSnapshot = Boolean(summaryRouteSnapshot);
   const isSummaryTooShortForFeed = runSummary?.type === "Atividade curta" || !hasSummaryRouteSnapshot;
 
+  const SkeletonBlock = ({ width = "100%", height = 14, radius = 999, style = {} }) => (
+    <div className="skeleton-block" style={{ width, height, borderRadius: radius, ...style }} />
+  );
+
+  const SkeletonCircle = ({ size = 44, style = {} }) => (
+    <SkeletonBlock width={size} height={size} radius="50%" style={{ flexShrink: 0, ...style }} />
+  );
+
+  const PostSkeleton = ({ withImage = true }) => (
+    <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16, marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 11, alignItems: "center", marginBottom: 14 }}>
+        <SkeletonCircle size={44} />
+        <div style={{ flex: 1 }}>
+          <SkeletonBlock width="42%" height={13} style={{ marginBottom: 8 }} />
+          <SkeletonBlock width="58%" height={10} />
+        </div>
+      </div>
+      <SkeletonBlock width="92%" height={12} style={{ marginBottom: 8 }} />
+      <SkeletonBlock width="68%" height={12} style={{ marginBottom: withImage ? 14 : 18 }} />
+      {withImage && <SkeletonBlock width="100%" height={164} radius={16} style={{ marginBottom: 14 }} />}
+      <div style={{ display: "flex", gap: 18 }}>
+        <SkeletonBlock width={42} height={14} />
+        <SkeletonBlock width={42} height={14} />
+        <SkeletonBlock width={30} height={14} style={{ marginLeft: "auto" }} />
+      </div>
+    </div>
+  );
+
+  const EventSkeleton = () => (
+    <>
+      <SkeletonBlock width="100%" height={238} radius={24} style={{ marginBottom: 18 }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <SkeletonBlock width="42%" height={16} />
+        <SkeletonBlock width={56} height={11} />
+      </div>
+      {[0, 1].map((i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "86px 1fr", gap: 14, background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", borderRadius: 22, padding: 14, border: "1px solid rgba(255,255,255,0.10)", marginBottom: 14 }}>
+          <SkeletonBlock width={86} height={92} radius={16} />
+          <div>
+            <SkeletonBlock width="48%" height={10} style={{ marginBottom: 10 }} />
+            <SkeletonBlock width="86%" height={14} style={{ marginBottom: 9 }} />
+            <SkeletonBlock width="62%" height={11} style={{ marginBottom: 14 }} />
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <SkeletonBlock width="44%" height={12} />
+              <SkeletonBlock width={86} height={34} radius={12} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+
+  const StoriesSkeleton = () => (
+    <div style={{ display: "flex", gap: 13, overflow: "hidden", padding: "2px 2px 4px", marginBottom: 22 }}>
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <SkeletonCircle size={58} />
+          <SkeletonBlock width={46} height={10} />
+        </div>
+      ))}
+    </div>
+  );
+
+  const SuggestionsSkeleton = () => (
+    <div style={{ display: "flex", gap: 10, overflow: "hidden", paddingBottom: 4, marginBottom: 22 }}>
+      {[0, 1, 2].map((i) => (
+        <div key={i} style={{ width: 112, flexShrink: 0, background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18, padding: "14px 10px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <SkeletonCircle size={54} style={{ marginBottom: 8 }} />
+          <SkeletonBlock width={58} height={11} style={{ marginBottom: 7 }} />
+          <SkeletonBlock width={68} height={10} style={{ marginBottom: 12 }} />
+          <SkeletonBlock width="100%" height={32} radius={999} />
+        </div>
+      ))}
+    </div>
+  );
+
+  const HubSkeleton = () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <SkeletonBlock width="100%" height={236} radius={26} />
+      <SkeletonBlock width="100%" height={252} radius={24} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <SkeletonBlock width="100%" height={210} radius={22} />
+        <SkeletonBlock width="100%" height={210} radius={22} />
+      </div>
+      <SkeletonBlock width="100%" height={154} radius={22} />
+      <SkeletonBlock width="100%" height={190} radius={22} />
+    </div>
+  );
+
+  const ProfileSkeleton = () => (
+    <>
+      <SkeletonBlock width="100%" height={446} radius={26} style={{ marginBottom: 14 }} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+        {[0, 1, 2, 3].map((i) => <SkeletonBlock key={i} width="100%" height={38} radius={12} />)}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
+        {[0, 1, 2, 3, 4, 5].map((i) => <SkeletonBlock key={i} width="100%" height={118} radius={6} />)}
+      </div>
+    </>
+  );
+
+  const ClubsSkeleton = () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {[0, 1, 2].map((i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 18, padding: 14 }}>
+          <SkeletonBlock width={58} height={58} radius={16} />
+          <div style={{ flex: 1 }}>
+            <SkeletonBlock width="48%" height={13} style={{ marginBottom: 8 }} />
+            <SkeletonBlock width="72%" height={11} style={{ marginBottom: 8 }} />
+            <SkeletonBlock width="40%" height={10} />
+          </div>
+          <SkeletonBlock width={74} height={36} radius={12} />
+        </div>
+      ))}
+    </div>
+  );
+
+  const NotificationsSkeleton = () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} style={{ display: "flex", gap: 11, alignItems: "center", paddingBottom: 14, borderBottom: "1px solid #1e1e2e" }}>
+          <SkeletonCircle size={44} />
+          <div style={{ flex: 1 }}>
+            <SkeletonBlock width="88%" height={12} style={{ marginBottom: 8 }} />
+            <SkeletonBlock width="38%" height={10} />
+          </div>
+          <SkeletonBlock width={24} height={24} radius={8} />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", display: "flex", justifyContent: "center" }}>
       <style>{`
@@ -1630,6 +1791,16 @@ function AppMain({ user, userName }) {
         .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.96); backdrop-filter: blur(20px); border-top: 1px solid #1e1e2e; display: flex; justify-content: space-around; align-items: center; padding: 10px 4px 28px; z-index: 100; }
         .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
+        .skeleton-block {
+          background: linear-gradient(90deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.10) 45%, rgba(255,255,255,0.045) 100%);
+          background-size: 220% 100%;
+          animation: skeletonShimmer 1.35s ease-in-out infinite;
+          border: 1px solid rgba(255,255,255,0.055);
+        }
+        @keyframes skeletonShimmer {
+          0% { background-position: 100% 0; }
+          100% { background-position: -120% 0; }
+        }
       `}</style>
 
       <div
@@ -1856,7 +2027,9 @@ function AppMain({ user, userName }) {
                 ))}
               </div>
 
-              {dbEvents.length === 0 && (
+              {loadingSections.events && <EventSkeleton />}
+
+              {!loadingSections.events && dbEvents.length === 0 && (
                 <EmptyState
                   icon="📅"
                   title="Ainda não há eventos cadastrados"
@@ -1864,7 +2037,7 @@ function AppMain({ user, userName }) {
                 />
               )}
 
-              {dbEvents.length > 0 && filteredEvents.length === 0 && (
+              {!loadingSections.events && dbEvents.length > 0 && filteredEvents.length === 0 && (
                 <EmptyState
                   icon="⌕"
                   title="Nenhuma prova neste filtro"
@@ -1874,7 +2047,7 @@ function AppMain({ user, userName }) {
                 />
               )}
 
-              {featuredEvent && (() => {
+              {!loadingSections.events && featuredEvent && (() => {
                 const date = getDateParts(featuredEvent.date);
                 return (
                   <div style={{
@@ -1927,14 +2100,14 @@ function AppMain({ user, userName }) {
                 );
               })()}
 
-              {listEvents.length > 0 && (
+              {!loadingSections.events && listEvents.length > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                   <h3 style={{ fontSize: 19, fontWeight: 900, letterSpacing: -0.4 }}>Próximos eventos</h3>
                   <span style={{ color: "#555", fontSize: 12, fontWeight: 800 }}>{listEvents.length} provas</span>
                 </div>
               )}
 
-              {listEvents.map((e) => (
+              {!loadingSections.events && listEvents.map((e) => (
                 <div key={e.id} style={{ display: "grid", gridTemplateColumns: "86px 1fr", gap: 14, background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", borderRadius: 22, padding: 14, border: "1px solid rgba(255,255,255,0.10)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)" }}>
                   <div style={{ height: 92, borderRadius: 16, background: `linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.26)), url(${getEventImage(e)}) center/cover`, border: "1px solid rgba(255,255,255,0.08)" }} />
                   <div style={{ minWidth: 0 }}>
@@ -2148,7 +2321,10 @@ function AppMain({ user, userName }) {
                       <p style={{ fontSize: 13, fontWeight: 900, color: "#f4f4f6" }}>Stories</p>
                       <button style={{ background: "none", border: "none", color: "#e11d48", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver todos</button>
                     </div>
-                    <div style={{ display: "flex", gap: 13, overflowX: "auto", padding: "2px 2px 4px" }}>
+                    {loadingSections.stories ? (
+                      <StoriesSkeleton />
+                    ) : (
+                      <div style={{ display: "flex", gap: 13, overflowX: "auto", padding: "2px 2px 4px" }}>
                       {(() => {
                         const myStory = stories.find(s => s.user_id === user.id);
                         return (
@@ -2187,10 +2363,21 @@ function AppMain({ user, userName }) {
                           </div>
                         );
                       })}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
-                  {commFeed === "todos" && suggestions.length > 0 && (
+                  {commFeed === "todos" && loadingSections.suggestions && (
+                    <div style={{ marginBottom: 22 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <SkeletonBlock width="48%" height={13} />
+                        <SkeletonBlock width={52} height={11} />
+                      </div>
+                      <SuggestionsSkeleton />
+                    </div>
+                  )}
+
+                  {commFeed === "todos" && !loadingSections.suggestions && suggestions.length > 0 && (
                     <div style={{ marginBottom: 22 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                         <p style={{ fontSize: 13, fontWeight: 900, color: "#f4f4f6" }}>Corredores para seguir</p>
@@ -2223,7 +2410,12 @@ function AppMain({ user, userName }) {
                     </div>
                   )}
 
-                  {(() => {
+                  {loadingSections.posts ? (
+                    <>
+                      <PostSkeleton />
+                      <PostSkeleton withImage={false} />
+                    </>
+                  ) : (() => {
                     const visiblePosts = commFeed === "amigos" ? posts.filter(p => p.user_id === user.id || realFollowing[p.user_id]) : posts;
                     if (visiblePosts.length === 0) {
                       return (
@@ -2281,7 +2473,15 @@ function AppMain({ user, userName }) {
                         {openComments === p.id && (
                           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                              {(comments[p.id] || []).length > 0 ? (
+                              {commentsLoading[p.id] ? (
+                                <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
+                                  <SkeletonCircle size={28} />
+                                  <div style={{ flex: 1 }}>
+                                    <SkeletonBlock width="42%" height={11} style={{ marginBottom: 7 }} />
+                                    <SkeletonBlock width="78%" height={12} />
+                                  </div>
+                                </div>
+                              ) : (comments[p.id] || []).length > 0 ? (
                                 (comments[p.id] || []).map((comment) => (
                                   <div key={comment.id} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
                                     {getAvatar(comment.profiles, 28)}
@@ -2743,6 +2943,9 @@ function AppMain({ user, userName }) {
           {tab === "hub" && (
             <div style={{ padding: "16px 20px 112px" }}>
               {hubScreen === "hub" && (
+                (loadingSections.activities || loadingSections.ranking) ? (
+                  <HubSkeleton />
+                ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
                   <div style={{
                     position: "relative",
@@ -2865,6 +3068,7 @@ function AppMain({ user, userName }) {
                     </div>
                   </div>
                 </div>
+                )
               )}
 
               {hubScreen === "tracking" && (
@@ -2995,6 +3199,10 @@ function AppMain({ user, userName }) {
 
           {tab === "perfil" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: 105 }}>
+              {loadingSections.profile ? (
+                <ProfileSkeleton />
+              ) : (
+                <>
               <div
                 style={{
                   position: "relative",
@@ -3437,6 +3645,8 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -3732,7 +3942,9 @@ function AppMain({ user, userName }) {
                 <button onClick={() => setShowNotifications(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
               </div>
               <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
-                {notifications.length === 0 && (
+                {loadingSections.notifications ? (
+                  <NotificationsSkeleton />
+                ) : notifications.length === 0 && (
                   <EmptyState
                     compact
                     icon="🔔"
