@@ -1,4 +1,5 @@
-// eucorredor v3.0
+// eucorredor v3.3 — eventos premium + feed premium + comentários
+// eucorredor v3.2 — eventos + feed premium
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -277,7 +278,7 @@ function AppMain({ user, userName }) {
   const [dbEvents, setDbEvents] = useState([]);
   const [showAdminEvents, setShowAdminEvents] = useState(false);
   const [eventFilter, setEventFilter] = useState("Todos");
-  const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
+  const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "", featured: false });
   const [savingEvent, setSavingEvent] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -554,17 +555,86 @@ function AppMain({ user, userName }) {
   };
 
   const loadEvents = async () => {
-    const { data } = await supabase.from("events").select("*").order("created_at", { ascending: true });
-    setDbEvents(data || []);
+    const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: true });
+    if (error) {
+      console.error("Erro ao carregar eventos:", error.message);
+      setDbEvents([]);
+      return;
+    }
+
+    const sortedEvents = [...(data || [])].sort((a, b) => {
+      if (!!a.featured === !!b.featured) return 0;
+      return a.featured ? -1 : 1;
+    });
+
+    setDbEvents(sortedEvents);
   };
 
   const handleSaveEvent = async () => {
     if (!eventForm.name || !eventForm.date || !eventForm.distance) return alert("Preencha nome, data e distância.");
     setSavingEvent(true);
-    await supabase.from("events").insert({ name: eventForm.name, date: eventForm.date, city: eventForm.city, state: eventForm.state, distance: eventForm.distance, category: eventForm.category, link: eventForm.link });
-    setEventForm({ name: "", date: "", city: "", state: "RS", distance: "", category: "Corrida de Rua", link: "" });
-    await loadEvents();
+
+    try {
+      if (eventForm.featured) {
+        await supabase
+          .from("events")
+          .update({ featured: false })
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+      }
+
+      const { error } = await supabase.from("events").insert({
+        name: eventForm.name,
+        date: eventForm.date,
+        city: eventForm.city,
+        state: eventForm.state,
+        distance: eventForm.distance,
+        category: eventForm.category,
+        link: eventForm.link,
+        featured: !!eventForm.featured,
+      });
+
+      if (error) throw error;
+
+      setEventForm({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "", featured: false });
+      await loadEvents();
+    } catch (err) {
+      alert("Erro ao salvar evento: " + (err.message || "tente novamente."));
+    }
+
     setSavingEvent(false);
+  };
+
+  const handleSetFeaturedEvent = async (eventId) => {
+    try {
+      await supabase
+        .from("events")
+        .update({ featured: false })
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      const { error } = await supabase
+        .from("events")
+        .update({ featured: true })
+        .eq("id", eventId);
+
+      if (error) throw error;
+      await loadEvents();
+    } catch (err) {
+      alert("Erro ao definir destaque: " + (err.message || "tente novamente."));
+    }
+  };
+
+  const handleRemoveFeaturedEvent = async (eventId) => {
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ featured: false })
+        .eq("id", eventId);
+
+      if (error) throw error;
+      await loadEvents();
+    } catch (err) {
+      alert("Erro ao remover destaque: " + (err.message || "tente novamente."));
+    }
   };
 
   const handleDeleteEvent = async (id) => {
@@ -876,16 +946,33 @@ function AppMain({ user, userName }) {
   };
 
   const filteredEvents = dbEvents.filter((event) => eventMatchesFilter(event, eventFilter));
-  const featuredEvent = filteredEvents[0];
-  const listEvents = featuredEvent ? filteredEvents.slice(1) : filteredEvents;
+  const sortedFilteredEvents = [...filteredEvents].sort((a, b) => {
+    if (!!a.featured === !!b.featured) return 0;
+    return a.featured ? -1 : 1;
+  });
+  const featuredEvent = sortedFilteredEvents.find((event) => event.featured) || sortedFilteredEvents[0];
+  const listEvents = featuredEvent ? sortedFilteredEvents.filter((event) => event.id !== featuredEvent.id) : sortedFilteredEvents;
 
   const getEventImage = (event) => {
-    const text = normalizeEventText(`${event?.name || ""} ${event?.category || ""} ${event?.city || ""}`);
-    if (text.includes("porto alegre") || text.includes("maratona")) return "https://images.unsplash.com/photo-1543385426-191664295b58?w=900&q=80";
-    if (text.includes("night")) return "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=700&q=80";
-    if (text.includes("trail") || text.includes("serra") || text.includes("bento") || text.includes("caxias")) return "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=700&q=80";
-    if (text.includes("gramado") || text.includes("pedras")) return "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=700&q=80";
-    return "https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=700&q=80";
+    const text = normalizeEventText(`${event?.name || ""} ${event?.category || ""} ${event?.distance || ""} ${event?.city || ""}`);
+
+    if (text.includes("night") || text.includes("noite")) {
+      return "https://images.unsplash.com/photo-1502224562085-639556652f33?w=900&q=85";
+    }
+
+    if (text.includes("trail") || text.includes("serra")) {
+      return "https://images.unsplash.com/photo-1551632811-561732d1e306?w=900&q=85";
+    }
+
+    if (text.includes("maratona") || text.includes("42k") || text.includes("meia") || text.includes("21k")) {
+      return "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=900&q=85";
+    }
+
+    if (text.includes("3k") || text.includes("5k") || text.includes("10k") || text.includes("corrida de rua")) {
+      return "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=900&q=85";
+    }
+
+    return "https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=900&q=85";
   };
 
   const getDateParts = (date = "") => {
@@ -1212,9 +1299,29 @@ function AppMain({ user, userName }) {
                         <input className="tinput" placeholder="Estado" value={eventForm.state} onChange={(e) => setEventForm(f => ({ ...f, state: e.target.value }))} />
                       </div>
                       <select className="tinput" value={eventForm.category} onChange={(e) => setEventForm(f => ({ ...f, category: e.target.value }))}>
-                        {["Corrida de Rua", "Maratona", "Meia Maratona", "10K", "5K", "Trail Run", "Ultramaratona"].map(c => <option key={c} value={c}>{c}</option>)}
+                        {["3K", "5K", "10K", "21K", "42K", "Maratona", "Trail"].map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                       <input className="tinput" placeholder="Link de inscrição (Ticket Sports)" value={eventForm.link} onChange={(e) => setEventForm(f => ({ ...f, link: e.target.value }))} />
+
+                      <button
+                        type="button"
+                        onClick={() => setEventForm(f => ({ ...f, featured: !f.featured }))}
+                        style={{
+                          width: "100%",
+                          background: eventForm.featured ? "rgba(225,29,72,0.16)" : "rgba(255,255,255,0.035)",
+                          border: eventForm.featured ? "1px solid #e11d48" : "1px solid #1e1e2e",
+                          color: eventForm.featured ? "#fff" : "#888",
+                          borderRadius: 12,
+                          padding: "13px 14px",
+                          fontSize: 13,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          textAlign: "left"
+                        }}
+                      >
+                        {eventForm.featured ? "★ Este evento será destaque" : "☆ Marcar como evento destaque"}
+                      </button>
                     </div>
                     <button onClick={handleSaveEvent} disabled={savingEvent} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}>
                       {savingEvent ? "Salvando..." : "Adicionar evento"}
@@ -1226,9 +1333,27 @@ function AppMain({ user, userName }) {
                           <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1e1e2e" }}>
                             <div>
                               <p style={{ fontWeight: 700, fontSize: 13 }}>{e.name}</p>
-                              <p style={{ fontSize: 11, color: "#555" }}>{e.date} · {e.distance} · {e.city}</p>
+                              <p style={{ fontSize: 11, color: "#555" }}>{e.date} · {e.distance} · {e.city}{e.featured ? " · destaque" : ""}</p>
                             </div>
-                            <button onClick={() => handleDeleteEvent(e.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                              <button
+                                onClick={() => e.featured ? handleRemoveFeaturedEvent(e.id) : handleSetFeaturedEvent(e.id)}
+                                style={{
+                                  background: e.featured ? "rgba(225,29,72,0.16)" : "none",
+                                  border: e.featured ? "1px solid #e11d48" : "1px solid #1e1e2e",
+                                  borderRadius: 8,
+                                  padding: "5px 9px",
+                                  color: e.featured ? "#fff" : "#777",
+                                  fontSize: 12,
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                  fontWeight: 800
+                                }}
+                              >
+                                {e.featured ? "★" : "☆"}
+                              </button>
+                              <button onClick={() => handleDeleteEvent(e.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                            </div>
                           </div>
                         ))}
                       </>
@@ -1241,297 +1366,330 @@ function AppMain({ user, userName }) {
 
           {/* COMUNIDADE */}
           {tab === "comunidade" && (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {/* Tabs */}
-              <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", marginBottom: 14 }}>
-                {[{ id: "todos", label: "Comunidade" }, { id: "amigos", label: "Amigos" }, { id: "clube", label: "Clube" }].map((t) => (
-                  <button key={t.id} onClick={() => setCommFeed(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, padding: "10px 0", color: commFeed === t.id ? "#f0f0f0" : "#555" }}>
+            <div style={{ display: "flex", flexDirection: "column", paddingBottom: 105 }}>
+              <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", margin: "12px 0 18px" }}>
+                {[
+                  { id: "todos", label: "Comunidade" },
+                  { id: "amigos", label: "Amigos" },
+                  { id: "clube", label: "Clube" },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setCommFeed(t.id)}
+                    style={{
+                      flex: 1,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      fontSize: 14,
+                      fontWeight: 900,
+                      padding: "13px 0 12px",
+                      color: commFeed === t.id ? "#f8f8fb" : "#555563",
+                      position: "relative"
+                    }}
+                  >
                     {t.label}
-                    {commFeed === t.id && <div style={{ width: 28, height: 2, background: "#e11d48", borderRadius: 2, margin: "6px auto 0" }} />}
+                    {commFeed === t.id && (
+                      <div style={{ width: 30, height: 2, background: "#e11d48", borderRadius: 999, margin: "7px auto 0", boxShadow: "0 0 18px rgba(225,29,72,0.6)" }} />
+                    )}
                   </button>
                 ))}
               </div>
 
-              {/* Stories */}
-              <div style={{ borderBottom: "1px solid #1e1e2e", padding: "12px 0", marginBottom: 14, display: commFeed === "clube" ? "none" : "block" }}>
-                <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "0 4px" }}>
-                  {/* Meu story */}
-                  {(() => {
-                    const myStory = stories.find(s => s.user_id === user.id);
-                    const myColor = level.color;
-                    return (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }}
-                        onClick={() => setShowStoryUpload(true)}>
-                        <div style={{ position: "relative" }}>
-                          <div style={{ padding: myStory ? 2 : 0, borderRadius: "50%", background: myStory ? myColor : "transparent" }}>
-                            <div style={{ padding: myStory ? 2 : 0, borderRadius: "50%", background: myStory ? "#0a0a0f" : "transparent" }}>
-                              <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#13131a", border: myStory ? `2px solid ${myColor}` : "2px dashed #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
-                                {profile?.avatar_url ? <img src={profile.avatar_url} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}/> : "🏃"}
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ position: "absolute", bottom: -1, right: -1, width: 20, height: 20, background: "#e11d48", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", border: "2px solid #0a0a0f" }}>+</div>
-                        </div>
-                        <span style={{ fontSize: 10, color: myStory ? "#f0f0f0" : "#555", fontWeight: myStory ? 700 : 600 }}>Seu story</span>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Stories reais do banco - agrupados por usuario */}
-                  {Object.values(stories.filter(s => s.user_id !== user.id).reduce((acc, s) => {
-                    if (!acc[s.user_id]) acc[s.user_id] = s;
-                    return acc;
-                  }, {})).slice(0, 8).map((s, i) => {
-                    const seen = seenStories[s.user_id];
-                    const storyColor = getLevelColor(s.profiles?.level);
-                    return (
-                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, cursor: "pointer" }}
-                        onClick={() => { setSeenStories(st => ({...st, [s.user_id]: true})); setActiveStory({ user: s.profiles?.name, color: storyColor, level: s.profiles?.level, media_url: s.media_url, emoji: getLevelIcon(s.profiles?.level), avatar_url: s.profiles?.avatar_url }); }}>
-                        <div style={{ padding: 2, borderRadius: "50%", background: seen ? "#1e1e2e" : storyColor }}>
-                          <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
-                            <div style={{ width: 54, height: 54, borderRadius: "50%", background: `${storyColor}22`, border: `2px solid ${seen ? "#1e1e2e" : storyColor}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden" }}>
-                              {s.profiles?.avatar_url ? <img src={s.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }}/> : getLevelIcon(s.profiles?.level)}
-                            </div>
-                          </div>
-                        </div>
-                        <span style={{ fontSize: 10, color: seen ? "#444" : "#f0f0f0", fontWeight: seen ? 400 : 700, maxWidth: 58, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {s.profiles?.name?.split(" ")[0]}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Sugestões de quem seguir */}
-              {suggestions.length > 0 && (
-                <div style={{ marginBottom: 14 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 10 }}>Corredores para seguir</p>
-                  <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-                    {suggestions.map((u) => (
-                      <div key={u.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0, background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 16, padding: "14px 12px", width: 110, cursor: "pointer" }}
-                        onClick={() => openProfile(u.id)}>
-                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, overflow: "hidden", flexShrink: 0 }}>
-                          {u.avatar_url ? <img src={u.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : u.name?.charAt(0) || "?"}
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: "#f0f0f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 86 }}>{u.name?.split(" ")[0]}</p>
-                          <p style={{ fontSize: 10, color: getLevelColor(u.level), fontWeight: 700, marginTop: 2 }}>{getLevelIcon(u.level)} {u.level}</p>
-                          <p style={{ fontSize: 10, color: "#555", marginTop: 1 }}>{u.races_count || 0} corridas</p>
-                        </div>
-                        <button onClick={(e) => { e.stopPropagation(); handleFollow(u.id); }}
-                          style={{ width: "100%", background: realFollowing[u.id] ? "none" : "#e11d48", color: realFollowing[u.id] ? "#555" : "#fff", border: realFollowing[u.id] ? "1px solid #1e1e2e" : "none", borderRadius: 20, padding: "5px 0", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                          {realFollowing[u.id] ? "Seguindo" : "Seguir"}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Modal de comentários */}
-              {openComments && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                      <p style={{ fontWeight: 700, fontSize: 16 }}>Comentários</p>
-                      <button onClick={() => { setOpenComments(null); setNewComment(""); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
-                    </div>
-                    <div style={{ flex: 1, overflowY: "auto", marginBottom: 16 }}>
-                      {(comments[openComments] || []).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhum comentário ainda. Seja o primeiro!</p>}
-                      {(comments[openComments] || []).map((c) => (
-                        <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, border: `2px solid ${getLevelColor(c.profiles?.level)}`, flexShrink: 0 }}>
-                            {c.profiles?.avatar_url ? <img src={c.profiles.avatar_url} alt="av" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} /> : c.profiles?.name?.charAt(0) || "?"}
-                          </div>
-                          <div style={{ flex: 1, background: "#0a0a0f", borderRadius: 12, padding: "8px 12px" }}>
-                            <p style={{ fontWeight: 700, fontSize: 12, marginBottom: 3 }}>{c.profiles?.name || "Corredor"}</p>
-                            <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.4 }}>{c.text}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", gap: 10, paddingBottom: 32, borderTop: "1px solid #1e1e2e", paddingTop: 14 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{level.icon}</div>
-                      <input className="tinput" placeholder="Adicione um comentário..." value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleComment(openComments)} style={{ flex: 1, padding: "8px 14px", borderRadius: 20 }} />
-                      <button onClick={() => handleComment(openComments)} className="jbtn" style={{ borderRadius: 20, padding: "8px 16px" }}>↑</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Campo de busca */}
-              {showSearch && (
-                <div style={{ marginBottom: 14 }}>
-                  <input className="tinput" placeholder="Buscar por nome ou @handle..." value={searchQuery} onChange={(e) => handleSearch(e.target.value)} style={{ marginBottom: searchResults.length > 0 ? 10 : 0 }} />
-                  {searchResults.map((u) => (
-                    <div key={u.id} style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
-                      <div onClick={() => openProfile(u.id)} style={{ width: 40, height: 40, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, border: `2px solid ${getLevelColor(u.level)}`, flexShrink: 0, cursor: "pointer", overflow: "hidden" }}>
-                        {u.avatar_url ? <img src={u.avatar_url} alt="av" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} /> : u.name?.charAt(0) || "?"}
-                      </div>
-                      <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(u.id)}>
-                        <p style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</p>
-                        <p style={{ fontSize: 11, color: "#555" }}>{u.handle ? `@${u.handle}` : ""} · <span style={{ color: getLevelColor(u.level) }}>{getLevelIcon(u.level)} {u.level}</span></p>
-                      </div>
-                      <button onClick={() => handleFollow(u.id)} style={{ border: `1.5px solid ${realFollowing[u.id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[u.id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                        {realFollowing[u.id] ? "Seguindo" : "Seguir"}
+              {commFeed !== "clube" && (
+                <>
+                  <div style={{ marginBottom: 20 }}>
+                    <p style={{ fontSize: 13, fontWeight: 900, color: "#f4f4f6", marginBottom: 10 }}>
+                      {commFeed === "amigos" ? "Compartilhe com seus amigos" : "Compartilhe com a comunidade"}
+                    </p>
+                    <div style={{
+                      background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      borderRadius: 20,
+                      overflow: "hidden",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)"
+                    }}>
+                      <button
+                        onClick={() => { setShowPublish(true); setPublishType("post"); }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          background: "none",
+                          border: "none",
+                          padding: 14,
+                          color: "#777",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          textAlign: "left"
+                        }}
+                      >
+                        {getAvatar(profile, 42)}
+                        <span style={{ fontSize: 13, color: "#777" }}>No que você está pensando?</span>
                       </button>
-                    </div>
-                  ))}
-                  {searchQuery.length > 0 && searchResults.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "16px 0" }}>Nenhum corredor encontrado.</p>}
-                </div>
-              )}
-
-              {/* Feed */}
-              {commFeed !== "clube" && (commFeed === "amigos" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {(() => {
-                    const friendPosts = posts.filter(p => realFollowing[p.user_id]).map(p => ({ ...p, _type: "post", _date: p.created_at }));
-                    const friendActivities = activities.filter(a => realFollowing[a.user_id]).map(a => ({ ...a, _type: "activity", _date: a.created_at }));
-                    const feed = [...friendPosts, ...friendActivities].sort((a, b) => new Date(b._date) - new Date(a._date));
-                    if (feed.length === 0) return (
-                      <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                        <p style={{ fontSize: 28, marginBottom: 10 }}>🏃</p>
-                        <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Feed de amigos</p>
-                        <p style={{ fontSize: 13, color: "#555" }}>Siga corredores para ver as publicações deles aqui.</p>
-                      </div>
-                    );
-                    return feed.map((item) => item._type === "activity" ? (
-                      <div key={`act-${item.id}`} style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                          {getAvatar(item.profiles, 38)}
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 700, fontSize: 14 }}>{item.profiles?.name || "Corredor"}</p>
-                            <p style={{ fontSize: 11, color: "#888" }}>🏃 corrida · {timeAgo(item._date)}</p>
-                          </div>
-                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#e11d48" }}>{item.distance} km</p>
-                        </div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {item.duration && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{item.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>tempo</p></div>}
-                          {item.pace && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{item.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>pace</p></div>}
-                          {item.distance && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{Math.round(item.distance * 65)} kcal</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>calorias</p></div>}
-                        </div>
-                      </div>
-                    ) : (
-                      <div key={`post-${item.id}`} style={{ padding: "20px 20px 0" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                        <div onClick={() => openProfile(item.user_id)} style={{ cursor: "pointer" }}>{getAvatar(item.profiles, 42)}</div>
-                        <div style={{ flex: 1, cursor: "pointer" }} onClick={() => openProfile(item.user_id)}>
-                          <p style={{ fontWeight: 700, fontSize: 14 }}>{item.profiles?.name || "Corredor"}</p>
-                          <p style={{ fontSize: 11, color: "#888" }}>{item.created_at ? timeAgo(item.created_at) : "agora"} · <span style={{ color: getLevelColor(item.profiles?.level), fontWeight: 700 }}>{item.profiles?.level || "Iniciante"}</span></p>
-                        </div>
-                        {item.user_id !== user.id && (
-                          <button onClick={() => handleFollow(item.profiles?.id || item.user_id)} style={{ border: `1.5px solid ${realFollowing[item.profiles?.id || item.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[item.profiles?.id || item.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                            {realFollowing[item.profiles?.id || item.user_id] ? "Seguindo" : "Seguir"}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: "1px solid #1e1e2e" }}>
+                        {[
+                          { label: "Foto", icon: "▧", type: "foto" },
+                          { label: "Treino", icon: "⌁", type: "atividade" },
+                          { label: "Escrever", icon: "✎", type: "post" },
+                        ].map((item, idx) => (
+                          <button
+                            key={item.type}
+                            onClick={() => { setShowPublish(true); setPublishType(item.type); }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              borderRight: idx < 2 ? "1px solid #1e1e2e" : "none",
+                              padding: "12px 6px",
+                              color: "#cfcfd8",
+                              fontSize: 12,
+                              fontWeight: 800,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6
+                            }}
+                          >
+                            <span style={{ color: "#e11d48" }}>{item.icon}</span> {item.label}
                           </button>
-                        )}
-                      </div>
-                      {item.photo_url && <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 16, marginBottom: 12, overflow: "hidden" }}><img src={item.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
-                      {item.text && !item.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6, marginBottom: 12 }}>{item.text}</p>}
-                      {item.text && item.photo_url && <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}><span style={{ fontWeight: 700, color: "#f0f0f0" }}>{(item.profiles?.name || "").split(" ")[0].toLowerCase()} </span>{item.text}</p>}
-                      <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "12px 0", borderBottom: "1px solid #1e1e2e" }}>
-                        <button onClick={() => handleLikePost(item.id, item.user_id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: liked[item.id] ? "#e11d48" : "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill={liked[item.id] ? "#e11d48" : "none"} stroke={liked[item.id] ? "#e11d48" : "#555"} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                          {(item.likes || 0) + (liked[item.id] ? 1 : 0)}
-                        </button>
-                        <button onClick={() => { setOpenComments(item.id); loadComments(item.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#555", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                          {(comments[item.id] || []).length || item.comments || 0}
-                        </button>
-                        {item.user_id === user.id && <button onClick={() => handleDeletePost(item.id)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#555" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>}
+                        ))}
                       </div>
                     </div>
-                    ));
-                  })()}
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {posts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda. Seja o primeiro!</p>}
-                  {posts.map((p) => (
-                    <div key={p.id} className="card">
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <div style={{ cursor: "pointer", flexShrink: 0 }} onClick={() => {
-                          const pid = p.profiles?.id;
-                          if (!pid) return;
-                          const story = stories.find(s => s.user_id === pid);
-                          if (story) { setSeenStories(st => ({...st, [pid]: true})); setActiveStory({ user: p.profiles?.name, color: getLevelColor(p.profiles?.level), level: p.profiles?.level, media_url: story.media_url, emoji: getLevelIcon(p.profiles?.level), avatar_url: p.profiles?.avatar_url }); }
-                          else openProfile(pid);
-                        }}>
-                          {hasActiveStory(p.profiles?.id)
-                            ? <div style={{ padding: 2, borderRadius: "50%", background: getLevelColor(p.profiles?.level) }}>
-                                <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
-                                  <div style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1e1e2e", fontSize: 14, fontWeight: 700, color: "#fff" }}>
-                                    {p.profiles?.avatar_url
-                                      ? <img src={p.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                                      : p.profiles?.name?.charAt(0) || "?"
-                                    }
+                  </div>
+
+                  <div style={{ marginBottom: 22 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <p style={{ fontSize: 13, fontWeight: 900, color: "#f4f4f6" }}>Stories</p>
+                      <button style={{ background: "none", border: "none", color: "#e11d48", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver todos</button>
+                    </div>
+                    <div style={{ display: "flex", gap: 13, overflowX: "auto", padding: "2px 2px 4px" }}>
+                      {(() => {
+                        const myStory = stories.find(s => s.user_id === user.id);
+                        return (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0, cursor: "pointer" }} onClick={() => setShowStoryUpload(true)}>
+                            <div style={{ position: "relative" }}>
+                              <div style={{ width: 58, height: 58, borderRadius: "50%", padding: 2, background: myStory ? `linear-gradient(135deg, ${level.color}, #e11d48)` : "#1e1e2e" }}>
+                                <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "#0a0a0f", padding: 2 }}>
+                                  <div style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#13131a", color: "#fff", fontWeight: 900 }}>
+                                    {profile?.avatar_url ? <img src={profile.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : level.icon}
                                   </div>
                                 </div>
                               </div>
-                            : getAvatar(p.profiles, 38)
-                          }
-                        </div>
-                        <div style={{ flex: 1, cursor: "pointer" }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)}>
-                          <p style={{ fontWeight: 700, fontSize: 14 }}>{p.profiles?.name || "Corredor"}</p>
-                          <span style={{ fontSize: 10, color: "#888" }}>{getLevelIcon(p.profiles?.level)} <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 700 }}>{p.profiles?.level || "Iniciante"}</span>{p.created_at ? ` · ${timeAgo(p.created_at)}` : ""}</span>
-                        </div>
-                        {p.user_id !== user.id && (
-                          <button onClick={() => handleFollow(p.profiles?.id || p.user_id)} style={{ border: `1.5px solid ${realFollowing[p.profiles?.id || p.user_id] ? "#1e1e2e" : "#e11d48"}`, color: realFollowing[p.profiles?.id || p.user_id] ? "#555" : "#e11d48", background: "none", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                            {realFollowing[p.profiles?.id || p.user_id] ? "Seguindo" : "Seguir"}
-                          </button>
-                        )}
+                              <div style={{ position: "absolute", right: -2, bottom: -2, width: 21, height: 21, borderRadius: "50%", background: "#e11d48", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, border: "2px solid #0a0a0f" }}>+</div>
+                            </div>
+                            <span style={{ fontSize: 10, color: "#888", fontWeight: 700 }}>Seu story</span>
+                          </div>
+                        );
+                      })()}
+
+                      {Object.values(stories.filter(s => s.user_id !== user.id).reduce((acc, s) => {
+                        if (!acc[s.user_id]) acc[s.user_id] = s;
+                        return acc;
+                      }, {})).slice(0, 8).map((s, i) => {
+                        const seen = seenStories[s.user_id];
+                        const storyColor = getLevelColor(s.profiles?.level);
+                        return (
+                          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0, cursor: "pointer" }} onClick={() => { setSeenStories(st => ({ ...st, [s.user_id]: true })); setActiveStory({ user: s.profiles?.name, color: storyColor, level: s.profiles?.level, media_url: s.media_url, emoji: getLevelIcon(s.profiles?.level), avatar_url: s.profiles?.avatar_url }); }}>
+                            <div style={{ width: 58, height: 58, borderRadius: "50%", padding: 2, background: seen ? "#1e1e2e" : `linear-gradient(135deg, #e11d48, ${storyColor})` }}>
+                              <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "#0a0a0f", padding: 2 }}>
+                                <div style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: `${storyColor}22`, color: "#fff", fontWeight: 900 }}>
+                                  {s.profiles?.avatar_url ? <img src={s.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : getLevelIcon(s.profiles?.level)}
+                                </div>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 10, color: seen ? "#555" : "#f0f0f0", fontWeight: 700, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.profiles?.name?.split(" ")[0] || "Story"}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {commFeed === "todos" && suggestions.length > 0 && (
+                    <div style={{ marginBottom: 22 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <p style={{ fontSize: 13, fontWeight: 900, color: "#f4f4f6" }}>Corredores para seguir</p>
+                        <button style={{ background: "none", border: "none", color: "#e11d48", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver todos</button>
                       </div>
-                      {p.photo_url && <div style={{ width: "100%", aspectRatio: "4/5", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}><img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
-                      {p.text && <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55, marginBottom: 12 }}>{p.text}</p>}
-                      <div style={{ display: "flex", gap: 18, borderTop: "1px solid #1e1e2e", paddingTop: 10 }}>
-                        <button className="lbtn" onClick={() => handleLikePost(p.id, p.user_id)} style={{ color: liked[p.id] ? "#e11d48" : "#555" }}>
-                          <span style={{ fontSize: 16 }}>{liked[p.id] ? "❤️" : "🤍"}</span>
-                          <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
-                        </button>
-                        <button className="lbtn" onClick={() => { setOpenComments(p.id); loadComments(p.id); }}><span style={{ fontSize: 16 }}>💬</span><span>{(comments[p.id] || []).length || p.comments || 0}</span></button>
-                        <button className="lbtn" style={{ marginLeft: "auto" }}>↗️</button>
-                        {p.user_id === user.id && <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#555" }}><span style={{ fontSize: 16 }}>🗑️</span></button>}
+                      <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+                        {suggestions.slice(0, 6).map((u) => (
+                          <div key={u.id} style={{ width: 112, flexShrink: 0, background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18, padding: "14px 10px", display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer" }} onClick={() => openProfile(u.id)}>
+                            <div style={{ width: 54, height: 54, borderRadius: "50%", border: `2px solid ${getLevelColor(u.level)}`, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1e1e2e", color: "#fff", fontWeight: 900, marginBottom: 8 }}>
+                              {u.avatar_url ? <img src={u.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : u.name?.charAt(0) || "?"}
+                            </div>
+                            <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.name?.split(" ")[0]}</p>
+                            <p style={{ fontSize: 10, color: getLevelColor(u.level), fontWeight: 800, marginTop: 2 }}>{getLevelIcon(u.level)} {u.level}</p>
+                            <button onClick={(e) => { e.stopPropagation(); handleFollow(u.id); }} style={{ width: "100%", background: "#e11d48", border: "none", color: "#fff", borderRadius: 999, padding: "8px 0", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", marginTop: 10 }}>
+                              Seguir
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ))}
-              {/* CLUBE */}
+                  )}
+
+                  {commFeed === "amigos" && (
+                    <div style={{ background: "linear-gradient(135deg, rgba(225,29,72,0.12), rgba(255,255,255,0.035))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18, padding: 16, marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(225,29,72,0.16)", display: "flex", alignItems: "center", justifyContent: "center", color: "#e11d48", fontSize: 22 }}>👥</div>
+                      <div>
+                        <p style={{ fontWeight: 900, fontSize: 14, marginBottom: 4 }}>Este é o feed dos seus amigos</p>
+                        <p style={{ color: "#777", fontSize: 12, lineHeight: 1.45 }}>Aqui aparecem apenas publicações de quem você segue.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(() => {
+                    const visiblePosts = commFeed === "amigos" ? posts.filter(p => p.user_id === user.id || realFollowing[p.user_id]) : posts;
+                    if (visiblePosts.length === 0) {
+                      return (
+                        <div style={{ textAlign: "center", padding: "38px 22px", background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 20 }}>
+                          <p style={{ fontWeight: 900, marginBottom: 6 }}>{commFeed === "amigos" ? "Siga mais corredores" : "Nenhuma publicação ainda"}</p>
+                          <p style={{ fontSize: 13, color: "#666" }}>{commFeed === "amigos" ? "Quanto mais amigos você seguir, mais seu feed vai ganhar vida." : "Seja o primeiro a publicar na comunidade."}</p>
+                        </div>
+                      );
+                    }
+                    return visiblePosts.map((p) => (
+                      <div key={p.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16, marginBottom: 14, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+                        <div style={{ display: "flex", gap: 11, alignItems: "center", marginBottom: 13 }}>
+                          <div style={{ cursor: "pointer" }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)}>{getAvatar(p.profiles, 44)}</div>
+                          <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => p.profiles?.id && openProfile(p.profiles.id)}>
+                            <p style={{ fontWeight: 900, fontSize: 14, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.profiles?.name || "Corredor"}</p>
+                            <p style={{ fontSize: 11, color: "#777", marginTop: 3 }}>
+                              {p.profiles?.handle ? `@${p.profiles.handle}` : "@corredor"} · <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 800 }}>{getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}</span>{p.created_at ? ` · ${timeAgo(p.created_at)}` : ""}
+                            </p>
+                          </div>
+                          <button style={{ background: "none", border: "none", color: "#555", fontSize: 18, cursor: "pointer" }}>•••</button>
+                        </div>
+
+                        {p.text && <p style={{ fontSize: 14, color: "#f0f0f0", lineHeight: 1.55, marginBottom: 13 }}>{p.text}</p>}
+                        {p.photo_url && <div style={{ width: "100%", aspectRatio: "4/3", borderRadius: 16, overflow: "hidden", marginBottom: 13, background: "#0d0d18" }}><img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 22, paddingTop: 10 }}>
+                          <button className="lbtn" onClick={() => handleLikePost(p.id, p.user_id)} style={{ color: liked[p.id] ? "#e11d48" : "#8b8b96", fontWeight: 800 }}>
+                            <span style={{ fontSize: 18 }}>{liked[p.id] ? "♥" : "♡"}</span>
+                            <span>{(p.likes || 0) + (liked[p.id] ? 1 : 0)}</span>
+                          </button>
+
+                          <button
+                            className="lbtn"
+                            onClick={() => {
+                              if (openComments === p.id) {
+                                setOpenComments(null);
+                              } else {
+                                setOpenComments(p.id);
+                                loadComments(p.id);
+                              }
+                            }}
+                            style={{ color: openComments === p.id ? "#e11d48" : "#8b8b96", fontWeight: 800 }}
+                          >
+                            <span style={{ fontSize: 18 }}>💬</span>
+                            <span>{(comments[p.id] || []).length || p.comments || 0}</span>
+                          </button>
+
+                          <button className="lbtn" onClick={() => handleShare("post", p)} style={{ marginLeft: "auto", color: "#8b8b96", fontSize: 18 }}>↗</button>
+                          {(p.user_id === user.id || user.id === ADMIN_ID) && <button className="lbtn" onClick={() => handleDeletePost(p.id)} style={{ color: "#666", fontSize: 16 }}>🗑️</button>}
+                        </div>
+
+                        {openComments === p.id && (
+                          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              {(comments[p.id] || []).length > 0 ? (
+                                (comments[p.id] || []).map((comment) => (
+                                  <div key={comment.id} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+                                    {getAvatar(comment.profiles, 28)}
+                                    <div style={{ flex: 1, background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "9px 11px" }}>
+                                      <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3 }}>{comment.profiles?.name || "Corredor"}</p>
+                                      <p style={{ fontSize: 13, color: "#d7d7df", lineHeight: 1.4 }}>{comment.text}</p>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <p style={{ color: "#666", fontSize: 12, textAlign: "center", padding: "4px 0 2px" }}>Nenhum comentário ainda.</p>
+                              )}
+                            </div>
+
+                            <div style={{ display: "flex", gap: 8, marginTop: 13 }}>
+                              <input
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                placeholder="Escreva um comentário..."
+                                style={{
+                                  flex: 1,
+                                  background: "#0f0f17",
+                                  border: "1px solid #1e1e2e",
+                                  borderRadius: 14,
+                                  padding: "11px 13px",
+                                  color: "#fff",
+                                  outline: "none",
+                                  fontSize: 13,
+                                  fontFamily: "inherit"
+                                }}
+                              />
+
+                              <button
+                                onClick={() => handleComment(p.id)}
+                                disabled={!newComment.trim()}
+                                style={{
+                                  background: newComment.trim() ? "linear-gradient(135deg, #e11d48, #ff3d63)" : "#2a2a35",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: 14,
+                                  padding: "0 14px",
+                                  fontSize: 13,
+                                  fontWeight: 900,
+                                  cursor: newComment.trim() ? "pointer" : "not-allowed",
+                                  fontFamily: "inherit"
+                                }}
+                              >
+                                Enviar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()}
+                </>
+              )}
+
               {commFeed === "clube" && (
                 <div>
                   {activeClub ? (
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                        <button onClick={() => setActiveClub(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
-                        <p style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{activeClub.name}</p>
+                        <button onClick={() => setActiveClub(null)} style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#fff", fontSize: 18, cursor: "pointer" }}>←</button>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontWeight: 900, fontSize: 17 }}>{activeClub.name}</p>
+                          <p style={{ fontSize: 12, color: "#666" }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
+                        </div>
                         {activeClub.owner_id !== user.id && clubMembership[activeClub.id] === "approved" && (
-                          <button onClick={() => handleLeaveClub(activeClub.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", fontSize: 11, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>Sair</button>
+                          <button onClick={() => handleLeaveClub(activeClub.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 12, padding: "7px 11px", fontSize: 11, color: "#777", cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Sair</button>
                         )}
                       </div>
-                      <div style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-                        <div style={{ width: 64, height: 64, borderRadius: 16, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0 }}>
+
+                      <div style={{ background: "linear-gradient(135deg, rgba(225,29,72,0.14), rgba(255,255,255,0.04))", borderRadius: 24, padding: 18, border: "1px solid rgba(255,255,255,0.10)", display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                        <div style={{ width: 68, height: 68, borderRadius: 18, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, overflow: "hidden", flexShrink: 0 }}>
                           {activeClub.avatar_url ? <img src={activeClub.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{activeClub.name}</p>
-                          {activeClub.description && <p style={{ fontSize: 13, color: "#666", lineHeight: 1.5 }}>{activeClub.description}</p>}
-                          <p style={{ fontSize: 11, color: "#555", marginTop: 6 }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
+                          <p style={{ fontWeight: 900, fontSize: 17, marginBottom: 4 }}>{activeClub.name}</p>
+                          {activeClub.description && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.45 }}>{activeClub.description}</p>}
+                          <p style={{ fontSize: 11, color: "#777", marginTop: 7 }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
                         </div>
                       </div>
+
                       {activeClub.owner_id === user.id && pendingRequests.length > 0 && (
-                        <div style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #e11d4833", marginBottom: 14 }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: "#e11d48", marginBottom: 10 }}>Solicitações pendentes ({pendingRequests.length})</p>
+                        <div style={{ background: "#13131a", borderRadius: 18, padding: 14, border: "1px solid rgba(225,29,72,0.28)", marginBottom: 14 }}>
+                          <p style={{ fontSize: 12, fontWeight: 900, color: "#e11d48", marginBottom: 10 }}>Solicitações pendentes ({pendingRequests.length})</p>
                           {pendingRequests.map(r => (
                             <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, border: `2px solid ${getLevelColor(r.profiles?.level)}`, overflow: "hidden", flexShrink: 0 }}>
-                                {r.profiles?.avatar_url ? <img src={r.profiles.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : r.profiles?.name?.charAt(0) || "?"}
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <p style={{ fontSize: 13, fontWeight: 700 }}>{r.profiles?.name}</p>
-                                <p style={{ fontSize: 11, color: "#555" }}>@{r.profiles?.handle}</p>
-                              </div>
-                              <button onClick={() => handleApproveMember(r.id)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginRight: 6 }}>Aceitar</button>
-                              <button onClick={() => handleRejectMember(r.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#555", borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Recusar</button>
+                              {getAvatar(r.profiles, 36)}
+                              <div style={{ flex: 1 }}><p style={{ fontSize: 13, fontWeight: 800 }}>{r.profiles?.name}</p><p style={{ fontSize: 11, color: "#555" }}>@{r.profiles?.handle}</p></div>
+                              <button onClick={() => handleApproveMember(r.id)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 9, padding: "6px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Aceitar</button>
+                              <button onClick={() => handleRejectMember(r.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#777", borderRadius: 9, padding: "6px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Recusar</button>
                             </div>
                           ))}
                         </div>
@@ -1539,56 +1697,60 @@ function AppMain({ user, userName }) {
 
                       {clubMembership[activeClub.id] === "approved" && (
                         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                          <input className="tinput" placeholder="Compartilhe algo com o clube..." value={newClubPost} onChange={(e) => setNewClubPost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleClubPost()} style={{ flex: 1 }} />
-                          <button onClick={handleClubPost} className="jbtn">↑</button>
+                          <input className="tinput" placeholder="Compartilhe um aviso com o clube..." value={newClubPost} onChange={(e) => setNewClubPost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleClubPost()} style={{ flex: 1 }} />
+                          <button onClick={handleClubPost} className="jbtn" style={{ borderRadius: 12 }}>↑</button>
                         </div>
                       )}
+
                       {clubPosts.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma publicação ainda.</p>}
                       {clubPosts.map(p => (
-                        <div key={p.id} className="card" style={{ marginBottom: 10 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                            {getAvatar(p.profiles, 36)}
-                            <div><p style={{ fontWeight: 700, fontSize: 13 }}>{p.profiles?.name}</p><p style={{ fontSize: 10, color: "#555" }}>{timeAgo(p.created_at)}</p></div>
-                          </div>
-                          <p style={{ fontSize: 13, color: "#ccc", lineHeight: 1.55 }}>{p.text}</p>
+                        <div key={p.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 20, padding: 15, marginBottom: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>{getAvatar(p.profiles, 38)}<div><p style={{ fontWeight: 900, fontSize: 13 }}>{p.profiles?.name}</p><p style={{ fontSize: 10, color: "#666" }}>{timeAgo(p.created_at)}</p></div></div>
+                          <p style={{ fontSize: 13, color: "#ddd", lineHeight: 1.55 }}>{p.text}</p>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#888" }}>Meus clubes</p>
-                        <button onClick={() => setShowCreateClub(true)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ Criar clube</button>
+                        <p style={{ fontSize: 15, fontWeight: 900, color: "#f4f4f6" }}>Meus clubes</p>
+                        <button onClick={() => setShowCreateClub(true)} style={{ background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "9px 14px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>+ Criar clube</button>
                       </div>
                       {myClubs.length === 0 && <div style={{ textAlign: "center", padding: "24px 0", marginBottom: 16 }}><p style={{ fontSize: 13, color: "#555" }}>Você ainda não faz parte de nenhum clube.</p></div>}
                       {myClubs.map(c => (
-                        <div key={c.id} onClick={() => openClub(c)} style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #1e1e2e", marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, overflow: "hidden" }}>
-                            {c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
-                            {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}</p>}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                              {c.owner_id === user.id && <span style={{ fontSize: 10, color: "#e11d48", fontWeight: 700 }}>Administrador</span>}
-                              <span style={{ fontSize: 10, color: "#555" }}>{c.member_count || 0} {(c.member_count || 0) === 1 ? "membro" : "membros"}</span>
+                        <div key={c.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.052), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16, marginBottom: 14, cursor: "pointer" }} onClick={() => openClub(c)}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+                            <div style={{ width: 62, height: 62, borderRadius: 18, background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0 }}>
+                              {c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
                             </div>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontWeight: 900, fontSize: 15, marginBottom: 4 }}>{c.name}</p>
+                              <p style={{ fontSize: 11, color: "#e11d48", fontWeight: 900 }}>Administrador <span style={{ color: "#666", marginLeft: 6 }}>{c.member_count || 0} {(c.member_count || 0) === 1 ? "membro" : "membros"}</span></p>
+                            </div>
+                          </div>
+                          <div style={{ borderTop: "1px solid #1e1e2e", paddingTop: 12 }}>
+                            <p style={{ fontSize: 11, color: "#777", fontWeight: 900, marginBottom: 5 }}>Último aviso</p>
+                            <p style={{ fontSize: 13, color: "#ddd" }}>{c.description || "Treinos, avisos e conversas do clube."}</p>
                           </div>
                         </div>
                       ))}
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginBottom: 12, marginTop: 8 }}>Descobrir clubes</p>
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "22px 0 12px" }}>
+                        <p style={{ fontSize: 15, fontWeight: 900, color: "#f4f4f6" }}>Descobrir clubes</p>
+                        <button style={{ background: "none", border: "none", color: "#e11d48", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver todos</button>
+                      </div>
                       {allClubs.filter(c => clubMembership[c.id] !== "approved").map(c => (
-                        <div key={c.id} style={{ background: "#13131a", borderRadius: 14, padding: 14, border: "1px solid #1e1e2e", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #1e1e2e, #2a2a3e)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🏃</div>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</p>
-                            {c.description && <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{c.description.slice(0, 50)}</p>}
+                        <div key={c.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", borderRadius: 18, padding: 13, border: "1px solid rgba(255,255,255,0.09)", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 54, height: 54, borderRadius: 14, background: "linear-gradient(135deg, #1e1e2e, #2a2a3e)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, overflow: "hidden" }}>{c.avatar_url ? <img src={c.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontWeight: 900, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</p>
+                            {c.description && <p style={{ fontSize: 11, color: "#777", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.description}</p>}
                             <p style={{ fontSize: 10, color: "#555", marginTop: 4 }}>{c.member_count || 0} {(c.member_count || 0) === 1 ? "membro" : "membros"}</p>
                           </div>
                           {clubMembership[c.id] === "pending" ? (
-                            <button onClick={() => handleCancelRequest(c.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#555", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Pendente</button>
+                            <button onClick={() => handleCancelRequest(c.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#777", borderRadius: 999, padding: "7px 12px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Pendente</button>
                           ) : (
-                            <button onClick={() => handleRequestJoin(c.id)} style={{ background: "none", border: "1px solid #e11d48", color: "#e11d48", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Entrar</button>
+                            <button onClick={() => handleRequestJoin(c.id)} style={{ background: "none", border: "1px solid #e11d48", color: "#e11d48", borderRadius: 999, padding: "7px 12px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Solicitar</button>
                           )}
                         </div>
                       ))}
@@ -1596,50 +1758,41 @@ function AppMain({ user, userName }) {
                   )}
                 </div>
               )}
-              {/* Modal criar clube */}
+
               {showCreateClub && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
                   <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                      <p style={{ fontWeight: 700, fontSize: 16 }}>Criar clube</p>
+                      <p style={{ fontWeight: 900, fontSize: 17 }}>Criar clube</p>
                       <button onClick={() => { setShowCreateClub(false); setClubAvatarFile(null); setClubAvatarPreview(null); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
                       <label htmlFor="club-avatar" style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
-                        <div style={{ width: 64, height: 64, borderRadius: 16, background: clubAvatarPreview ? "transparent" : "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0, border: "2px dashed #1e1e2e" }}>
-                          {clubAvatarPreview ? <img src={clubAvatarPreview} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}
-                        </div>
-                        <div>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>Foto do clube</p>
-                          <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>Toque para selecionar</p>
-                        </div>
+                        <div style={{ width: 64, height: 64, borderRadius: 16, background: clubAvatarPreview ? "transparent" : "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, overflow: "hidden", flexShrink: 0, border: "2px dashed #1e1e2e" }}>{clubAvatarPreview ? <img src={clubAvatarPreview} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "🏃"}</div>
+                        <div><p style={{ fontSize: 13, fontWeight: 900, color: "#f0f0f0" }}>Foto do clube</p><p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>Toque para selecionar</p></div>
                       </label>
                       <input id="club-avatar" type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setClubAvatarFile(f); setClubAvatarPreview(URL.createObjectURL(f)); } }} />
                       <input className="tinput" placeholder="Nome do clube" value={clubForm.name} onChange={(e) => setClubForm(f => ({ ...f, name: e.target.value }))} />
-                      <textarea className="tinput" rows={3} placeholder="Descrição (opcional)" value={clubForm.description} onChange={(e) => setClubForm(f => ({ ...f, description: e.target.value }))} />
+                      <textarea className="tinput" rows={3} placeholder="Descrição ou último aviso" value={clubForm.description} onChange={(e) => setClubForm(f => ({ ...f, description: e.target.value }))} />
                     </div>
                     <p style={{ fontSize: 11, color: "#555", marginBottom: 16, lineHeight: 1.5 }}>Novos membros precisam da sua aprovação para entrar no clube.</p>
-                    <button onClick={handleCreateClub} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Criar clube</button>
+                    <button onClick={handleCreateClub} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Criar clube</button>
                   </div>
                 </div>
               )}
-              {/* Modal publicar */}
+
               {showPublish && (
                 <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
                   <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                      <p style={{ fontWeight: 700, fontSize: 16 }}>{publishType ? (publishType === "post" ? "Novo post" : publishType === "foto" ? "Nova foto" : "Nova atividade") : "O que quer publicar?"}</p>
-                      <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
+                      <p style={{ fontWeight: 900, fontSize: 17 }}>{publishType ? (publishType === "post" ? "Novo post" : publishType === "foto" ? "Nova foto" : "Nova atividade") : "O que quer publicar?"}</p>
+                      <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
                     </div>
                     {!publishType && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {[{ id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" }, { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" }, { id: "atividade", label: "Atividade", desc: "Registre um treino com métricas", icon: "⚡" }].map((t) => (
                           <button key={t.id} onClick={() => setPublishType(t.id)} style={{ background: "#0a0a0f", border: "1px solid #1e1e2e", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 14 }}>
-                            <span style={{ fontSize: 24 }}>{t.icon}</span>
-                            <div style={{ textAlign: "left" }}>
-                              <p style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f0" }}>{t.label}</p>
-                              <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{t.desc}</p>
-                            </div>
+                            <span style={{ fontSize: 24 }}>{t.icon}</span><div style={{ textAlign: "left" }}><p style={{ fontWeight: 900, fontSize: 14, color: "#f0f0f0" }}>{t.label}</p><p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{t.desc}</p></div>
                           </button>
                         ))}
                       </div>
@@ -1649,46 +1802,43 @@ function AppMain({ user, userName }) {
                         <textarea className="tinput" rows={4} placeholder="O que está pensando?" value={newPost} onChange={(e) => setNewPost(e.target.value)} />
                         <div style={{ display: "flex", gap: 10 }}>
                           <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={() => { handlePost(); setShowPublish(false); setPublishType(null); }} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
+                          <button onClick={async () => { await handlePost(); setShowPublish(false); setPublishType(null); }} disabled={loadingPost || !newPost.trim()} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", opacity: loadingPost || !newPost.trim() ? 0.5 : 1 }}>Publicar</button>
                         </div>
                       </div>
                     )}
                     {publishType === "foto" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <label htmlFor="post-photo" style={{ cursor: "pointer" }}>
-                          <div style={{ background: "#0a0a0f", border: `2px dashed ${photoPreview ? "#e11d48" : "#1e1e2e"}`, borderRadius: 14, aspectRatio: "4/5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                            {photoPreview ? <img src={photoPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <><span style={{ fontSize: 32 }}>🖼️</span><p style={{ fontSize: 13, color: "#555", marginTop: 8 }}>Toque para selecionar (formato 4:5)</p></>}
-                          </div>
+                        <label style={{ border: "1.5px dashed #1e1e2e", borderRadius: 14, padding: 22, textAlign: "center", cursor: "pointer", background: "#0a0a0f" }}>
+                          {photoPreview ? <img src={photoPreview} style={{ width: "100%", maxHeight: 250, objectFit: "cover", borderRadius: 12 }} /> : <><p style={{ fontSize: 34, marginBottom: 8 }}>🖼️</p><p style={{ fontSize: 13, fontWeight: 900 }}>Selecionar foto</p><p style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Toque para escolher uma imagem</p></>}
+                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
                         </label>
-                        <input id="post-photo" type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
-                        <textarea className="tinput" rows={3} placeholder="Adicione uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+                        <textarea className="tinput" rows={3} placeholder="Escreva uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
                         <div style={{ display: "flex", gap: 10 }}>
                           <button onClick={() => { setPublishType(null); setPhotoFile(null); setPhotoPreview(null); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
                           <button onClick={async () => {
-                            if (photoFile) {
-                              const ext = photoFile.name.split(".").pop();
-                              const path = `${user.id}/${Date.now()}.${ext}`;
-                              const { error } = await supabase.storage.from("posts").upload(path, photoFile);
-                              if (error) { alert("Erro ao enviar foto: " + error.message); return; }
-                              const { data } = supabase.storage.from("posts").getPublicUrl(path);
-                              await supabase.from("posts").insert({ user_id: user.id, text: newPost, photo_url: data.publicUrl });
-                            } else {
-                              await supabase.from("posts").insert({ user_id: user.id, text: newPost });
-                            }
-                            await loadPosts();
-                            setShowPublish(false); setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null);
-                          }} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
+                            if (!photoFile) return alert("Selecione uma foto.");
+                            setLoadingPost(true);
+                            const ext = photoFile.name.split(".").pop();
+                            const path = `${user.id}/post_${Date.now()}.${ext}`;
+                            const { error: upErr } = await supabase.storage.from("posts").upload(path, photoFile);
+                            if (upErr) { alert("Erro ao enviar foto: " + upErr.message); setLoadingPost(false); return; }
+                            const { data: urlData } = supabase.storage.from("posts").getPublicUrl(path);
+                            const { error } = await supabase.from("posts").insert({ user_id: user.id, text: newPost, photo_url: urlData.publicUrl });
+                            if (error) alert("Erro: " + error.message);
+                            else { setNewPost(""); setPhotoFile(null); setPhotoPreview(null); setShowPublish(false); setPublishType(null); await loadPosts(); }
+                            setLoadingPost(false);
+                          }} disabled={loadingPost || !photoFile} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", opacity: loadingPost || !photoFile ? 0.5 : 1 }}>{loadingPost ? "Enviando..." : "Publicar"}</button>
                         </div>
                       </div>
                     )}
                     {publishType === "atividade" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <input className="tinput" placeholder="Distância (ex: 10.5)" type="number" value={actForm.distance} onChange={(e) => setActForm(a => ({ ...a, distance: e.target.value }))} />
-                        <input className="tinput" placeholder="Tempo (ex: 52min)" value={actForm.duration} onChange={(e) => setActForm(a => ({ ...a, duration: e.target.value }))} />
-                        <input className="tinput" placeholder="Pace (ex: 5min12s/km)" value={actForm.pace} onChange={(e) => setActForm(a => ({ ...a, pace: e.target.value }))} />
+                        <input className="tinput" placeholder="Distância (km)" type="number" value={actForm.distance} onChange={(e) => setActForm(f => ({ ...f, distance: e.target.value }))} />
+                        <input className="tinput" placeholder="Duração (ex: 32:10)" value={actForm.duration} onChange={(e) => setActForm(f => ({ ...f, duration: e.target.value }))} />
+                        <input className="tinput" placeholder="Pace (ex: 5'30/km)" value={actForm.pace} onChange={(e) => setActForm(f => ({ ...f, pace: e.target.value }))} />
                         <div style={{ display: "flex", gap: 10 }}>
                           <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={handleActivity} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Publicar</button>
+                          <button onClick={handleActivity} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Registrar</button>
                         </div>
                       </div>
                     )}
@@ -1698,129 +1848,6 @@ function AppMain({ user, userName }) {
             </div>
           )}
 
-          {/* HUB */}
-          {tab === "hub" && (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {hubScreen === "tracking" && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 300, maxWidth: 390, margin: "0 auto" }}>
-                  <div id="leaflet-map" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: "90px", zIndex: 1 }}></div>
-                  <div style={{ position: "absolute", top: 52, left: 16, right: 16, zIndex: 1000 }}>
-                    <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 10, padding: "6px 12px", border: "1px solid #1e1e2e", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: gpsLocated ? "#6ee7b7" : gpsError ? "#e11d48" : "#f59e0b" }} />
-                      <span style={{ fontSize: 11, color: "#888" }}>{gpsLocated ? "GPS ativo" : gpsError ? gpsError : "Aguardando GPS..."}</span>
-                    </div>
-                  </div>
-                  <div style={{ position: "absolute", top: 110, left: 16, right: 16, zIndex: 1000 }}>
-                    <div style={{ background: "rgba(10,10,15,0.88)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "14px 16px", border: "1px solid #1e1e2e" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ textAlign: "center" }}>
-                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
-                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km</p>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatRunTime(gpsElapsed)}</p>
-                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>tempo</p>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                          <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{formatGpsPace(gpsDistance, gpsElapsed)}</p>
-                          <p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace/km</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ position: "absolute", bottom: 100, right: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: 8, zIndex: 1000 }}>
-                    <span style={{ fontSize: 18 }}>❤️</span>
-                    <div>
-                      <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsHR}</p>
-                      <p style={{ fontSize: 9, color: "#555" }}>bpm</p>
-                    </div>
-                  </div>
-                  <div style={{ position: "absolute", bottom: 100, left: 16, background: "rgba(10,10,15,0.9)", backdropFilter: "blur(12px)", borderRadius: 14, padding: "10px 14px", border: "1px solid #1e1e2e", zIndex: 1000 }}>
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, color: "#f97316", lineHeight: 1 }}>{Math.floor(gpsDistance * 65)}</p>
-                    <p style={{ fontSize: 9, color: "#555" }}>kcal</p>
-                  </div>
-                  <div style={{ background: "#0a0a0f", borderTop: "1px solid #1e1e2e", padding: "20px 24px 36px", display: "flex", alignItems: "center", gap: 16, position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
-                    <button onClick={() => setGpsPaused(p => !p)} style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#888", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {gpsPaused ? "▶" : "⏸"}
-                    </button>
-                    <button onClick={finishGpsRun} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 16, padding: "16px 0", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Finalizar corrida</button>
-                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: gpsPaused ? "#555" : "#e11d48" }} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {hubScreen === "summary" && (
-                <div style={{ paddingBottom: 40 }}>
-                  <div style={{ textAlign: "center", marginBottom: 24 }}>
-                    <p style={{ fontSize: 48, marginBottom: 8 }}>🏅</p>
-                    <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Corrida finalizada!</h2>
-                    <p style={{ fontSize: 13, color: "#555" }}>Seus dados foram salvos.</p>
-                  </div>
-                  <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 24, border: "1px solid #e11d4833", textAlign: "center", marginBottom: 14 }}>
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 64, fontWeight: 800, color: "#e11d48", lineHeight: 1 }}>{gpsDistance.toFixed(2)}</p>
-                    <p style={{ fontSize: 16, color: "#888", marginTop: 4 }}>quilômetros</p>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-                    {[{ v: formatRunTime(gpsElapsed), l: "Tempo total", icon: "⏱" }, { v: formatGpsPace(gpsDistance, gpsElapsed), l: "Pace médio", icon: "⚡" }, { v: `${gpsHR} bpm`, l: "FC média", icon: "❤️" }, { v: `${Math.floor(gpsDistance * 65)} kcal`, l: "Calorias", icon: "🔥" }].map((s, i) => (
-                      <div key={i} className="card" style={{ textAlign: "center" }}>
-                        <p style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</p>
-                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{s.v}</p>
-                        <p style={{ fontSize: 11, color: "#555" }}>{s.l}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => setHubScreen("hub")} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Ver hub</button>
-                    <button onClick={() => handleShare("resumo_gps", { distance: gpsDistance.toFixed(2), time: formatRunTime(gpsElapsed), pace: formatGpsPace(gpsDistance, gpsElapsed), calories: Math.floor(gpsDistance * 65) })} style={{ flex: 2, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Compartilhar corrida</button>
-                  </div>
-                </div>
-              )}
-
-              {hubScreen === "hub" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ background: "linear-gradient(135deg, #1a0a10, #13131a)", borderRadius: 20, padding: 20, border: "1px solid #e11d4833", position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, background: "radial-gradient(circle, #e11d4825 0%, transparent 70%)", pointerEvents: "none" }} />
-                    <p style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Pronto para correr?</p>
-                    <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Registre com <span style={{ color: "#e11d48" }}>GPS</span></p>
-                    <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-                      {["📍 GPS", "❤️ FC", "⚡ Pace", "🔥 Calorias"].map((f, i) => <div key={i} style={{ background: "#0a0a0f", borderRadius: 8, padding: "4px 10px", fontSize: 10, color: "#888", fontWeight: 700 }}>{f}</div>)}
-                    </div>
-                    <button onClick={startGpsRun} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Iniciar corrida</button>
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700, color: "#e11d48" }}>{(profile?.total_km || 0).toFixed(1)}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>km total</p></div>
-                    <div className="sbox"><p style={{ fontSize: 20, fontWeight: 700 }}>{races}</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>corridas</p></div>
-                    <div className="sbox"><p style={{ fontSize: 18, fontWeight: 700 }}>5'18"</p><p style={{ fontSize: 10, color: "#555", marginTop: 2 }}>pace médio</p></div>
-                  </div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#888", marginTop: 4 }}>Atividades recentes</p>
-                  {activities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "20px 0" }}>Nenhuma atividade ainda. Inicie sua primeira corrida!</p>}
-                  {activities.map((a) => (
-                    <div key={a.id} style={{ background: "#13131a", borderRadius: 16, padding: 16, border: "1px solid #1e1e2e" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {getAvatar(a.profiles, 34)}
-                          <div>
-                            <p style={{ fontWeight: 700, fontSize: 13 }}>{a.profiles?.name || "Corredor"}</p>
-                            <p style={{ fontSize: 10, color: "#555" }}>Corrida ao ar livre</p>
-                          </div>
-                        </div>
-                        <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 800, color: "#e11d48" }}>{a.distance} km</p>
-                      </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {a.duration && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>tempo</p></div>}
-                        {a.pace && <div style={{ flex: 1, background: "#1a1a24", borderRadius: 10, padding: "8px 10px" }}><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 2 }}>pace</p></div>}
-                        {a.user_id === user.id && <button onClick={() => handleDeleteActivity(a.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 10, padding: "8px 10px", color: "#555", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* PERFIL */}
           {tab === "perfil" && (
             <div style={{ display: "flex", flexDirection: "column" }}>
               <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
