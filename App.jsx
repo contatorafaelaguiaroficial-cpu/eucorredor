@@ -1,4 +1,4 @@
-// eucorredor v3.3 — eventos + feed + perfil premium
+// eucorredor v3.4 — hub com análise automática + percurso no feed
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -269,7 +269,8 @@ function AppMain({ user, userName }) {
   const [showGpsPermissionModal, setShowGpsPermissionModal] = useState(false);
   const [checkingGpsPermission, setCheckingGpsPermission] = useState(false);
   const [gpsLocked, setGpsLocked] = useState(false);
-  const [runMood, setRunMood] = useState("");
+  const [runSummary, setRunSummary] = useState(null);
+  const [completedRunRoute, setCompletedRunRoute] = useState([]);
   const [summaryPostText, setSummaryPostText] = useState("");
   const [publishingRunSummary, setPublishingRunSummary] = useState(false);
   const [rankingMode, setRankingMode] = useState("km");
@@ -734,13 +735,120 @@ function AppMain({ user, userName }) {
     return adjMin + "min" + String(adjSec).padStart(2, "0") + "s/km";
   };
 
+  const getRunSummary = (distanceKm, elapsedSeconds) => {
+    const safeDistance = Number(distanceKm || 0);
+    const safeElapsed = Math.max(Number(elapsedSeconds || 0), 1);
+    const paceSecondsPerKm = safeDistance > 0 ? safeElapsed / safeDistance : Infinity;
+    const distanceLabel = safeDistance.toFixed(2).replace(".", ",");
+    const durationLabel = formatRunTime(safeElapsed);
+    const paceLabel = formatGpsPace(safeDistance, safeElapsed);
+
+    let type = "Atividade registrada";
+    let emoji = "🏁";
+    let tone = "#f59e0b";
+    let explanation = "Sua atividade foi concluída e já entrou no histórico.";
+    let feedText = `Registrei uma atividade de ${distanceLabel} km em ${durationLabel}. 🏁`;
+
+    if (safeDistance < 0.05 || safeElapsed < 20 || !Number.isFinite(paceSecondsPerKm)) {
+      type = "Atividade curta";
+      emoji = "📍";
+      tone = "#94a3b8";
+      explanation = "A atividade foi muito curta para uma leitura confiável de ritmo.";
+      feedText = `Registrei uma atividade curta de ${distanceLabel} km em ${durationLabel}. 📍`;
+    } else if (paceSecondsPerKm >= 660) {
+      type = "Caminhada";
+      emoji = "🚶";
+      tone = "#6ee7b7";
+      explanation = `O ritmo médio de ${paceLabel} indica uma caminhada ou deslocamento leve.`;
+      feedText = `Completei uma caminhada de ${distanceLabel} km em ${durationLabel}, com ritmo médio de ${paceLabel}. 🚶`;
+    } else if (paceSecondsPerKm >= 510) {
+      type = "Corrida leve";
+      emoji = "🏃";
+      tone = "#60a5fa";
+      explanation = `O pace de ${paceLabel} sugere um trote leve, bom para manter a constância.`;
+      feedText = `Finalizei uma corrida leve de ${distanceLabel} km em ${durationLabel}, com pace médio de ${paceLabel}. 🏃`;
+    } else if (paceSecondsPerKm >= 360) {
+      type = "Corrida moderada";
+      emoji = "🔥";
+      tone = "#f97316";
+      explanation = `O pace de ${paceLabel} mostra um treino consistente, com intensidade moderada.`;
+      feedText = `Corri ${distanceLabel} km em ${durationLabel}, com pace médio de ${paceLabel}. Treino moderado concluído. 🔥`;
+    } else {
+      type = "Corrida intensa";
+      emoji = "⚡";
+      tone = "#e11d48";
+      explanation = `O pace de ${paceLabel} indica um treino mais intenso e acelerado.`;
+      feedText = `Finalizei uma corrida intensa de ${distanceLabel} km em ${durationLabel}, com pace médio de ${paceLabel}. ⚡`;
+    }
+
+    return { type, emoji, tone, explanation, feedText, distanceLabel, durationLabel, paceLabel };
+  };
+
+  const createRouteSnapshotDataUrl = (route = []) => {
+    if (!Array.isArray(route) || route.length < 2) return "";
+
+    const sampled = route.length > 90
+      ? route.filter((_, index) => index % Math.ceil(route.length / 90) === 0 || index === route.length - 1)
+      : route;
+
+    const lats = sampled.map(([lat]) => Number(lat)).filter(Number.isFinite);
+    const lngs = sampled.map(([, lng]) => Number(lng)).filter(Number.isFinite);
+    if (lats.length < 2 || lngs.length < 2) return "";
+
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const width = 900;
+    const height = 540;
+    const pad = 62;
+    const latSpan = Math.max(maxLat - minLat, 0.0001);
+    const lngSpan = Math.max(maxLng - minLng, 0.0001);
+
+    const points = sampled.map(([lat, lng]) => {
+      const x = pad + ((Number(lng) - minLng) / lngSpan) * (width - pad * 2);
+      const y = height - pad - ((Number(lat) - minLat) / latSpan) * (height - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+
+    const [startX, startY] = points.split(" ")[0].split(",");
+    const [endX, endY] = points.split(" ").slice(-1)[0].split(",");
+
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+        <defs>
+          <radialGradient id="glow" cx="70%" cy="22%" r="70%">
+            <stop offset="0%" stop-color="#e11d48" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="#0a0a0f" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#e11d48" flood-opacity="0.45"/>
+          </filter>
+        </defs>
+        <rect width="${width}" height="${height}" rx="34" fill="#0d0d18"/>
+        <rect width="${width}" height="${height}" rx="34" fill="url(#glow)"/>
+        ${[1,2,3,4,5].map(i => `<line x1="${i * width / 6}" y1="0" x2="${i * width / 6}" y2="${height}" stroke="#ffffff" stroke-opacity="0.06" stroke-width="2"/>`).join("")}
+        ${[1,2,3,4].map(i => `<line x1="0" y1="${i * height / 5}" x2="${width}" y2="${i * height / 5}" stroke="#ffffff" stroke-opacity="0.06" stroke-width="2"/>`).join("")}
+        <polyline points="${points}" fill="none" stroke="#e11d48" stroke-opacity="0.22" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)"/>
+        <polyline points="${points}" fill="none" stroke="#ff3157" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${startX}" cy="${startY}" r="18" fill="#6ee7b7" stroke="#ffffff" stroke-width="7"/>
+        <circle cx="${endX}" cy="${endY}" r="21" fill="#ffffff"/>
+        <circle cx="${endX}" cy="${endY}" r="12" fill="#e11d48"/>
+        <text x="48" y="74" fill="#ffffff" font-family="Arial, sans-serif" font-size="34" font-weight="700">Percurso registrado</text>
+        <text x="48" y="116" fill="#a1a1aa" font-family="Arial, sans-serif" font-size="22">eucorredor</text>
+      </svg>`;
+
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  };
+
   const beginGpsRun = () => {
     setGpsElapsed(0);
     setGpsDistance(0);
     setGpsRoute([{ x: 195, y: 300 }]);
     setGpsPaused(false);
     setGpsLocked(false);
-    setRunMood("");
+    setRunSummary(null);
+    setCompletedRunRoute([]);
     setSummaryPostText("");
     setGpsHR(142);
     setGpsLocated(false);
@@ -784,11 +892,16 @@ function AppMain({ user, userName }) {
 
   const finishGpsRun = async () => {
     clearInterval(gpsIntervalRef.current);
+    const finalRoute = [...leafletCoordsRef.current];
+    setCompletedRunRoute(finalRoute);
     if (leafletMapRef.current?._watchId !== undefined) navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
     if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; }
 
     const pace = formatGpsPace(gpsDistance, gpsElapsed);
     const duration = formatRunTime(gpsElapsed);
+    const summary = getRunSummary(gpsDistance, gpsElapsed);
+    setRunSummary(summary);
+    setSummaryPostText(summary.feedText);
 
     if (gpsDistance > 0) {
       await supabase.from("activities").insert({ user_id: user.id, distance: parseFloat(gpsDistance.toFixed(2)), duration, pace });
@@ -800,7 +913,6 @@ function AppMain({ user, userName }) {
       await loadRankingUsers();
     }
 
-    setSummaryPostText(`Finalizei uma corrida de ${gpsDistance.toFixed(2).replace(".", ",")} km em ${duration}, com pace de ${pace}. 🏃`);
     setHubScreen("summary");
   };
 
@@ -813,14 +925,20 @@ function AppMain({ user, userName }) {
   };
 
   const handlePublishRunSummary = async () => {
-    const text = summaryPostText.trim();
+    const text = (runSummary?.feedText || summaryPostText).trim();
     if (!text) return;
     setPublishingRunSummary(true);
-    const moodPrefix = runMood ? `${runMood} ` : "";
-    const { error } = await supabase.from("posts").insert({ user_id: user.id, text: `${moodPrefix}${text}` });
+    const routeSnapshot = createRouteSnapshotDataUrl(completedRunRoute);
+    const payload = routeSnapshot
+      ? { user_id: user.id, text, photo_url: routeSnapshot }
+      : { user_id: user.id, text };
+    const { error } = await supabase.from("posts").insert(payload);
     if (error) alert("Erro ao publicar no feed: " + error.message);
     else {
       await loadPosts();
+      setRunSummary(null);
+      setCompletedRunRoute([]);
+      setSummaryPostText("");
       setTab("comunidade");
       setCommFeed("todos");
       setHubScreen("hub");
@@ -2207,36 +2325,43 @@ function AppMain({ user, userName }) {
                     </div>
 
                     <div style={{ height: 150, borderRadius: 20, background: "radial-gradient(circle at 70% 30%, rgba(225,29,72,0.20), transparent 34%), #0d0d18", border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 16 }}>
-                      <svg viewBox="0 0 320 150" style={{ width: "100%", height: "100%" }}>
-                        <g opacity="0.18" stroke="#fff"><line x1="0" y1="30" x2="320" y2="30"/><line x1="0" y1="75" x2="320" y2="75"/><line x1="0" y1="120" x2="320" y2="120"/><line x1="55" y1="0" x2="55" y2="150"/><line x1="140" y1="0" x2="140" y2="150"/><line x1="230" y1="0" x2="230" y2="150"/></g>
-                        <polyline points="28,116 62,92 98,98 132,69 166,74 205,50 252,56 286,28" fill="none" stroke="#e11d48" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
-                        <circle cx="28" cy="116" r="8" fill="#6ee7b7"/><circle cx="286" cy="28" r="9" fill="#fff"/><circle cx="286" cy="28" r="5" fill="#e11d48"/>
-                      </svg>
+                      {completedRunRoute.length > 1 ? (
+                        <img src={createRouteSnapshotDataUrl(completedRunRoute)} alt="Percurso registrado" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <svg viewBox="0 0 320 150" style={{ width: "100%", height: "100%" }}>
+                          <g opacity="0.18" stroke="#fff"><line x1="0" y1="30" x2="320" y2="30"/><line x1="0" y1="75" x2="320" y2="75"/><line x1="0" y1="120" x2="320" y2="120"/><line x1="55" y1="0" x2="55" y2="150"/><line x1="140" y1="0" x2="140" y2="150"/><line x1="230" y1="0" x2="230" y2="150"/></g>
+                          <polyline points="28,116 62,92 98,98 132,69 166,74 205,50 252,56 286,28" fill="none" stroke="#e11d48" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="28" cy="116" r="8" fill="#6ee7b7"/><circle cx="286" cy="28" r="9" fill="#fff"/><circle cx="286" cy="28" r="5" fill="#e11d48"/>
+                        </svg>
+                      )}
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
-                      <div className="sbox"><strong>{gpsDistance.toFixed(2).replace(".", ",")}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>km</span></div>
-                      <div className="sbox"><strong>{formatRunTime(gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>tempo</span></div>
-                      <div className="sbox"><strong>{formatGpsPace(gpsDistance, gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>pace</span></div>
+                      <div className="sbox"><strong>{runSummary?.distanceLabel || gpsDistance.toFixed(2).replace(".", ",")}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>km</span></div>
+                      <div className="sbox"><strong>{runSummary?.durationLabel || formatRunTime(gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>tempo</span></div>
+                      <div className="sbox"><strong>{runSummary?.paceLabel || formatGpsPace(gpsDistance, gpsElapsed)}</strong><br/><span style={{ color: "#777", fontSize: 11 }}>pace</span></div>
                     </div>
 
                     <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 16, marginBottom: 16 }}>
-                      <p style={{ color: "#fff", fontSize: 15, fontWeight: 900, marginBottom: 12 }}>Como foi o treino?</p>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                        {[{ value: "🙂", label: "Leve" }, { value: "🔥", label: "Bom" }, { value: "⚡", label: "Intenso" }].map((mood) => (
-                          <button key={mood.label} onClick={() => setRunMood(mood.value)} style={{ borderRadius: 16, border: runMood === mood.value ? "1px solid rgba(225,29,72,0.55)" : "1px solid rgba(255,255,255,0.08)", background: runMood === mood.value ? "rgba(225,29,72,0.18)" : "rgba(255,255,255,0.035)", color: "#fff", padding: "12px 8px", fontFamily: "inherit", cursor: "pointer", fontWeight: 900 }}><span style={{ display: "block", fontSize: 20, marginBottom: 4 }}>{mood.value}</span><span style={{ fontSize: 11 }}>{mood.label}</span></button>
-                        ))}
+                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Análise automática</p>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 16, background: `${runSummary?.tone || "#e11d48"}22`, border: `1px solid ${runSummary?.tone || "#e11d48"}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 23, flexShrink: 0 }}>{runSummary?.emoji || "🏁"}</div>
+                        <div>
+                          <p style={{ color: runSummary?.tone || "#e11d48", fontSize: 18, fontWeight: 900, marginBottom: 5 }}>{runSummary?.type || "Atividade registrada"}</p>
+                          <p style={{ color: "#b8b8c2", fontSize: 13, lineHeight: 1.55 }}>{runSummary?.explanation || "Seu treino foi concluído."}</p>
+                        </div>
                       </div>
                     </div>
 
                     <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 14, marginBottom: 16 }}>
-                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Compartilhar no feed</p>
-                      <textarea value={summaryPostText} onChange={(e) => setSummaryPostText(e.target.value)} rows={3} style={{ width: "100%", resize: "none", borderRadius: 14, border: "1px solid #1e1e2e", background: "#0f0f17", color: "#fff", padding: 12, fontSize: 13, lineHeight: 1.5, fontFamily: "inherit", outline: "none" }} />
+                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, marginBottom: 10 }}>Post pronto para o feed</p>
+                      <div style={{ width: "100%", borderRadius: 14, border: "1px solid #1e1e2e", background: "#0f0f17", color: "#fff", padding: 12, fontSize: 13, lineHeight: 1.55, minHeight: 74 }}>{runSummary?.feedText || summaryPostText}</div>
+                      <p style={{ color: "#777", fontSize: 11.5, lineHeight: 1.45, marginTop: 10 }}>Ao publicar, o percurso registrado também aparece no post.</p>
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <button onClick={handlePublishRunSummary} disabled={publishingRunSummary || !summaryPostText.trim()} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: publishingRunSummary || !summaryPostText.trim() ? "#3a1a22" : "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit", cursor: publishingRunSummary || !summaryPostText.trim() ? "not-allowed" : "pointer" }}>{publishingRunSummary ? "Publicando..." : "Publicar no feed"}</button>
-                      <button onClick={() => setHubScreen("hub")} style={{ width: "100%", height: 48, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, background: "rgba(255,255,255,0.035)", color: "#ddd", fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>Salvar sem publicar</button>
+                      <button onClick={handlePublishRunSummary} disabled={publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim()} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim() ? "#3a1a22" : "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit", cursor: publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim() ? "not-allowed" : "pointer" }}>{publishingRunSummary ? "Publicando..." : "Publicar no feed"}</button>
+                      <button onClick={() => { setRunSummary(null); setCompletedRunRoute([]); setSummaryPostText(""); setHubScreen("hub"); }} style={{ width: "100%", height: 48, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, background: "rgba(255,255,255,0.035)", color: "#ddd", fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>Salvar sem publicar</button>
                     </div>
                   </div>
                 </div>
