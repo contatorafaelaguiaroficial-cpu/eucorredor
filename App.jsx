@@ -1,5 +1,4 @@
-// eucorredor v3.3 — eventos premium + feed premium + comentários
-// eucorredor v3.2 — eventos + feed premium
+// eucorredor v3.3 — eventos + feed + perfil premium
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -844,32 +843,10 @@ function AppMain({ user, userName }) {
   };
 
   const handleComment = async (postId) => {
-    const commentText = newComment.trim();
-    if (!commentText) return;
-
-    const { data: insertedComment, error: commentError } = await supabase
-      .from("comments")
-      .insert({ post_id: postId, user_id: user.id, text: commentText })
-      .select("id, text")
-      .single();
-
-    if (commentError) {
-      alert("Erro ao comentar: " + commentError.message);
-      return;
-    }
-
+    if (!newComment.trim()) return;
+    await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
     const post = posts.find(p => p.id === postId);
-
-    if (post && post.user_id !== user.id) {
-      await supabase.from("notifications").insert({
-        user_id: post.user_id,
-        from_user_id: user.id,
-        type: "comment",
-        post_id: postId,
-        comment_text: insertedComment?.text || commentText
-      });
-    }
-
+    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
     setNewComment("");
     await loadComments(postId);
     await loadNotifications();
@@ -1080,10 +1057,10 @@ function AppMain({ user, userName }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, color: "#fff" }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button onClick={() => setShowSearch(!showSearch)} title="Buscar" style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
+              <button onClick={() => setShowSearch(!showSearch)} title="Buscar" style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               </button>
-              <button onClick={() => { setShowNotifications(true); markAllRead(); }} title="Notificações" style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
+              <button onClick={() => { setShowNotifications(true); markAllRead(); }} title="Notificações" style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 {notifications.filter(n => !n.read).length > 0 && (
                   <span style={{ position: "absolute", top: 7, right: 7, minWidth: 15, height: 15, padding: "0 4px", background: "#e11d48", borderRadius: 999, border: "1.5px solid #0a0a0f", color: "#fff", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
@@ -1091,11 +1068,11 @@ function AppMain({ user, userName }) {
                   </span>
                 )}
               </button>
-              <button onClick={() => setTab("perfil")} title="Ver perfil" style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", padding: 0, cursor: "pointer", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <button onClick={() => setTab("perfil")} title="Ver perfil" style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", padding: 0, cursor: "pointer", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Foto de perfil" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", border: `2px solid ${level.color}` }} />
+                  <img src={profile.avatar_url} alt="Foto de perfil" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: `2px solid ${level.color}` }} />
                 ) : (
-                  <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#1e1e2e", border: `2px solid ${level.color}`, color: "#fff", fontSize: 14, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#1e1e2e", border: `2px solid ${level.color}`, color: "#fff", fontSize: 14, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {(profile?.name || userName || "C").charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -1244,7 +1221,7 @@ function AppMain({ user, userName }) {
                         </div>
                       </div>
 
-                      <div style={{ width: 96, display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexShrink: 0 }}>
+                      <div style={{ width: 92, display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexShrink: 0 }}>
                         <div style={{ textAlign: "right", letterSpacing: 4, textTransform: "uppercase" }}>
                           <p style={{ color: "#a7a7b2", fontSize: 18, fontWeight: 800, marginBottom: 4 }}>{date.day}</p>
                           <p style={{ color: "#e11d48", fontSize: 40, fontWeight: 900, lineHeight: 0.9 }}>{date.month || ""}</p>
@@ -1252,7 +1229,7 @@ function AppMain({ user, userName }) {
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {user.id === ADMIN_ID && (
-                            <button onClick={() => handleDeleteEvent(featuredEvent.id)} style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.12)", color: "#777", borderRadius: 12, width: 38, height: 38, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                            <button onClick={() => handleDeleteEvent(featuredEvent.id)} style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.12)", color: "#777", borderRadius: 12, width: 36, height: 36, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
                           )}
                           {featuredEvent.link ? (
                             <a href={featuredEvent.link} target="_blank" rel="noopener noreferrer" style={{ background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", borderRadius: 14, padding: "12px 17px", fontSize: 13, fontWeight: 900, textDecoration: "none", whiteSpace: "nowrap", boxShadow: "0 12px 28px rgba(225,29,72,0.28)" }}>Inscrever</a>
@@ -1682,7 +1659,7 @@ function AppMain({ user, userName }) {
                   {activeClub ? (
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                        <button onClick={() => setActiveClub(null)} style={{ width: 38, height: 38, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#fff", fontSize: 18, cursor: "pointer" }}>←</button>
+                        <button onClick={() => setActiveClub(null)} style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", color: "#fff", fontSize: 18, cursor: "pointer" }}>←</button>
                         <div style={{ flex: 1 }}>
                           <p style={{ fontWeight: 900, fontSize: 17 }}>{activeClub.name}</p>
                           <p style={{ fontSize: 12, color: "#666" }}>{clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}</p>
@@ -1830,7 +1807,7 @@ function AppMain({ user, userName }) {
                     )}
                     {publishType === "foto" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <label style={{ border: "1.5px dashed #1e1e2e", borderRadius: 14, padding: 22, textAlign: "center", cursor: "pointer", background: "#0a0a0f" }}>
+                        <label style={{ border: "1.5px dashed #1e1e2e", borderRadius: 14, padding: 18, textAlign: "center", cursor: "pointer", background: "#0a0a0f" }}>
                           {photoPreview ? <img src={photoPreview} style={{ width: "100%", maxHeight: 250, objectFit: "cover", borderRadius: 12 }} /> : <><p style={{ fontSize: 34, marginBottom: 8 }}>🖼️</p><p style={{ fontSize: 13, fontWeight: 900 }}>Selecionar foto</p><p style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Toque para escolher uma imagem</p></>}
                           <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
                         </label>
@@ -1871,32 +1848,32 @@ function AppMain({ user, userName }) {
           )}
 
           {tab === "perfil" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingBottom: 110 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingBottom: 105 }}>
               <div
                 style={{
                   position: "relative",
                   overflow: "hidden",
                   borderRadius: 26,
-                  border: "1px solid rgba(225,29,72,0.26)",
-                  background: `linear-gradient(120deg, rgba(8,8,13,0.98) 0%, rgba(12,12,18,0.92) 52%, rgba(12,12,18,0.64) 100%), url(https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=900&q=85) center/cover`,
-                  boxShadow: "0 24px 60px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(225,29,72,0.22)",
+                  background: `linear-gradient(90deg, rgba(12,12,18,0.98) 0%, rgba(12,12,18,0.90) 48%, rgba(12,12,18,0.52) 100%), url(https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=900&q=85) center/cover`,
+                  boxShadow: "0 28px 70px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)",
                   padding: 18
                 }}
               >
-                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 84% 8%, rgba(225,29,72,0.30), transparent 34%)", pointerEvents: "none" }} />
+                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 82% 10%, rgba(225,29,72,0.30), transparent 34%)", pointerEvents: "none" }} />
 
                 <button
                   onClick={() => { setShowEditProfile(true); setEditForm({ name: profile?.name || "", bio: profile?.bio || "", handle: profile?.handle || "" }); setAvatarPreview(null); }}
                   title="Editar perfil"
                   style={{
                     position: "absolute",
-                    right: 14,
-                    top: 14,
+                    right: 16,
+                    top: 16,
                     width: 42,
                     height: 42,
                     borderRadius: "50%",
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.16)",
+                    background: "rgba(255,255,255,0.07)",
                     color: "#fff",
                     display: "flex",
                     alignItems: "center",
@@ -1924,7 +1901,7 @@ function AppMain({ user, userName }) {
                               borderRadius: "50%",
                               objectFit: "cover",
                               border: "3px solid #e11d48",
-                              boxShadow: "0 0 0 5px rgba(225,29,72,0.12), 0 18px 36px rgba(0,0,0,0.42)"
+                              boxShadow: "0 0 0 5px rgba(225,29,72,0.12), 0 18px 40px rgba(0,0,0,0.45)"
                             }}
                           />
                         ) : (
@@ -1937,9 +1914,9 @@ function AppMain({ user, userName }) {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              fontSize: 32,
+                              fontSize: 34,
                               border: "3px solid #e11d48",
-                              boxShadow: "0 0 0 5px rgba(225,29,72,0.12), 0 18px 36px rgba(0,0,0,0.42)"
+                              boxShadow: "0 0 0 5px rgba(225,29,72,0.12), 0 18px 40px rgba(0,0,0,0.45)"
                             }}
                           >
                             {level.icon}
@@ -1950,16 +1927,16 @@ function AppMain({ user, userName }) {
                             position: "absolute",
                             right: -2,
                             bottom: -2,
-                            width: 31,
-                            height: 31,
+                            width: 32,
+                            height: 32,
                             borderRadius: "50%",
-                            background: "#15151f",
+                            background: "#161620",
                             border: "2px solid rgba(255,255,255,0.16)",
                             color: "#fff",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: 13
+                            fontSize: 14
                           }}
                         >
                           {uploadingAvatar ? "⏳" : "📷"}
@@ -1969,7 +1946,7 @@ function AppMain({ user, userName }) {
                     </div>
 
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(225,29,72,0.12)", border: "1px solid rgba(225,29,72,0.45)", borderRadius: 999, padding: "5px 10px", marginBottom: 9 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(225,29,72,0.12)", border: "1px solid rgba(225,29,72,0.45)", borderRadius: 999, padding: "5px 11px", marginBottom: 10 }}>
                         <span style={{ fontSize: 12, color: level.color, fontWeight: 900 }}>{level.icon} {level.name}</span>
                       </div>
 
@@ -1977,11 +1954,11 @@ function AppMain({ user, userName }) {
                         {profile?.name || userName}
                       </h2>
 
-                      <p style={{ fontSize: 14, color: "#8b8b96", marginBottom: 10 }}>
+                      <p style={{ fontSize: 15, color: "#8b8b96", marginBottom: 12 }}>
                         @{profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "")}
                       </p>
 
-                      <p style={{ fontSize: 13.5, color: "#d3d3da", lineHeight: 1.42, maxWidth: 210 }}>
+                      <p style={{ fontSize: 14, color: "#d3d3da", lineHeight: 1.45, maxWidth: 220 }}>
                         {profile?.bio || "Corro por saúde, desafio e liberdade."}
                       </p>
                     </div>
@@ -1992,32 +1969,32 @@ function AppMain({ user, userName }) {
                       display: "grid",
                       gridTemplateColumns: "repeat(4, 1fr)",
                       gap: 0,
-                      background: "rgba(5,5,8,0.58)",
+                      background: "rgba(5,5,8,0.52)",
                       border: "1px solid rgba(255,255,255,0.10)",
                       borderRadius: 22,
                       overflow: "hidden",
-                      marginBottom: 11,
+                      marginBottom: 12,
                       backdropFilter: "blur(18px)"
                     }}
                   >
                     <button onClick={() => loadFollowList("seguidores")} style={{ background: "none", border: "none", padding: "15px 4px", cursor: "pointer", fontFamily: "inherit", borderRight: "1px solid rgba(255,255,255,0.10)" }}>
                       <p style={{ color: "#fff", fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{followersCount}</p>
-                      <p style={{ color: "#8f8f99", fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", marginTop: 6 }}>seguidores</p>
+                      <p style={{ color: "#8f8f99", fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 6 }}>seguidores</p>
                     </button>
 
                     <button onClick={() => loadFollowList("seguindo")} style={{ background: "none", border: "none", padding: "15px 4px", cursor: "pointer", fontFamily: "inherit", borderRight: "1px solid rgba(255,255,255,0.10)" }}>
                       <p style={{ color: "#fff", fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{followingCount}</p>
-                      <p style={{ color: "#8f8f99", fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", marginTop: 6 }}>seguindo</p>
+                      <p style={{ color: "#8f8f99", fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 6 }}>seguindo</p>
                     </button>
 
                     <div style={{ padding: "15px 4px", textAlign: "center", borderRight: "1px solid rgba(255,255,255,0.10)" }}>
                       <p style={{ color: "#fff", fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{races}</p>
-                      <p style={{ color: "#8f8f99", fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", marginTop: 6 }}>corridas</p>
+                      <p style={{ color: "#8f8f99", fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 6 }}>corridas</p>
                     </div>
 
                     <div style={{ padding: "15px 4px", textAlign: "center" }}>
                       <p style={{ color: "#ff4b6d", fontSize: 20, fontWeight: 900, lineHeight: 1 }}>{Number(profile?.total_km || 0).toFixed(1)} km</p>
-                      <p style={{ color: "#8f8f99", fontSize: 9.5, fontWeight: 900, textTransform: "uppercase", marginTop: 6 }}>distância</p>
+                      <p style={{ color: "#8f8f99", fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 6 }}>distância</p>
                     </div>
                   </div>
 
@@ -2030,54 +2007,43 @@ function AppMain({ user, userName }) {
                       border: "1px solid rgba(255,255,255,0.10)",
                       borderRadius: 20,
                       overflow: "hidden",
-                      marginBottom: 12
+                      marginBottom: 16
                     }}
                   >
                     <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", gap: 10, borderRight: "1px solid rgba(255,255,255,0.10)" }}>
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(225,29,72,0.14)", border: "1px solid rgba(225,29,72,0.35)", color: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>◷</div>
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(225,29,72,0.14)", border: "1px solid rgba(225,29,72,0.35)", color: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>◷</div>
                       <div>
                         <p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>5'18&quot;</p>
-                        <p style={{ color: "#777", fontSize: 10.5, fontWeight: 800 }}>pace médio</p>
+                        <p style={{ color: "#777", fontSize: 11, fontWeight: 700 }}>pace médio</p>
                       </div>
                     </div>
 
                     <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(225,29,72,0.14)", border: "1px solid rgba(225,29,72,0.35)", color: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>⏱</div>
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(225,29,72,0.14)", border: "1px solid rgba(225,29,72,0.35)", color: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⏱</div>
                       <div>
                         <p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>00:42:34</p>
-                        <p style={{ color: "#777", fontSize: 10.5, fontWeight: 800 }}>tempo total</p>
+                        <p style={{ color: "#777", fontSize: 11, fontWeight: 700 }}>tempo total</p>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ marginBottom: 2 }}>
+                  <div style={{ marginBottom: 4 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <span style={{ fontSize: 11, color: "#8a8a96", fontWeight: 800 }}>Próximo: {next?.name || "nível máximo"}</span>
-                      <span style={{ fontSize: 11, color: level.color, fontWeight: 900 }}>{next ? `${races}/${next.min} corridas` : `${races} corridas`}</span>
+                      <span style={{ fontSize: 11, color: "#777", fontWeight: 700 }}>Próximo: {next?.name || "nível máximo"}</span>
+                      <span style={{ fontSize: 11, color: level.color, fontWeight: 900 }}>{races}/{next?.min || races} corridas</span>
                     </div>
-                    <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 99, height: 5 }}>
+                    <div style={{ background: "rgba(255,255,255,0.10)", borderRadius: 99, height: 5 }}>
                       <div style={{ background: level.color, width: `${progress}%`, height: 5, borderRadius: 99 }} />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {avatarPreview && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
-                  <p style={{ fontWeight: 900, fontSize: 16 }}>Nova foto de perfil</p>
-                  <img src={avatarPreview.previewUrl} alt="prev" style={{ width: 180, height: 180, borderRadius: "50%", objectFit: "cover", border: "4px solid #e11d48" }} />
-                  <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 300 }}>
-                    <button onClick={() => setAvatarPreview(null)} style={{ flex: 1, border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 12, padding: 14, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-                    <button onClick={confirmAvatarUpload} disabled={uploadingAvatar} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>{uploadingAvatar ? "Enviando..." : "Usar foto"}</button>
-                  </div>
-                </div>
-              )}
-
               {showFollowModal && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
                   <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e", maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                      <p style={{ fontWeight: 900, fontSize: 16, textTransform: "capitalize" }}>{showFollowModal}</p>
+                      <p style={{ fontWeight: 900, fontSize: 17, textTransform: "capitalize" }}>{showFollowModal}</p>
                       <button onClick={() => setShowFollowModal(null)} style={{ background: "none", border: "none", color: "#777", fontSize: 24, cursor: "pointer" }}>✕</button>
                     </div>
                     <div style={{ flex: 1, overflowY: "auto", paddingBottom: 32 }}>
@@ -2096,6 +2062,17 @@ function AppMain({ user, userName }) {
                         </div>
                       ))}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {avatarPreview && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 24 }}>
+                  <p style={{ fontWeight: 900, fontSize: 17 }}>Nova foto de perfil</p>
+                  <img src={avatarPreview.previewUrl} alt="prévia" style={{ width: 180, height: 180, borderRadius: "50%", objectFit: "cover", border: "4px solid #e11d48" }} />
+                  <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 300 }}>
+                    <button onClick={() => setAvatarPreview(null)} style={{ flex: 1, border: "1px solid #1e1e2e", background: "none", color: "#888", borderRadius: 12, padding: 14, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+                    <button onClick={confirmAvatarUpload} disabled={uploadingAvatar} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>{uploadingAvatar ? "Enviando..." : "Usar foto"}</button>
                   </div>
                 </div>
               )}
@@ -2120,10 +2097,10 @@ function AppMain({ user, userName }) {
                         <input className="tinput" value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} placeholder="Seu nome" />
                       </div>
                       <div>
-                        <p style={{ fontSize: 11, color: "#777", marginBottom: 6, fontWeight: 900 }}>@handle</p>
+                        <p style={{ fontSize: 11, color: "#777", marginBottom: 6, fontWeight: 900 }}>@ Handle</p>
                         <div style={{ position: "relative" }}>
                           <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#555", fontSize: 14 }}>@</span>
-                          <input className="tinput" style={{ paddingLeft: 28 }} value={editForm.handle || ""} onChange={(e) => setEditForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="seuhandle" />
+                          <input className="tinput" style={{ paddingLeft: 28 }} value={editForm.handle} onChange={(e) => setEditForm(f => ({ ...f, handle: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))} placeholder="seuhandle" />
                         </div>
                       </div>
                       <div>
@@ -2141,7 +2118,10 @@ function AppMain({ user, userName }) {
                   display: "grid",
                   gridTemplateColumns: "repeat(4, 1fr)",
                   borderBottom: "1px solid #1e1e2e",
-                  background: "#0a0a0f"
+                  background: "#0a0a0f",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 10
                 }}
               >
                 {[{ id: "fotos", label: "Fotos" }, { id: "posts_p", label: "Posts" }, { id: "ativ_p", label: "Atividades" }, { id: "conquistas_p", label: "Conquistas" }].map((t) => (
@@ -2209,14 +2189,14 @@ function AppMain({ user, userName }) {
                             {(comments[p.id] || []).map((comment) => (
                               <div key={comment.id} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
                                 {getAvatar(comment.profiles, 28)}
-                                <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "9px 11px", flex: 1 }}>
+                                <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "8px 10px", flex: 1 }}>
                                   <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3 }}>{comment.profiles?.name || "Corredor"}</p>
                                   <p style={{ fontSize: 13, color: "#d7d7df", lineHeight: 1.4 }}>{comment.text}</p>
                                 </div>
                               </div>
                             ))}
                           </div>
-                          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                             <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Escreva um comentário..." style={{ flex: 1, background: "#0f0f17", border: "1px solid #1e1e2e", borderRadius: 14, padding: "11px 13px", color: "#fff", outline: "none", fontSize: 13, fontFamily: "inherit" }} />
                             <button onClick={() => handleComment(p.id)} disabled={!newComment.trim()} style={{ background: newComment.trim() ? "linear-gradient(135deg, #e11d48, #ff3d63)" : "#2a2a35", color: "#fff", border: "none", borderRadius: 14, padding: "0 14px", fontSize: 13, fontWeight: 900, cursor: newComment.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>Enviar</button>
                           </div>
@@ -2224,51 +2204,190 @@ function AppMain({ user, userName }) {
                       )}
                     </div>
                   ))}
-                  {posts.filter(p => p.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "40px 0" }}>Nenhum post publicado ainda.</p>}
+                  {posts.filter(p => p.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "34px 0" }}>Nenhum post ainda.</p>}
                 </div>
               )}
 
               {profileTab === "ativ_p" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 16 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 16 }}>
                   {activities.filter(a => a.user_id === user.id).map((a) => (
                     <div key={a.id} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 16 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                         <div>
-                          <p style={{ fontWeight: 900, fontSize: 16 }}>Corrida ao ar livre</p>
-                          <p style={{ color: "#777", fontSize: 12 }}>{timeAgo(a.created_at)}</p>
+                          <p style={{ fontSize: 15, fontWeight: 900 }}>Corrida ao ar livre</p>
+                          <p style={{ fontSize: 12, color: "#777", marginTop: 3 }}>{timeAgo(a.created_at)}</p>
                         </div>
-                        <button onClick={() => handleShare("atividade", a)} style={{ background: "none", border: "none", color: "#8a8a96", fontSize: 18, cursor: "pointer" }}>↗</button>
+                        <button onClick={() => handleDeleteActivity(a.id)} style={{ background: "none", border: "none", color: "#777", cursor: "pointer", fontSize: 16 }}>🗑️</button>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                        <div className="sbox"><p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>{a.distance} km</p><p style={{ fontSize: 10, color: "#666" }}>distância</p></div>
-                        <div className="sbox"><p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>{a.duration || "--"}</p><p style={{ fontSize: 10, color: "#666" }}>tempo</p></div>
-                        <div className="sbox"><p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>{a.pace || "--"}</p><p style={{ fontSize: 10, color: "#666" }}>pace</p></div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
+                        <div className="sbox"><p style={{ fontSize: 17, fontWeight: 900, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#777", marginTop: 1 }}>distância</p></div>
+                        <div className="sbox"><p style={{ fontSize: 16, fontWeight: 900 }}>{a.duration || "—"}</p><p style={{ fontSize: 9, color: "#777", marginTop: 1 }}>tempo</p></div>
+                        <div className="sbox"><p style={{ fontSize: 13, fontWeight: 900 }}>{a.pace || "—"}</p><p style={{ fontSize: 9, color: "#777", marginTop: 1 }}>pace</p></div>
                       </div>
-                      {a.route && <RouteMap route={a.route} />}
+                      <RouteMap route={a.route || []} />
+                      <button onClick={() => handleShare("atividade", { distance: a.distance, duration: a.duration, pace: a.pace })} style={{ background: "none", border: "1px solid rgba(255,255,255,0.10)", color: "#aaa", borderRadius: 12, padding: "10px 12px", fontSize: 12, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", marginTop: 12 }}>↗ Compartilhar atividade</button>
                     </div>
                   ))}
-                  {activities.filter(a => a.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "40px 0" }}>Nenhuma atividade registrada ainda.</p>}
+                  {activities.filter(a => a.user_id === user.id).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "34px 0" }}>Nenhuma atividade ainda.</p>}
                 </div>
               )}
 
               {profileTab === "conquistas_p" && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingTop: 16 }}>
-                  {[
-                    { icon: "🏃", title: "Primeiras corridas", desc: `${races} corridas registradas` },
-                    { icon: "📍", title: "Distância total", desc: `${Number(profile?.total_km || 0).toFixed(1)} km percorridos` },
-                    { icon: "⚡", title: "Nível atual", desc: level.name },
-                    { icon: "🔥", title: "Consistência", desc: "Continue evoluindo" },
-                  ].map((badge, idx) => (
-                    <div key={idx} style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 20, padding: 16, minHeight: 132 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 16, background: "rgba(225,29,72,0.12)", border: "1px solid rgba(225,29,72,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 12 }}>{badge.icon}</div>
-                      <p style={{ fontWeight: 900, fontSize: 14, marginBottom: 5 }}>{badge.title}</p>
-                      <p style={{ color: "#777", fontSize: 12, lineHeight: 1.35 }}>{badge.desc}</p>
+                <div style={{ paddingTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: 18 }}>
+                    <p style={{ fontWeight: 900, fontSize: 17, marginBottom: 14 }}>Nível atual</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <div style={{ width: 54, height: 54, borderRadius: 16, background: `${level.color}22`, border: `1.5px solid ${level.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 25 }}>{level.icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: 20, fontWeight: 900, color: level.color }}>{level.name}</p>
+                        <div style={{ background: "#1e1e2e", borderRadius: 99, height: 5, marginTop: 8 }}><div style={{ background: level.color, width: `${progress}%`, height: 5, borderRadius: 99 }} /></div>
+                        <p style={{ fontSize: 12, color: "#777", marginTop: 7 }}>{races}/{next?.min || races} corridas</p>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {[{ title: "Primeira corrida", value: races >= 1 ? "Concluída" : "Bloqueada", icon: "🏁" }, { title: "5 corridas", value: races >= 5 ? "Concluída" : `${Math.max(5 - races, 0)} restantes`, icon: "🔥" }, { title: "10 km totais", value: (profile?.total_km || 0) >= 10 ? "Concluída" : "Em progresso", icon: "⚡" }, { title: "Comunidade", value: followersCount > 0 ? "Conectado" : "Em breve", icon: "🤝" }].map((badge) => (
+                      <div key={badge.title} style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18, padding: 14 }}>
+                        <p style={{ fontSize: 28, marginBottom: 10 }}>{badge.icon}</p>
+                        <p style={{ fontSize: 13, fontWeight: 900 }}>{badge.title}</p>
+                        <p style={{ fontSize: 11, color: "#777", marginTop: 5 }}>{badge.value}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
+        </div>
+      </div>
+
+        {/* Perfil de outro usuário */}
+        {viewingProfile && (() => {
+          const vLevel = getLevel(viewingProfile.races_count || 0);
+          const vNext = getNextLevel(viewingProfile.races_count || 0);
+          const vProgress = vNext ? ((viewingProfile.races_count - vLevel.min) / (vNext.min - vLevel.min)) * 100 : 100;
+          return (
+            <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 400, overflowY: "auto" }}>
+              <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                  <button onClick={() => setViewingProfile(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
+                  <p style={{ fontWeight: 700, fontSize: 16 }}>{viewingProfile.name}</p>
+                </div>
+              </div>
+              <div style={{ padding: "0 20px 100px" }}>
+                <div style={{ background: "#13131a", borderRadius: 20, padding: 20, border: "1px solid #1e1e2e", marginBottom: 2, position: "relative", overflow: "hidden" }}>
+                  <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+                    {(() => {
+                    const story = stories.find(s => s.user_id === viewingProfile.id);
+                    const vColor = vLevel.color;
+                    return story ? (
+                      <div style={{ padding: 2, borderRadius: "50%", background: vColor, cursor: "pointer", flexShrink: 0 }}
+                        onClick={() => { setSeenStories(st => ({...st, [viewingProfile.id]: true})); setActiveStory({ user: viewingProfile.name, color: vColor, level: viewingProfile.level, media_url: story.media_url, emoji: vLevel.icon, avatar_url: viewingProfile.avatar_url }); }}>
+                        <div style={{ padding: 2, borderRadius: "50%", background: "#0a0a0f" }}>
+                          <div style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e11d48, #f97316)", fontSize: 26 }}>
+                            {viewingProfile.avatar_url ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg, #e11d48, #f97316)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, border: "3px solid #1e1e2e", overflow: "hidden", flexShrink: 0 }}>
+                        {viewingProfile.avatar_url ? <img src={viewingProfile.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : vLevel.icon}
+                      </div>
+                    );
+                  })()}
+                    <div style={{ flex: 1 }}>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{viewingProfile.name}</h2>
+                      <p style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>@{viewingProfile.handle || viewingProfile.name?.toLowerCase().replace(/\s/g, "")}</p>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#1e1e2e", borderRadius: 99, padding: "3px 10px" }}>
+                        <span style={{ fontSize: 11, color: vLevel.color, fontWeight: 700 }}>{vLevel.icon} {vLevel.name}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {viewingProfile.bio && <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.5, marginBottom: 14 }}>{viewingProfile.bio}</p>}
+                  <div style={{ marginBottom: 14 }}><div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}><div style={{ background: vLevel.color, width: `${vProgress}%`, height: 4, borderRadius: 99 }} /></div></div>
+                  <div style={{ display: "flex", gap: 5, marginBottom: 14 }}>
+                    <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700, color: "#e11d48" }}>{viewingProfile.races_count || 0}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>corridas</p></div>
+                    <div className="sbox"><p style={{ fontSize: 16, fontWeight: 700 }}>{Number(viewingProfile.total_km || 0).toFixed(1)} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>total</p></div>
+                    <div className="sbox"><p style={{ fontSize: 14, fontWeight: 700 }}>{viewingProfile.avg_pace || "—"}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace médio</p></div>
+                  </div>
+                  <div style={{ display: "flex", gap: 20, marginBottom: 14 }}>
+                    <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followersCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguidores</p></div>
+                    <div style={{ textAlign: "center" }}><p style={{ fontWeight: 700, fontSize: 18 }}>{viewingProfile.followingCount}</p><p style={{ fontSize: 11, color: "#555", marginTop: 2 }}>seguindo</p></div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={async () => { await handleFollow(viewingProfile.id); setViewingProfile(v => ({ ...v, followersCount: realFollowing[viewingProfile.id] ? v.followersCount - 1 : v.followersCount + 1 })); }} style={{ flex: 1, background: realFollowing[viewingProfile.id] ? "none" : "#e11d48", color: realFollowing[viewingProfile.id] ? "#666" : "#fff", border: realFollowing[viewingProfile.id] ? "1px solid #1e1e2e" : "none", borderRadius: 12, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                      {realFollowing[viewingProfile.id] ? "Seguindo" : "Seguir"}
+                    </button>
+                    <button onClick={() => handleShare("perfil")} style={{ background: "none", color: "#888", border: "1px solid #1e1e2e", borderRadius: 12, padding: "11px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>↗</button>
+                  </div>
+                </div>
+                <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", background: "#0a0a0f", position: "sticky", top: 100, zIndex: 9 }}>
+                  {[{ id: "fotos", label: "Fotos" }, { id: "posts_v", label: "Posts" }, { id: "ativ_v", label: "Atividades" }, { id: "niveis_v", label: "Níveis" }].map((t) => (
+                    <button key={t.id} onClick={() => setViewTab(t.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, padding: "10px 0", color: viewTab === t.id ? "#e11d48" : "#555" }}>
+                      {t.label}
+                      {viewTab === t.id && <div style={{ width: 20, height: 2, background: "#e11d48", borderRadius: 2, margin: "4px auto 0" }} />}
+                    </button>
+                  ))}
+                </div>
+                {viewTab === "fotos" && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
+                    {viewPosts.filter(p => p.photo_url).map((p) => <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}><img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}
+                    {viewPosts.filter(p => p.photo_url).length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "40px 0", color: "#555", fontSize: 13 }}>Nenhuma foto ainda.</div>}
+                  </div>
+                )}
+                {viewTab === "posts_v" && (
+                  <div>
+                    {viewPosts.filter(p => p.text).map((p) => (
+                      <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
+                        {p.photo_url && <div style={{ aspectRatio: "4/5", borderRadius: 12, overflow: "hidden", marginBottom: 10 }}><img src={p.photo_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
+                        <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6 }}>{p.text}</p>
+                        <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
+                      </div>
+                    ))}
+                    {viewPosts.filter(p => p.text).length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhum post ainda.</p>}
+                  </div>
+                )}
+                {viewTab === "ativ_v" && (
+                  <div>
+                    {viewActivities.map((a) => (
+                      <div key={a.id} style={{ padding: "14px 0", borderBottom: "1px solid #1e1e2e" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700, color: "#e11d48" }}>{a.distance} km</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>distância</p></div>
+                          {a.duration && <div className="sbox"><p style={{ fontSize: 15, fontWeight: 700 }}>{a.duration}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>tempo</p></div>}
+                          {a.pace && <div className="sbox"><p style={{ fontSize: 13, fontWeight: 700 }}>{a.pace}</p><p style={{ fontSize: 9, color: "#555", marginTop: 1 }}>pace</p></div>}
+                        </div>
+                      </div>
+                    ))}
+                    {viewActivities.length === 0 && <p style={{ textAlign: "center", color: "#555", fontSize: 13, padding: "30px 0" }}>Nenhuma atividade ainda.</p>}
+                  </div>
+                )}
+                {viewTab === "niveis_v" && (
+                  <div style={{ paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div className="card">
+                      {LEVELS.map((l, i) => {
+                        const isActive = l.name === vLevel.name;
+                        const isPast = (viewingProfile.races_count || 0) > l.max;
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: !isActive && !isPast ? 0.3 : 1, marginBottom: i < LEVELS.length - 1 ? 12 : 0 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: isActive || isPast ? `${l.color}22` : "#1e1e2e", border: `1.5px solid ${isActive || isPast ? l.color : "#1e1e2e"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{l.icon}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? l.color : isPast ? "#555" : "#333" }}>{l.name}</span>
+                                <span style={{ fontSize: 11, color: "#444" }}>{l.min === 0 ? `0-${l.max}` : l.max === Infinity ? `${l.min}+` : `${l.min}-${l.max}`}</span>
+                              </div>
+                              <div style={{ background: "#1e1e2e", borderRadius: 99, height: 4 }}><div style={{ background: l.color, width: isPast ? "100%" : isActive ? `${vProgress}%` : "0%", height: 4, borderRadius: 99 }} /></div>
+                            </div>
+                            <span style={{ fontSize: 13 }}>{isPast ? "✅" : isActive ? "▶" : ""}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Story viewer */}
         {activeStory && (
@@ -2344,25 +2463,12 @@ function AppMain({ user, userName }) {
                       {n.from_user?.avatar_url ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : n.from_user?.name?.charAt(0) || "?"}
                     </div>
                     <div style={{ flex: 1, cursor: "pointer" }} onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }}>
-                      <div style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
-                        <span style={{ fontWeight: 800 }}>
-                          {n.from_user?.handle ? `@${n.from_user.handle}` : n.from_user?.name || "Alguém"}
-                        </span>
-
-                        {n.type === "follow" && <span> começou a te seguir</span>}
-                        {n.type === "like" && <span> curtiu sua publicação</span>}
-
-                        {n.type === "comment" && (
-                          <>
-                            <span> comentou na sua publicação</span>
-                            {n.comment_text && (
-                              <span style={{ color: "#d7d7df" }}>
-                                {` “${n.comment_text.length > 86 ? `${n.comment_text.slice(0, 86)}...` : n.comment_text}”`}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </div>
+                      <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
+                        <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
+                        {n.type === "follow" && " começou a te seguir"}
+                        {n.type === "like" && " curtiu sua publicação"}
+                        {n.type === "comment" && " comentou na sua publicação"}
+                      </p>
                       <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
                     {n.type === "follow" && n.from_user_id && (
