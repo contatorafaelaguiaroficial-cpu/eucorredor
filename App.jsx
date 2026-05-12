@@ -277,7 +277,7 @@ function AppMain({ user, userName }) {
   const [dbEvents, setDbEvents] = useState([]);
   const [showAdminEvents, setShowAdminEvents] = useState(false);
   const [eventFilter, setEventFilter] = useState("Todos");
-  const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "" });
+  const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "", featured: false });
   const [savingEvent, setSavingEvent] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -554,17 +554,86 @@ function AppMain({ user, userName }) {
   };
 
   const loadEvents = async () => {
-    const { data } = await supabase.from("events").select("*").order("created_at", { ascending: true });
-    setDbEvents(data || []);
+    const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: true });
+    if (error) {
+      console.error("Erro ao carregar eventos:", error.message);
+      setDbEvents([]);
+      return;
+    }
+
+    const sortedEvents = [...(data || [])].sort((a, b) => {
+      if (!!a.featured === !!b.featured) return 0;
+      return a.featured ? -1 : 1;
+    });
+
+    setDbEvents(sortedEvents);
   };
 
   const handleSaveEvent = async () => {
     if (!eventForm.name || !eventForm.date || !eventForm.distance) return alert("Preencha nome, data e distância.");
     setSavingEvent(true);
-    await supabase.from("events").insert({ name: eventForm.name, date: eventForm.date, city: eventForm.city, state: eventForm.state, distance: eventForm.distance, category: eventForm.category, link: eventForm.link });
-    setEventForm({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "" });
-    await loadEvents();
+
+    try {
+      if (eventForm.featured) {
+        await supabase
+          .from("events")
+          .update({ featured: false })
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+      }
+
+      const { error } = await supabase.from("events").insert({
+        name: eventForm.name,
+        date: eventForm.date,
+        city: eventForm.city,
+        state: eventForm.state,
+        distance: eventForm.distance,
+        category: eventForm.category,
+        link: eventForm.link,
+        featured: !!eventForm.featured,
+      });
+
+      if (error) throw error;
+
+      setEventForm({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "", featured: false });
+      await loadEvents();
+    } catch (err) {
+      alert("Erro ao salvar evento: " + (err.message || "tente novamente."));
+    }
+
     setSavingEvent(false);
+  };
+
+  const handleSetFeaturedEvent = async (eventId) => {
+    try {
+      await supabase
+        .from("events")
+        .update({ featured: false })
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      const { error } = await supabase
+        .from("events")
+        .update({ featured: true })
+        .eq("id", eventId);
+
+      if (error) throw error;
+      await loadEvents();
+    } catch (err) {
+      alert("Erro ao definir destaque: " + (err.message || "tente novamente."));
+    }
+  };
+
+  const handleRemoveFeaturedEvent = async (eventId) => {
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ featured: false })
+        .eq("id", eventId);
+
+      if (error) throw error;
+      await loadEvents();
+    } catch (err) {
+      alert("Erro ao remover destaque: " + (err.message || "tente novamente."));
+    }
   };
 
   const handleDeleteEvent = async (id) => {
@@ -876,16 +945,33 @@ function AppMain({ user, userName }) {
   };
 
   const filteredEvents = dbEvents.filter((event) => eventMatchesFilter(event, eventFilter));
-  const featuredEvent = filteredEvents[0];
-  const listEvents = featuredEvent ? filteredEvents.slice(1) : filteredEvents;
+  const sortedFilteredEvents = [...filteredEvents].sort((a, b) => {
+    if (!!a.featured === !!b.featured) return 0;
+    return a.featured ? -1 : 1;
+  });
+  const featuredEvent = sortedFilteredEvents.find((event) => event.featured) || sortedFilteredEvents[0];
+  const listEvents = featuredEvent ? sortedFilteredEvents.filter((event) => event.id !== featuredEvent.id) : sortedFilteredEvents;
 
   const getEventImage = (event) => {
-    const text = normalizeEventText(`${event?.name || ""} ${event?.category || ""} ${event?.city || ""}`);
-    if (text.includes("porto alegre") || text.includes("maratona")) return "https://images.unsplash.com/photo-1543385426-191664295b58?w=900&q=80";
-    if (text.includes("night")) return "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=700&q=80";
-    if (text.includes("trail") || text.includes("serra") || text.includes("bento") || text.includes("caxias")) return "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=700&q=80";
-    if (text.includes("gramado") || text.includes("pedras")) return "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=700&q=80";
-    return "https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=700&q=80";
+    const text = normalizeEventText(`${event?.name || ""} ${event?.category || ""} ${event?.distance || ""} ${event?.city || ""}`);
+
+    if (text.includes("night") || text.includes("noite")) {
+      return "https://images.unsplash.com/photo-1502224562085-639556652f33?w=900&q=85";
+    }
+
+    if (text.includes("trail") || text.includes("serra")) {
+      return "https://images.unsplash.com/photo-1551632811-561732d1e306?w=900&q=85";
+    }
+
+    if (text.includes("maratona") || text.includes("42k") || text.includes("meia") || text.includes("21k")) {
+      return "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=900&q=85";
+    }
+
+    if (text.includes("3k") || text.includes("5k") || text.includes("10k") || text.includes("corrida de rua")) {
+      return "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=900&q=85";
+    }
+
+    return "https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=900&q=85";
   };
 
   const getDateParts = (date = "") => {
@@ -1215,6 +1301,26 @@ function AppMain({ user, userName }) {
                         {["3K", "5K", "10K", "21K", "42K", "Maratona", "Trail"].map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                       <input className="tinput" placeholder="Link de inscrição (Ticket Sports)" value={eventForm.link} onChange={(e) => setEventForm(f => ({ ...f, link: e.target.value }))} />
+
+                      <button
+                        type="button"
+                        onClick={() => setEventForm(f => ({ ...f, featured: !f.featured }))}
+                        style={{
+                          width: "100%",
+                          background: eventForm.featured ? "rgba(225,29,72,0.16)" : "rgba(255,255,255,0.035)",
+                          border: eventForm.featured ? "1px solid #e11d48" : "1px solid #1e1e2e",
+                          color: eventForm.featured ? "#fff" : "#888",
+                          borderRadius: 12,
+                          padding: "13px 14px",
+                          fontSize: 13,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          textAlign: "left"
+                        }}
+                      >
+                        {eventForm.featured ? "★ Este evento será destaque" : "☆ Marcar como evento destaque"}
+                      </button>
                     </div>
                     <button onClick={handleSaveEvent} disabled={savingEvent} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}>
                       {savingEvent ? "Salvando..." : "Adicionar evento"}
@@ -1226,9 +1332,27 @@ function AppMain({ user, userName }) {
                           <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #1e1e2e" }}>
                             <div>
                               <p style={{ fontWeight: 700, fontSize: 13 }}>{e.name}</p>
-                              <p style={{ fontSize: 11, color: "#555" }}>{e.date} · {e.distance} · {e.city}</p>
+                              <p style={{ fontSize: 11, color: "#555" }}>{e.date} · {e.distance} · {e.city}{e.featured ? " · destaque" : ""}</p>
                             </div>
-                            <button onClick={() => handleDeleteEvent(e.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                              <button
+                                onClick={() => e.featured ? handleRemoveFeaturedEvent(e.id) : handleSetFeaturedEvent(e.id)}
+                                style={{
+                                  background: e.featured ? "rgba(225,29,72,0.16)" : "none",
+                                  border: e.featured ? "1px solid #e11d48" : "1px solid #1e1e2e",
+                                  borderRadius: 8,
+                                  padding: "5px 9px",
+                                  color: e.featured ? "#fff" : "#777",
+                                  fontSize: 12,
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                  fontWeight: 800
+                                }}
+                              >
+                                {e.featured ? "★" : "☆"}
+                              </button>
+                              <button onClick={() => handleDeleteEvent(e.id)} style={{ background: "none", border: "1px solid #1e1e2e", borderRadius: 8, padding: "5px 10px", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
+                            </div>
                           </div>
                         ))}
                       </>
