@@ -844,10 +844,32 @@ function AppMain({ user, userName }) {
   };
 
   const handleComment = async (postId) => {
-    if (!newComment.trim()) return;
-    await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: newComment });
+    const commentText = newComment.trim();
+    if (!commentText) return;
+
+    const { data: insertedComment, error: commentError } = await supabase
+      .from("comments")
+      .insert({ post_id: postId, user_id: user.id, text: commentText })
+      .select("id, text")
+      .single();
+
+    if (commentError) {
+      alert("Erro ao comentar: " + commentError.message);
+      return;
+    }
+
     const post = posts.find(p => p.id === postId);
-    if (post && post.user_id !== user.id) await supabase.from("notifications").insert({ user_id: post.user_id, from_user_id: user.id, type: "comment", post_id: postId });
+
+    if (post && post.user_id !== user.id) {
+      await supabase.from("notifications").insert({
+        user_id: post.user_id,
+        from_user_id: user.id,
+        type: "comment",
+        post_id: postId,
+        comment_text: insertedComment?.text || commentText
+      });
+    }
+
     setNewComment("");
     await loadComments(postId);
     await loadNotifications();
@@ -2262,12 +2284,25 @@ function AppMain({ user, userName }) {
                       {n.from_user?.avatar_url ? <img src={n.from_user.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : n.from_user?.name?.charAt(0) || "?"}
                     </div>
                     <div style={{ flex: 1, cursor: "pointer" }} onClick={() => { if (n.from_user_id) { setShowNotifications(false); openProfile(n.from_user_id); } }}>
-                      <p style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
-                        <span style={{ fontWeight: 700 }}>{n.from_user?.name || "Alguém"}</span>
-                        {n.type === "follow" && " começou a te seguir"}
-                        {n.type === "like" && " curtiu sua publicação"}
-                        {n.type === "comment" && " comentou na sua publicação"}
-                      </p>
+                      <div style={{ fontSize: 13, color: "#f0f0f0", lineHeight: 1.4 }}>
+                        <span style={{ fontWeight: 800 }}>
+                          {n.from_user?.handle ? `@${n.from_user.handle}` : n.from_user?.name || "Alguém"}
+                        </span>
+
+                        {n.type === "follow" && <span> começou a te seguir</span>}
+                        {n.type === "like" && <span> curtiu sua publicação</span>}
+
+                        {n.type === "comment" && (
+                          <>
+                            <span> comentou na sua publicação</span>
+                            {n.comment_text && (
+                              <span style={{ color: "#d7d7df" }}>
+                                {` “${n.comment_text.length > 86 ? `${n.comment_text.slice(0, 86)}...` : n.comment_text}”`}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
                       <p style={{ fontSize: 11, color: "#555", marginTop: 3 }}>{new Date(n.created_at).toLocaleDateString("pt-BR")}</p>
                     </div>
                     {n.type === "follow" && n.from_user_id && (
