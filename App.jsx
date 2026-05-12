@@ -2873,65 +2873,212 @@ function AppMain({ user, userName }) {
               )}
 
               {showPublish && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
-                  <div style={{ background: "#13131a", borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 390, border: "1px solid #1e1e2e" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                      <p style={{ fontWeight: 900, fontSize: 17 }}>{publishType ? (publishType === "post" ? "Novo post" : publishType === "foto" ? "Nova foto" : "Nova atividade") : "O que quer publicar?"}</p>
-                      <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null); }} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
-                    </div>
-                    {!publishType && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {[{ id: "foto", label: "Foto", desc: "Compartilhe um momento da sua corrida", icon: "🖼️" }, { id: "post", label: "Post", desc: "Compartilhe uma ideia, dica ou conquista", icon: "✏️" }].map((t) => (
-                          <button key={t.id} onClick={() => setPublishType(t.id)} style={{ background: "#0a0a0f", border: "1px solid #1e1e2e", borderRadius: 14, padding: "14px 16px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 14 }}>
-                            <span style={{ fontSize: 24 }}>{t.icon}</span><div style={{ textAlign: "left" }}><p style={{ fontWeight: 900, fontSize: 14, color: "#f0f0f0" }}>{t.label}</p><p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{t.desc}</p></div>
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.94)", zIndex: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+                  <div style={{
+                    width: "100%",
+                    maxWidth: 390,
+                    maxHeight: "94vh",
+                    overflowY: "auto",
+                    background: "radial-gradient(circle at 50% -10%, rgba(225,29,72,0.14), transparent 36%), linear-gradient(180deg, #15151d, #101018)",
+                    borderRadius: "30px 30px 0 0",
+                    padding: publishType ? "22px 20px 40px" : "22px 20px 34px",
+                    border: "1px solid rgba(225,29,72,0.44)",
+                    boxShadow: "0 -28px 80px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.08)"
+                  }}>
+                    {!publishType ? (
+                      <>
+                        <div style={{ position: "relative", marginBottom: 26 }}>
+                          <div style={{ width: 48, height: 6, borderRadius: 999, background: "rgba(255,255,255,0.28)", margin: "0 auto 22px" }} />
+                          <button
+                            onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null); }}
+                            style={{
+                              position: "absolute",
+                              right: 0,
+                              top: 0,
+                              width: 42,
+                              height: 42,
+                              borderRadius: "50%",
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(225,29,72,0.34)",
+                              color: "#ff4a70",
+                              fontSize: 23,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontFamily: "inherit"
+                            }}
+                          >
+                            ✕
                           </button>
-                        ))}
-                      </div>
-                    )}
-                    {publishType === "post" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <textarea className="tinput" rows={4} placeholder="O que está pensando?" value={newPost} onChange={(e) => setNewPost(e.target.value)} />
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={async () => { await handlePost(); setShowPublish(false); setPublishType(null); }} disabled={loadingPost || !newPost.trim()} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", opacity: loadingPost || !newPost.trim() ? 0.5 : 1 }}>Publicar</button>
+                          <div style={{ textAlign: "center", padding: "0 36px" }}>
+                            <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", color: "#fff", fontSize: 27, lineHeight: 1.08, letterSpacing: -0.8, fontWeight: 900, marginBottom: 9 }}>
+                              Compartilhe com a <span style={{ color: "#e11d48" }}>comunidade</span>
+                            </h2>
+                            <p style={{ color: "#c2c2cc", fontSize: 16, lineHeight: 1.4 }}>O que você quer publicar agora?</p>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {publishType === "foto" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <label style={{ border: "1.5px dashed #1e1e2e", borderRadius: 14, padding: 18, textAlign: "center", cursor: "pointer", background: "#0a0a0f" }}>
-                          {photoPreview ? <img src={photoPreview} style={{ width: "100%", maxHeight: 250, objectFit: "cover", borderRadius: 12 }} /> : <><p style={{ fontSize: 34, marginBottom: 8 }}>🖼️</p><p style={{ fontSize: 13, fontWeight: 900 }}>Selecionar foto</p><p style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Toque para escolher uma imagem</p></>}
-                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
-                        </label>
-                        <textarea className="tinput" rows={3} placeholder="Escreva uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => { setPublishType(null); setPhotoFile(null); setPhotoPreview(null); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={async () => {
-                            if (!photoFile) return alert("Selecione uma foto.");
-                            setLoadingPost(true);
-                            const ext = photoFile.name.split(".").pop();
-                            const path = `${user.id}/post_${Date.now()}.${ext}`;
-                            const { error: upErr } = await supabase.storage.from("posts").upload(path, photoFile);
-                            if (upErr) { alert("Erro ao enviar foto: " + upErr.message); setLoadingPost(false); return; }
-                            const { data: urlData } = supabase.storage.from("posts").getPublicUrl(path);
-                            const { error } = await supabase.from("posts").insert({ user_id: user.id, text: newPost, photo_url: urlData.publicUrl });
-                            if (error) alert("Erro: " + error.message);
-                            else { setNewPost(""); setPhotoFile(null); setPhotoPreview(null); setShowPublish(false); setPublishType(null); await loadPosts(); }
-                            setLoadingPost(false);
-                          }} disabled={loadingPost || !photoFile} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", opacity: loadingPost || !photoFile ? 0.5 : 1 }}>{loadingPost ? "Enviando..." : "Publicar"}</button>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          {[
+                            {
+                              id: "foto",
+                              label: "Foto",
+                              desc: "Compartilhe um registro da corrida, prova, medalha ou bastidor.",
+                              icon: "▧"
+                            },
+                            {
+                              id: "post",
+                              label: "Post",
+                              desc: "Escreva uma ideia, conquista, dica ou relato do seu treino.",
+                              icon: "✎"
+                            }
+                          ].map((t) => (
+                            <button
+                              key={t.id}
+                              onClick={() => setPublishType(t.id)}
+                              style={{
+                                width: "100%",
+                                minHeight: 126,
+                                background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018))",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderRadius: 24,
+                                padding: "18px 18px 18px 16px",
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                display: "grid",
+                                gridTemplateColumns: "94px 1fr 42px",
+                                alignItems: "center",
+                                gap: 16,
+                                textAlign: "left",
+                                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)"
+                              }}
+                            >
+                              <span style={{
+                                width: 94,
+                                height: 94,
+                                borderRadius: 24,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "radial-gradient(circle at 50% 30%, rgba(225,29,72,0.32), rgba(225,29,72,0.09))",
+                                border: "1px solid rgba(225,29,72,0.42)",
+                                color: "#ff5a7a",
+                                fontSize: t.id === "foto" ? 42 : 44,
+                                fontWeight: 900,
+                                boxShadow: "0 18px 34px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.08)"
+                              }}>
+                                {t.icon}
+                              </span>
+                              <span style={{ display: "block", minWidth: 0 }}>
+                                <span style={{ display: "block", color: "#fff", fontSize: 21, fontWeight: 900, marginBottom: 7, letterSpacing: -0.3 }}>{t.label}</span>
+                                <span style={{ display: "block", color: "#b6b6c2", fontSize: 14, lineHeight: 1.42 }}>{t.desc}</span>
+                              </span>
+                              <span style={{
+                                width: 42,
+                                height: 42,
+                                borderRadius: "50%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "rgba(255,255,255,0.035)",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                color: "#ff4a70",
+                                fontSize: 28,
+                                fontWeight: 500
+                              }}>›</span>
+                            </button>
+                          ))}
                         </div>
-                      </div>
-                    )}
-                    {publishType === "atividade" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <input className="tinput" placeholder="Distância (km)" type="number" value={actForm.distance} onChange={(e) => setActForm(f => ({ ...f, distance: e.target.value }))} />
-                        <input className="tinput" placeholder="Duração (ex: 32:10)" value={actForm.duration} onChange={(e) => setActForm(f => ({ ...f, duration: e.target.value }))} />
-                        <input className="tinput" placeholder="Pace (ex: 5'30/km)" value={actForm.pace} onChange={(e) => setActForm(f => ({ ...f, pace: e.target.value }))} />
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => setPublishType(null)} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 12, padding: 13, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Voltar</button>
-                          <button onClick={handleActivity} style={{ flex: 1, background: "#e11d48", color: "#fff", border: "none", borderRadius: 12, padding: 13, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Registrar</button>
+
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: 18, paddingTop: 17, display: "flex", alignItems: "center", justifyContent: "center", gap: 9, color: "#b8b8c2", fontSize: 13.5, lineHeight: 1.4, textAlign: "center" }}>
+                          <span style={{ width: 20, height: 20, borderRadius: "50%", border: "1px solid rgba(225,29,72,0.55)", color: "#ff4a70", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>i</span>
+                          <span>Atividades com GPS são publicadas pelo <strong style={{ color: "#ff4a70" }}>Hub</strong>.</span>
                         </div>
-                      </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                          <button
+                            onClick={() => { setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null); }}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: "50%",
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                              color: "#bbb",
+                              fontSize: 21,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontFamily: "inherit"
+                            }}
+                          >
+                            ‹
+                          </button>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ color: "#fff", fontWeight: 900, fontSize: 19, letterSpacing: -0.35 }}>{publishType === "post" ? "Novo post" : "Nova foto"}</p>
+                            <p style={{ color: "#777", fontSize: 12, marginTop: 2 }}>{publishType === "post" ? "Escreva para a comunidade." : "Compartilhe um registro visual."}</p>
+                          </div>
+                          <button
+                            onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); setPhotoFile(null); setPhotoPreview(null); }}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: "50%",
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(225,29,72,0.30)",
+                              color: "#ff4a70",
+                              fontSize: 21,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontFamily: "inherit"
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {publishType === "post" && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <textarea className="tinput" rows={5} placeholder="Compartilhe uma ideia, conquista ou relato..." value={newPost} onChange={(e) => setNewPost(e.target.value)} style={{ minHeight: 128, resize: "vertical" }} />
+                            <div style={{ display: "flex", gap: 10 }}>
+                              <button onClick={() => { setPublishType(null); setNewPost(""); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 14, padding: 14, fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Voltar</button>
+                              <button onClick={async () => { await handlePost(); setShowPublish(false); setPublishType(null); }} disabled={loadingPost || !newPost.trim()} style={{ flex: 1, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", border: "none", borderRadius: 14, padding: 14, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", opacity: loadingPost || !newPost.trim() ? 0.5 : 1, boxShadow: loadingPost || !newPost.trim() ? "none" : "0 16px 30px rgba(225,29,72,0.22)" }}>Publicar</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {publishType === "foto" && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <label style={{ border: "1.5px dashed rgba(225,29,72,0.35)", borderRadius: 20, padding: photoPreview ? 0 : 22, textAlign: "center", cursor: "pointer", background: "rgba(0,0,0,0.22)", overflow: "hidden" }}>
+                              {photoPreview ? <img src={photoPreview} style={{ width: "100%", maxHeight: 280, objectFit: "cover", display: "block" }} /> : <><p style={{ fontSize: 40, marginBottom: 8 }}>▧</p><p style={{ fontSize: 14, fontWeight: 900, color: "#fff" }}>Selecionar foto</p><p style={{ fontSize: 12, color: "#777", marginTop: 5 }}>Toque para escolher uma imagem</p></>}
+                              <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
+                            </label>
+                            <textarea className="tinput" rows={3} placeholder="Escreva uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
+                            <div style={{ display: "flex", gap: 10 }}>
+                              <button onClick={() => { setPublishType(null); setPhotoFile(null); setPhotoPreview(null); setNewPost(""); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 14, padding: 14, fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Voltar</button>
+                              <button onClick={async () => {
+                                if (!photoFile) return alert("Selecione uma foto.");
+                                setLoadingPost(true);
+                                const ext = photoFile.name.split(".").pop();
+                                const path = `${user.id}/post_${Date.now()}.${ext}`;
+                                const { error: upErr } = await supabase.storage.from("posts").upload(path, photoFile);
+                                if (upErr) { alert("Erro ao enviar foto: " + upErr.message); setLoadingPost(false); return; }
+                                const { data: urlData } = supabase.storage.from("posts").getPublicUrl(path);
+                                const { error } = await supabase.from("posts").insert({ user_id: user.id, text: newPost, photo_url: urlData.publicUrl });
+                                if (error) alert("Erro: " + error.message);
+                                else { setNewPost(""); setPhotoFile(null); setPhotoPreview(null); setShowPublish(false); setPublishType(null); await loadPosts(); }
+                                setLoadingPost(false);
+                              }} disabled={loadingPost || !photoFile} style={{ flex: 1, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", border: "none", borderRadius: 14, padding: 14, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", opacity: loadingPost || !photoFile ? 0.5 : 1, boxShadow: loadingPost || !photoFile ? "none" : "0 16px 30px rgba(225,29,72,0.22)" }}>{loadingPost ? "Enviando..." : "Publicar"}</button>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
