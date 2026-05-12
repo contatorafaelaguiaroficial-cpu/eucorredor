@@ -421,6 +421,14 @@ function AppMain({ user, userName }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshMessage, setRefreshMessage] = useState("");
+  const [blockedUserIds, setBlockedUserIds] = useState({});
+  const [moderationMenu, setModerationMenu] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReason, setReportReason] = useState("Spam");
+  const [reportDetails, setReportDetails] = useState("");
+  const [blockTarget, setBlockTarget] = useState(null);
+  const [moderationToast, setModerationToast] = useState("");
+  const moderationToastTimerRef = useRef(null);
   const pullStartYRef = useRef(null);
   const pullDistanceRef = useRef(0);
   const refreshNoticeTimerRef = useRef(null);
@@ -441,7 +449,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadRankingUsers(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadBlockedUsers(); loadEvents(); loadStories(); loadSuggestions(); loadRankingUsers(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -879,6 +887,125 @@ function AppMain({ user, userName }) {
     }
   };
 
+
+  const loadBlockedUsers = async () => {
+    const { data, error } = await supabase
+      .from("blocked_users")
+      .select("blocked_id")
+      .eq("blocker_id", user.id);
+
+    if (error) {
+      console.error("Erro ao carregar bloqueios:", error.message);
+      return;
+    }
+
+    const map = {};
+    (data || []).forEach((row) => {
+      if (row.blocked_id) map[row.blocked_id] = true;
+    });
+    setBlockedUserIds(map);
+  };
+
+  const isBlockedUser = (targetUserId) => !!targetUserId && !!blockedUserIds[targetUserId];
+
+  const showModerationToast = (message) => {
+    setModerationToast(message);
+    if (moderationToastTimerRef.current) clearTimeout(moderationToastTimerRef.current);
+    moderationToastTimerRef.current = setTimeout(() => setModerationToast(""), 2200);
+  };
+
+  const openModerationMenu = ({ targetType, targetId, targetUserId, targetLabel = "" }) => {
+    if (!targetUserId || targetUserId === user.id) return;
+    setModerationMenu({ targetType, targetId, targetUserId, targetLabel });
+  };
+
+  const openReportFlow = (target) => {
+    setModerationMenu(null);
+    setBlockTarget(null);
+    setReportReason("Spam");
+    setReportDetails("");
+    setReportTarget(target);
+  };
+
+  const openBlockFlow = (target) => {
+    setModerationMenu(null);
+    setReportTarget(null);
+    setBlockTarget(target);
+  };
+
+  const closeModerationFlows = () => {
+    setModerationMenu(null);
+    setReportTarget(null);
+    setBlockTarget(null);
+    setReportReason("Spam");
+    setReportDetails("");
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportTarget?.targetType || !reportTarget?.targetId || !reportTarget?.targetUserId) return;
+
+    const { error } = await supabase.from("reports").insert({
+      reporter_id: user.id,
+      reported_user_id: reportTarget.targetUserId,
+      target_type: reportTarget.targetType,
+      target_id: reportTarget.targetId,
+      reason: reportReason,
+      details: reportDetails.trim() || null,
+      status: "pending",
+    });
+
+    if (error) {
+      alert("Não foi possível enviar a denúncia: " + error.message);
+      return;
+    }
+
+    closeModerationFlows();
+    showModerationToast("Denúncia enviada. Obrigado por ajudar a comunidade.");
+  };
+
+  const handleBlockUser = async () => {
+    const targetUserId = blockTarget?.targetUserId;
+    if (!targetUserId || targetUserId === user.id) return;
+
+    const { error } = await supabase
+      .from("blocked_users")
+      .upsert(
+        { blocker_id: user.id, blocked_id: targetUserId },
+        { onConflict: "blocker_id,blocked_id" }
+      );
+
+    if (error) {
+      alert("Não foi possível bloquear este usuário: " + error.message);
+      return;
+    }
+
+    await Promise.all([
+      supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", targetUserId),
+      supabase.from("follows").delete().eq("follower_id", targetUserId).eq("following_id", user.id),
+    ]);
+
+    setBlockedUserIds((prev) => ({ ...prev, [targetUserId]: true }));
+    setPosts((prev) => prev.filter((post) => post.user_id !== targetUserId));
+    setSuggestions((prev) => prev.filter((suggestion) => suggestion.id !== targetUserId));
+    setSearchResults((prev) => prev.filter((result) => result.id !== targetUserId));
+    setStories((prev) => prev.filter((story) => story.user_id !== targetUserId));
+    setComments((prev) => {
+      const next = {};
+      Object.entries(prev || {}).forEach(([postId, list]) => {
+        next[postId] = (list || []).filter((comment) => comment.user_id !== targetUserId);
+      });
+      return next;
+    });
+
+    if (viewingProfile?.id === targetUserId) setViewingProfile(null);
+
+    closeModerationFlows();
+    await loadRealFollowingList();
+    await loadFollowCounts();
+    await loadSuggestions();
+    showModerationToast("Usuário bloqueado.");
+  };
+
   const handleOnboarding = async () => {
     if (!onboardingForm.terms) return alert("Você precisa aceitar os Termos de Uso e a Política de Privacidade.");
     if (!onboardingForm.name.trim()) return alert("Informe seu nome.");
@@ -1047,6 +1174,7 @@ function AppMain({ user, userName }) {
         loadFollowCounts(),
         loadNotifications(),
         loadRealFollowingList(),
+        loadBlockedUsers(),
         loadEvents(),
         loadStories(),
         loadSuggestions(),
@@ -1449,8 +1577,8 @@ function AppMain({ user, userName }) {
 
   const loadComments = async (postId) => {
     setCommentsLoading((prev) => ({ ...prev, [postId]: true }));
-    const { data } = await supabase.from("comments").select("*, profiles(name, avatar_url, level)").eq("post_id", postId).order("created_at", { ascending: true });
-    setComments(c => ({ ...c, [postId]: data || [] }));
+    const { data } = await supabase.from("comments").select("*, profiles(id, name, avatar_url, level, handle)").eq("post_id", postId).order("created_at", { ascending: true });
+    setComments(c => ({ ...c, [postId]: (data || []).filter((comment) => !isBlockedUser(comment.user_id)) }));
     setCommentsLoading((prev) => ({ ...prev, [postId]: false }));
   };
 
@@ -1477,7 +1605,7 @@ function AppMain({ user, userName }) {
     setSearchQuery(query);
     if (!query.trim()) { setSearchResults([]); return; }
     const { data } = await supabase.from("profiles").select("id, name, handle, level, avatar_url, races_count").or(`name.ilike.%${query}%,handle.ilike.%${query}%`).neq("id", user.id).limit(10);
-    setSearchResults(data || []);
+    setSearchResults((data || []).filter((result) => !isBlockedUser(result.id)));
   };
 
   const handleEditProfile = async () => {
@@ -2639,7 +2767,7 @@ function AppMain({ user, userName }) {
                         );
                       })()}
 
-                      {Object.values(stories.filter(s => s.user_id !== user.id).reduce((acc, s) => {
+                      {Object.values(stories.filter(s => s.user_id !== user.id && !isBlockedUser(s.user_id)).reduce((acc, s) => {
                         if (!acc[s.user_id]) acc[s.user_id] = s;
                         return acc;
                       }, {})).slice(0, 8).map((s, i) => {
@@ -2679,7 +2807,7 @@ function AppMain({ user, userName }) {
                         <button style={{ background: "none", border: "none", color: "#e11d48", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver todos</button>
                       </div>
                       <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-                        {suggestions.slice(0, 6).map((u) => (
+                        {suggestions.filter((u) => !isBlockedUser(u.id)).slice(0, 6).map((u) => (
                           <div key={u.id} style={{ width: 112, flexShrink: 0, background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18, padding: "14px 10px", display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer" }} onClick={() => openProfile(u.id)}>
                             <div style={{ width: 54, height: 54, borderRadius: "50%", border: `2px solid ${getLevelColor(u.level)}`, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1e1e2e", color: "#fff", fontWeight: 900, marginBottom: 8 }}>
                               {u.avatar_url ? <img src={u.avatar_url} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : u.name?.charAt(0) || "?"}
@@ -2711,7 +2839,7 @@ function AppMain({ user, userName }) {
                       <PostSkeleton withImage={false} />
                     </>
                   ) : (() => {
-                    const visiblePosts = commFeed === "amigos" ? posts.filter(p => p.user_id === user.id || realFollowing[p.user_id]) : posts;
+                    const visiblePosts = (commFeed === "amigos" ? posts.filter(p => p.user_id === user.id || realFollowing[p.user_id]) : posts).filter((post) => !isBlockedUser(post.user_id));
                     if (visiblePosts.length === 0) {
                       return (
                         <EmptyState
@@ -2733,7 +2861,20 @@ function AppMain({ user, userName }) {
                               {p.profiles?.handle ? `@${p.profiles.handle}` : "@corredor"} · <span style={{ color: getLevelColor(p.profiles?.level), fontWeight: 800 }}>{getLevelIcon(p.profiles?.level)} {p.profiles?.level || "Iniciante"}</span>{p.created_at ? ` · ${timeAgo(p.created_at)}` : ""}
                             </p>
                           </div>
-                          <button style={{ background: "none", border: "none", color: "#555", fontSize: 18, cursor: "pointer" }}>•••</button>
+                          {p.user_id !== user.id && (
+                            <button
+                              onClick={() => openModerationMenu({
+                                targetType: "post",
+                                targetId: p.id,
+                                targetUserId: p.user_id,
+                                targetLabel: p.profiles?.handle ? `@${p.profiles.handle}` : p.profiles?.name || "usuário",
+                              })}
+                              style={{ background: "none", border: "none", color: "#555", fontSize: 18, cursor: "pointer" }}
+                              title="Opções"
+                            >
+                              •••
+                            </button>
+                          )}
                         </div>
 
                         {p.text && <p style={{ fontSize: 14, color: "#f0f0f0", lineHeight: 1.55, marginBottom: 13 }}>{p.text}</p>}
@@ -2780,8 +2921,22 @@ function AppMain({ user, userName }) {
                                 (comments[p.id] || []).map((comment) => (
                                   <div key={comment.id} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
                                     {getAvatar(comment.profiles, 28)}
-                                    <div style={{ flex: 1, background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "9px 11px" }}>
-                                      <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3 }}>{comment.profiles?.name || "Corredor"}</p>
+                                    <div style={{ flex: 1, background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "9px 11px", position: "relative" }}>
+                                      {comment.user_id !== user.id && (
+                                        <button
+                                          onClick={() => openModerationMenu({
+                                            targetType: "comment",
+                                            targetId: comment.id,
+                                            targetUserId: comment.user_id,
+                                            targetLabel: comment.profiles?.handle ? `@${comment.profiles.handle}` : comment.profiles?.name || "usuário",
+                                          })}
+                                          title="Opções"
+                                          style={{ position: "absolute", top: 6, right: 7, background: "none", border: "none", color: "#666", fontSize: 15, cursor: "pointer", padding: 2 }}
+                                        >
+                                          •••
+                                        </button>
+                                      )}
+                                      <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3, paddingRight: comment.user_id !== user.id ? 28 : 0 }}>{comment.profiles?.name || "Corredor"}</p>
                                       <p style={{ fontSize: 13, color: "#d7d7df", lineHeight: 1.4 }}>{comment.text}</p>
                                     </div>
                                   </div>
@@ -4075,8 +4230,22 @@ function AppMain({ user, userName }) {
                             {(comments[p.id] || []).map((comment) => (
                               <div key={comment.id} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
                                 {getAvatar(comment.profiles, 28)}
-                                <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "8px 10px", flex: 1 }}>
-                                  <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3 }}>{comment.profiles?.name || "Corredor"}</p>
+                                <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "8px 10px", flex: 1, position: "relative" }}>
+                                  {comment.user_id !== user.id && (
+                                    <button
+                                      onClick={() => openModerationMenu({
+                                        targetType: "comment",
+                                        targetId: comment.id,
+                                        targetUserId: comment.user_id,
+                                        targetLabel: comment.profiles?.handle ? `@${comment.profiles.handle}` : comment.profiles?.name || "usuário",
+                                      })}
+                                      title="Opções"
+                                      style={{ position: "absolute", top: 6, right: 7, background: "none", border: "none", color: "#666", fontSize: 15, cursor: "pointer", padding: 2 }}
+                                    >
+                                      •••
+                                    </button>
+                                  )}
+                                  <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3, paddingRight: comment.user_id !== user.id ? 28 : 0 }}>{comment.profiles?.name || "Corredor"}</p>
                                   <p style={{ fontSize: 13, color: "#d7d7df", lineHeight: 1.4 }}>{comment.text}</p>
                                 </div>
                               </div>
@@ -4175,7 +4344,19 @@ function AppMain({ user, userName }) {
               <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                   <button onClick={() => setViewingProfile(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
-                  <p style={{ fontWeight: 700, fontSize: 16 }}>{viewingProfile.name}</p>
+                  <p style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{viewingProfile.name}</p>
+                  <button
+                    onClick={() => openModerationMenu({
+                      targetType: "user",
+                      targetId: viewingProfile.id,
+                      targetUserId: viewingProfile.id,
+                      targetLabel: viewingProfile.handle ? `@${viewingProfile.handle}` : viewingProfile.name || "usuário",
+                    })}
+                    style={{ background: "none", border: "1px solid #1e1e2e", color: "#888", width: 36, height: 36, borderRadius: 12, fontSize: 18, cursor: "pointer" }}
+                    title="Opções"
+                  >
+                    •••
+                  </button>
                 </div>
               </div>
               <div style={{ padding: "0 20px 100px" }}>
@@ -4365,8 +4546,22 @@ function AppMain({ user, userName }) {
                       {(comments[modalPost.id] || []).length > 0 ? (comments[modalPost.id] || []).map((comment) => (
                         <div key={comment.id} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
                           {getAvatar(comment.profiles, 28)}
-                          <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "8px 10px", flex: 1 }}>
-                            <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3 }}>{comment.profiles?.name || "Corredor"}</p>
+                          <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "8px 10px", flex: 1, position: "relative" }}>
+                            {comment.user_id !== user.id && (
+                              <button
+                                onClick={() => openModerationMenu({
+                                  targetType: "comment",
+                                  targetId: comment.id,
+                                  targetUserId: comment.user_id,
+                                  targetLabel: comment.profiles?.handle ? `@${comment.profiles.handle}` : comment.profiles?.name || "usuário",
+                                })}
+                                title="Opções"
+                                style={{ position: "absolute", top: 6, right: 7, background: "none", border: "none", color: "#666", fontSize: 15, cursor: "pointer", padding: 2 }}
+                              >
+                                •••
+                              </button>
+                            )}
+                            <p style={{ fontSize: 12, fontWeight: 900, color: "#fff", marginBottom: 3, paddingRight: comment.user_id !== user.id ? 28 : 0 }}>{comment.profiles?.name || "Corredor"}</p>
                             <p style={{ fontSize: 13, color: "#d7d7df", lineHeight: 1.4 }}>{comment.text}</p>
                           </div>
                         </div>
@@ -4443,6 +4638,154 @@ function AppMain({ user, userName }) {
                 {uploadingStory ? "Publicando..." : "Publicar story"}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Modais de segurança: denunciar e bloquear */}
+        {moderationMenu && (
+          <div
+            onClick={closeModerationFlows}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.86)", zIndex: 470, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 14 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: "100%", maxWidth: 390, background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02)), #13131a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "28px 28px 20px 20px", overflow: "hidden", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
+            >
+              <div style={{ padding: "18px 18px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div>
+                  <p style={{ fontSize: 16, fontWeight: 900 }}>
+                    {moderationMenu.targetType === "post" && "Opções da publicação"}
+                    {moderationMenu.targetType === "comment" && "Opções do comentário"}
+                    {moderationMenu.targetType === "user" && "Opções do perfil"}
+                  </p>
+                  {moderationMenu.targetLabel && <p style={{ fontSize: 12, color: "#777", marginTop: 4 }}>{moderationMenu.targetLabel}</p>}
+                </div>
+                <button onClick={closeModerationFlows} style={{ width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)", color: "#e11d48", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+
+              <button
+                onClick={() => openReportFlow(moderationMenu)}
+                style={{ width: "100%", minHeight: 64, padding: "0 20px", border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ff5577", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+              >
+                ⚑
+                {moderationMenu.targetType === "post" && "Denunciar publicação"}
+                {moderationMenu.targetType === "comment" && "Denunciar comentário"}
+                {moderationMenu.targetType === "user" && "Denunciar usuário"}
+              </button>
+
+              <button
+                onClick={() => openBlockFlow(moderationMenu)}
+                style={{ width: "100%", minHeight: 64, padding: "0 20px", border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ff5577", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+              >
+                ⛔ Bloquear usuário
+              </button>
+
+              <button
+                onClick={closeModerationFlows}
+                style={{ width: "100%", minHeight: 62, padding: "0 20px", border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ddd", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {reportTarget && (
+          <div
+            onClick={closeModerationFlows}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 480, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 14 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: "100%", maxWidth: 390, maxHeight: "88vh", overflowY: "auto", background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02)), #13131a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "28px 28px 20px 20px", padding: "20px 18px 22px", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+                <div>
+                  <p style={{ fontSize: 18, fontWeight: 900 }}>
+                    {reportTarget.targetType === "post" && "Denunciar publicação"}
+                    {reportTarget.targetType === "comment" && "Denunciar comentário"}
+                    {reportTarget.targetType === "user" && "Denunciar usuário"}
+                  </p>
+                  <p style={{ color: "#888", fontSize: 12.5, lineHeight: 1.5, marginTop: 6 }}>
+                    Sua denúncia ajuda a manter a comunidade segura para todos.
+                  </p>
+                </div>
+                <button onClick={closeModerationFlows} style={{ width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)", color: "#e11d48", fontSize: 20, cursor: "pointer", flexShrink: 0 }}>✕</button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {["Spam", "Conteúdo ofensivo", "Assédio ou bullying", "Informação enganosa", "Outro"].map((reason) => (
+                  <label
+                    key={reason}
+                    style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 52, borderRadius: 16, border: reportReason === reason ? "1px solid rgba(225,29,72,0.52)" : "1px solid #242435", background: reportReason === reason ? "rgba(225,29,72,0.12)" : "rgba(255,255,255,0.025)", padding: "0 14px", cursor: "pointer", color: "#f3f3f7", fontSize: 13.5, fontWeight: 800 }}
+                  >
+                    <input type="radio" checked={reportReason === reason} onChange={() => setReportReason(reason)} style={{ accentColor: "#e11d48", width: 16, height: 16 }} />
+                    {reason}
+                  </label>
+                ))}
+              </div>
+
+              <textarea
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                placeholder="Detalhes opcionais..."
+                style={{ width: "100%", height: 92, resize: "none", marginTop: 12, background: "rgba(255,255,255,0.025)", border: "1px solid #242435", borderRadius: 16, padding: 14, color: "#fff", outline: "none", fontSize: 13, fontFamily: "inherit" }}
+              />
+
+              <button
+                onClick={handleSubmitReport}
+                style={{ width: "100%", marginTop: 14, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", border: "none", borderRadius: 18, padding: "16px 0", fontSize: 14.5, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 14px 32px rgba(225,29,72,0.24)" }}
+              >
+                Enviar denúncia
+              </button>
+            </div>
+          </div>
+        )}
+
+        {blockTarget && (
+          <div
+            onClick={closeModerationFlows}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 490, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 14 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: "100%", maxWidth: 390, background: "linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02)), #13131a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "28px 28px 20px 20px", padding: "20px 18px 22px", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 18, fontWeight: 900 }}>Bloquear {blockTarget.targetLabel || "usuário"}?</p>
+                  <p style={{ color: "#888", fontSize: 12.5, lineHeight: 1.5, marginTop: 6 }}>
+                    Esta ação ajuda você a controlar sua experiência no eucorredor.
+                  </p>
+                </div>
+                <button onClick={closeModerationFlows} style={{ width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)", color: "#e11d48", fontSize: 20, cursor: "pointer", flexShrink: 0 }}>✕</button>
+              </div>
+
+              <div style={{ marginTop: 16, padding: 16, borderRadius: 18, background: "rgba(225,29,72,0.10)", border: "1px solid rgba(225,29,72,0.22)", color: "#f7d9e1", fontSize: 13, lineHeight: 1.55 }}>
+                Você deixará de ver posts e comentários desse usuário. Ele também deixará de aparecer nas suas sugestões.
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <button
+                  onClick={closeModerationFlows}
+                  style={{ flex: 1, background: "rgba(255,255,255,0.035)", color: "#fff", border: "1px solid #242435", borderRadius: 18, padding: "15px 0", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleBlockUser}
+                  style={{ flex: 1, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", border: "none", borderRadius: 18, padding: "15px 0", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Bloquear
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {moderationToast && (
+          <div style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: 112, zIndex: 520, width: "calc(100% - 32px)", maxWidth: 356, background: "#171722", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, padding: "13px 16px", boxShadow: "0 18px 50px rgba(0,0,0,0.54)", textAlign: "center", color: "#fff", fontSize: 13, fontWeight: 900 }}>
+            {moderationToast}
           </div>
         )}
 
