@@ -2863,13 +2863,17 @@ function AppMain({ user, userName }) {
                           </div>
                           {p.user_id !== user.id && (
                             <button
-                              onClick={() => openModerationMenu({
-                                targetType: "post",
-                                targetId: p.id,
-                                targetUserId: p.user_id,
-                                targetLabel: p.profiles?.handle ? `@${p.profiles.handle}` : p.profiles?.name || "usuário",
-                              })}
-                              style={{ background: "none", border: "none", color: "#555", fontSize: 18, cursor: "pointer" }}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openModerationMenu({
+                                  targetType: "post",
+                                  targetId: p.id,
+                                  targetUserId: p.user_id,
+                                  targetLabel: p.profiles?.handle ? `@${p.profiles.handle}` : p.profiles?.name || "usuário",
+                                });
+                              }}
+                              style={{ width: 36, height: 36, borderRadius: 12, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", color: "#888", fontSize: 18, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                               title="Opções"
                             >
                               •••
@@ -2924,12 +2928,15 @@ function AppMain({ user, userName }) {
                                     <div style={{ flex: 1, background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "9px 11px", position: "relative" }}>
                                       {comment.user_id !== user.id && (
                                         <button
-                                          onClick={() => openModerationMenu({
-                                            targetType: "comment",
-                                            targetId: comment.id,
-                                            targetUserId: comment.user_id,
-                                            targetLabel: comment.profiles?.handle ? `@${comment.profiles.handle}` : comment.profiles?.name || "usuário",
-                                          })}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openModerationMenu({
+                                              targetType: "comment",
+                                              targetId: comment.id,
+                                              targetUserId: comment.user_id,
+                                              targetLabel: comment.profiles?.handle ? `@${comment.profiles.handle}` : comment.profiles?.name || "usuário",
+                                            });
+                                          }}
                                           title="Opções"
                                           style={{ position: "absolute", top: 6, right: 7, background: "none", border: "none", color: "#666", fontSize: 15, cursor: "pointer", padding: 2 }}
                                         >
@@ -4212,7 +4219,20 @@ function AppMain({ user, userName }) {
                           <p style={{ fontSize: 14, fontWeight: 900 }}>{profile?.name || userName}</p>
                           <p style={{ fontSize: 12, color: "#777" }}>@{profile?.handle || "corredor"} · {timeAgo(p.created_at)}</p>
                         </div>
-                        <button onClick={() => handleDeletePost(p.id)} style={{ background: "none", border: "none", color: "#777", cursor: "pointer", fontSize: 18 }}>•••</button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setModerationMenu({
+                              targetType: "ownPost",
+                              targetId: p.id,
+                              targetUserId: user.id,
+                              targetLabel: "Sua publicação",
+                            });
+                          }}
+                          style={{ width: 36, height: 36, borderRadius: 12, background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", color: "#888", cursor: "pointer", fontSize: 18, fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          title="Opções"
+                        >•••</button>
                       </div>
                       {p.text && <p style={{ fontSize: 15, color: "#f0f0f0", lineHeight: 1.55, marginBottom: p.photo_url ? 12 : 0 }}>{p.text}</p>}
                       {p.photo_url && <div style={{ width: "100%", aspectRatio: "4/3", borderRadius: 16, marginTop: 12, overflow: "hidden" }}><img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
@@ -4346,13 +4366,17 @@ function AppMain({ user, userName }) {
                   <button onClick={() => setViewingProfile(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
                   <p style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{viewingProfile.name}</p>
                   <button
-                    onClick={() => openModerationMenu({
-                      targetType: "user",
-                      targetId: viewingProfile.id,
-                      targetUserId: viewingProfile.id,
-                      targetLabel: viewingProfile.handle ? `@${viewingProfile.handle}` : viewingProfile.name || "usuário",
-                    })}
-                    style={{ background: "none", border: "1px solid #1e1e2e", color: "#888", width: 36, height: 36, borderRadius: 12, fontSize: 18, cursor: "pointer" }}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openModerationMenu({
+                        targetType: "user",
+                        targetId: viewingProfile.id,
+                        targetUserId: viewingProfile.id,
+                        targetLabel: viewingProfile.handle ? `@${viewingProfile.handle}` : viewingProfile.name || "usuário",
+                      });
+                    }}
+                    style={{ background: "rgba(255,255,255,0.035)", border: "1px solid #1e1e2e", color: "#888", width: 36, height: 36, borderRadius: 12, fontSize: 18, cursor: "pointer", fontFamily: "inherit" }}
                     title="Opções"
                   >
                     •••
@@ -4549,12 +4573,15 @@ function AppMain({ user, userName }) {
                           <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "8px 10px", flex: 1, position: "relative" }}>
                             {comment.user_id !== user.id && (
                               <button
-                                onClick={() => openModerationMenu({
-                                  targetType: "comment",
-                                  targetId: comment.id,
-                                  targetUserId: comment.user_id,
-                                  targetLabel: comment.profiles?.handle ? `@${comment.profiles.handle}` : comment.profiles?.name || "usuário",
-                                })}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openModerationMenu({
+                                    targetType: "comment",
+                                    targetId: comment.id,
+                                    targetUserId: comment.user_id,
+                                    targetLabel: comment.profiles?.handle ? `@${comment.profiles.handle}` : comment.profiles?.name || "usuário",
+                                  });
+                                }}
                                 title="Opções"
                                 style={{ position: "absolute", top: 6, right: 7, background: "none", border: "none", color: "#666", fontSize: 15, cursor: "pointer", padding: 2 }}
                               >
@@ -4657,28 +4684,43 @@ function AppMain({ user, userName }) {
                     {moderationMenu.targetType === "post" && "Opções da publicação"}
                     {moderationMenu.targetType === "comment" && "Opções do comentário"}
                     {moderationMenu.targetType === "user" && "Opções do perfil"}
+                    {moderationMenu.targetType === "ownPost" && "Opções da sua publicação"}
                   </p>
                   {moderationMenu.targetLabel && <p style={{ fontSize: 12, color: "#777", marginTop: 4 }}>{moderationMenu.targetLabel}</p>}
                 </div>
                 <button onClick={closeModerationFlows} style={{ width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)", color: "#e11d48", fontSize: 20, cursor: "pointer" }}>✕</button>
               </div>
 
-              <button
-                onClick={() => openReportFlow(moderationMenu)}
-                style={{ width: "100%", minHeight: 64, padding: "0 20px", border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ff5577", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
-              >
-                ⚑
-                {moderationMenu.targetType === "post" && "Denunciar publicação"}
-                {moderationMenu.targetType === "comment" && "Denunciar comentário"}
-                {moderationMenu.targetType === "user" && "Denunciar usuário"}
-              </button>
+              {moderationMenu.targetType === "ownPost" ? (
+                <button
+                  onClick={async () => {
+                    await handleDeletePost(moderationMenu.targetId);
+                    closeModerationFlows();
+                  }}
+                  style={{ width: "100%", minHeight: 64, padding: "0 20px", border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ff5577", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+                >
+                  🗑️ Excluir publicação
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => openReportFlow(moderationMenu)}
+                    style={{ width: "100%", minHeight: 64, padding: "0 20px", border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ff5577", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+                  >
+                    ⚑
+                    {moderationMenu.targetType === "post" && "Denunciar publicação"}
+                    {moderationMenu.targetType === "comment" && "Denunciar comentário"}
+                    {moderationMenu.targetType === "user" && "Denunciar usuário"}
+                  </button>
 
-              <button
-                onClick={() => openBlockFlow(moderationMenu)}
-                style={{ width: "100%", minHeight: 64, padding: "0 20px", border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ff5577", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
-              >
-                ⛔ Bloquear usuário
-              </button>
+                  <button
+                    onClick={() => openBlockFlow(moderationMenu)}
+                    style={{ width: "100%", minHeight: 64, padding: "0 20px", border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "#ff5577", display: "flex", alignItems: "center", gap: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+                  >
+                    ⛔ Bloquear usuário
+                  </button>
+                </>
+              )}
 
               <button
                 onClick={closeModerationFlows}
