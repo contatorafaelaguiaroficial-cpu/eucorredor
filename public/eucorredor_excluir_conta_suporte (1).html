@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Excluir conta | eucorredor</title>
+  <meta name="description" content="Saiba como excluir sua conta do eucorredor e solicitar a remoção dos dados associados." />
+  <meta name="robots" content="index, follow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050509; --card: rgba(255,255,255,.05); --line: rgba(255,255,255,.10);
+      --line-strong: rgba(255,255,255,.17); --text: #f7f7fb; --muted: #b0b0bc;
+      --muted-2: #828291; --red: #ee1b51; --red-2: #ff4169;
+      --red-soft: rgba(238,27,81,.12); --green-soft: rgba(82,224,169,.12);
+      --shadow: 0 28px 100px rgba(0,0,0,.52);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 68% -10%, rgba(238,27,81,.26), transparent 34%),
+                  radial-gradient(circle at 12% 20%, rgba(238,27,81,.09), transparent 26%),
+                  linear-gradient(180deg, #050509 0%, #090910 55%, #050509 100%);
+      color: var(--text); font-family: Inter, sans-serif; line-height: 1.5;
+    }
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(1120px, calc(100% - 36px)); margin: 0 auto; }
+    .nav { position: sticky; top: 0; z-index: 10; height: 80px; display:flex; align-items:center; border-bottom:1px solid var(--line); background:rgba(5,5,9,.84); backdrop-filter:blur(22px); }
+    .nav-inner { display:flex; align-items:center; justify-content:space-between; gap:20px; }
+    .brand { display:inline-flex; align-items:center; gap:12px; font-weight:900; font-size:22px; letter-spacing:-.05em; }
+    .brand-mark { width:36px; height:36px; border-radius:50%; background:var(--red); position:relative; box-shadow:0 0 35px rgba(238,27,81,.44); }
+    .brand-mark::before,.brand-mark::after { content:""; position:absolute; left:6px; width:24px; height:8px; border-radius:999px; background:#0a0a11; transform:rotate(-18deg); }
+    .brand-mark::before { top:11px; } .brand-mark::after { bottom:10px; }
+    .brand span span { color:var(--red); }
+    .nav-link,.btn { min-height:44px; padding:0 18px; border:1px solid var(--line-strong); border-radius:999px; color:#fff; background:rgba(255,255,255,.035); display:inline-flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; transition:transform .18s ease,background .18s ease; }
+    .nav-link:hover,.btn:hover { transform:translateY(-1px); background:rgba(255,255,255,.07); }
+    .hero { padding:76px 0 40px; }
+    .hero-grid,.two-col { display:grid; gap:48px; align-items:start; grid-template-columns:1.04fr .96fr; }
+    .eyebrow { width:fit-content; display:inline-flex; align-items:center; gap:9px; min-height:36px; padding:0 14px; border-radius:999px; border:1px solid rgba(238,27,81,.34); background:rgba(238,27,81,.09); color:#ff6c8d; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; margin-bottom:20px; }
+    .eyebrow-dot { width:8px; height:8px; border-radius:50%; background:var(--red); box-shadow:0 0 18px rgba(238,27,81,.85); }
+    h1 { font-family:"Barlow Condensed", sans-serif; font-size:clamp(60px,8vw,104px); font-weight:900; text-transform:uppercase; line-height:.88; max-width:740px; letter-spacing:-.045em; }
+    h1 span,.kicker { color:var(--red); }
+    .hero p,.card p { margin-top:24px; max-width:650px; color:var(--muted); font-size:18px; line-height:1.7; }
+    .hero-actions { margin-top:32px; display:flex; gap:12px; flex-wrap:wrap; }
+    .btn { min-height:54px; padding:0 24px; gap:10px; font-size:15px; font-weight:900; border:1px solid transparent; }
+    .btn-primary { background:linear-gradient(135deg,var(--red),var(--red-2)); box-shadow:0 18px 44px rgba(238,27,81,.26); }
+    .btn-secondary { border-color:var(--line-strong); }
+    .hero-card,.card { border-radius:28px; border:1px solid var(--line); background:radial-gradient(circle at 75% 10%, rgba(238,27,81,.22), transparent 32%), linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.024)); box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.06); padding:28px; }
+    .hero-card .label,.kicker { color:#ff6c8d; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; margin-bottom:12px; }
+    .hero-card h2,.card h2 { font-size:clamp(28px,3vw,40px); line-height:1.06; margin-bottom:14px; letter-spacing:-.045em; }
+    .hero-card p,.card p { font-size:15px; margin-top:0; }
+    .data-list,.steps,.form,.faq { display:grid; gap:14px; margin-top:22px; }
+    .data-item,.step,.faq details { border-radius:18px; border:1px solid var(--line); background:rgba(255,255,255,.035); padding:14px; }
+    .data-item { display:flex; gap:12px; align-items:flex-start; }
+    .data-icon,.step-number { width:42px; height:42px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center; background:linear-gradient(135deg,var(--red),var(--red-2)); color:#fff; font-weight:900; font-size:15px; }
+    .data-icon { width:34px; height:34px; border-radius:12px; background:var(--red-soft); color:#ff6c8d; }
+    .data-item strong,.step strong { display:block; font-size:15px; margin-bottom:5px; }
+    .data-item span,.step span { color:var(--muted-2); font-size:14px; line-height:1.6; }
+    .content { padding:48px 0 88px; }
+    .two-col { grid-template-columns:.92fr 1.08fr; gap:24px; }
+    .card + .card { margin-top:18px; }
+    .step { display:grid; grid-template-columns:42px 1fr; gap:14px; align-items:start; padding:16px; border-radius:20px; }
+    .request-card { position:sticky; top:104px; }
+    .notice { margin-top:18px; padding:16px; border-radius:18px; border:1px solid rgba(238,27,81,.25); background:rgba(238,27,81,.10); color:#ffe0e8; font-size:14px; line-height:1.6; }
+    label { display:grid; gap:7px; color:#f2f2f7; font-size:13px; font-weight:800; }
+    input,textarea { width:100%; border:1px solid var(--line-strong); border-radius:16px; background:rgba(255,255,255,.035); color:#fff; font:inherit; font-size:15px; outline:none; padding:15px 16px; }
+    textarea { min-height:120px; resize:vertical; }
+    .checkbox-row { display:flex; align-items:flex-start; gap:10px; color:var(--muted); font-size:13px; line-height:1.5; font-weight:600; }
+    .checkbox-row input { width:18px; height:18px; padding:0; accent-color:var(--red); margin-top:1px; flex:0 0 auto; }
+    .form-actions { display:grid; gap:12px; margin-top:6px; }
+    .email-fallback { color:var(--muted); font-size:13px; line-height:1.6; text-align:center; }
+    .email-fallback code { color:#fff; background:rgba(255,255,255,.06); border-radius:8px; padding:3px 7px; font-size:12px; }
+    .success-box { display:none; margin-top:18px; border-radius:20px; border:1px solid rgba(82,224,169,.32); background:var(--green-soft); padding:18px; color:#ddfff2; line-height:1.6; font-size:14px; }
+    .success-box.show { display:block; }
+    .faq summary { cursor:pointer; font-weight:900; font-size:15px; list-style:none; }
+    .faq summary::-webkit-details-marker { display:none; }
+    .faq p { margin-top:12px; color:var(--muted); font-size:14px; line-height:1.65; }
+    footer { border-top:1px solid var(--line); padding:28px 0 40px; color:var(--muted-2); font-size:13px; }
+    .footer-inner,.footer-links { display:flex; gap:16px; flex-wrap:wrap; justify-content:space-between; }
+    @media(max-width:920px){ .hero-grid,.two-col{grid-template-columns:1fr;} .request-card{position:static;} }
+    @media(max-width:640px){ .container{width:min(100% - 28px,1120px);} .nav{height:72px;} .brand{font-size:19px;} .hero{padding-top:52px;} .hero p{font-size:16px;} .hero-card,.card{padding:22px;border-radius:24px;} .hero-actions,.btn{width:100%;} }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav-inner">
+      <a href="https://eucorredor.com.br" class="brand" aria-label="eucorredor">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>eu<span>corredor</span></span>
+      </a>
+      <a class="nav-link" href="https://eucorredor.com.br">Voltar ao app</a>
+    </div>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-dot"></span> Exclusão de conta</div>
+          <h1>Controle seus <span>dados</span>.</h1>
+          <p>O eucorredor permite que você exclua sua conta diretamente no app. Caso não consiga acessar sua conta, esta página permite solicitar a exclusão da conta e dos dados associados.</p>
+          <div class="hero-actions">
+            <a href="#solicitar" class="btn btn-primary">Solicitar exclusão</a>
+            <a href="#como-excluir" class="btn btn-secondary">Ver como excluir no app</a>
+          </div>
+        </div>
+        <aside class="hero-card">
+          <div class="label">O que é removido</div>
+          <h2>Conta e dados associados.</h2>
+          <p>Ao excluir sua conta, removemos os dados vinculados ao perfil no eucorredor, conforme aplicável.</p>
+          <div class="data-list">
+            <div class="data-item"><div class="data-icon">1</div><div><strong>Perfil e autenticação</strong><span>Conta, nome, @usuário e acesso ao app.</span></div></div>
+            <div class="data-item"><div class="data-icon">2</div><div><strong>Conteúdos publicados</strong><span>Posts, fotos, comentários, stories e interações.</span></div></div>
+            <div class="data-item"><div class="data-icon">3</div><div><strong>Atividades e comunidade</strong><span>Treinos, percursos, clubes, avisos e vínculos sociais.</span></div></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+    <section class="content">
+      <div class="container two-col">
+        <div>
+          <article class="card" id="como-excluir">
+            <div class="kicker">Exclusão pelo app</div>
+            <h2>Você pode excluir sua conta em poucos passos.</h2>
+            <p>Este é o caminho mais rápido para remover sua conta diretamente no eucorredor.</p>
+            <div class="steps">
+              <div class="step"><div class="step-number">1</div><div><strong>Abra o seu Perfil</strong><span>Entre no eucorredor e acesse a aba Perfil.</span></div></div>
+              <div class="step"><div class="step-number">2</div><div><strong>Vá em Configurações</strong><span>Toque na engrenagem disponível no topo do seu perfil.</span></div></div>
+              <div class="step"><div class="step-number">3</div><div><strong>Escolha “Excluir minha conta”</strong><span>Leia a confirmação, digite EXCLUIR e finalize o processo.</span></div></div>
+            </div>
+          </article>
+          <article class="card">
+            <div class="kicker">Informações importantes</div>
+            <h2>O que acontece após a solicitação?</h2>
+            <p>Pedidos enviados por esta página serão analisados para confirmar a identidade da pessoa solicitante e executar a exclusão da conta e dos dados associados.</p>
+            <div class="notice">A solicitação deve ser enviada usando o mesmo e-mail vinculado à conta do eucorredor. Caso sejam necessárias informações adicionais para confirmar a titularidade, a equipe entrará em contato pelo e-mail informado.</div>
+            <div class="faq">
+              <details><summary>Posso excluir diretamente pelo app?</summary><p>Sim. O caminho dentro do app é Perfil → Configurações → Excluir minha conta.</p></details>
+              <details><summary>Que dados são excluídos?</summary><p>Perfil, publicações, comentários, atividades, stories, vínculos sociais, participações em clubes e demais dados associados à conta, quando aplicável.</p></details>
+              <details><summary>Por que existe esta página?</summary><p>Ela permite que pessoas que não conseguem acessar o app, ou que já o desinstalaram, ainda possam solicitar a exclusão da conta e dos dados associados.</p></details>
+            </div>
+          </article>
+        </div>
+        <aside class="card request-card" id="solicitar">
+          <div class="kicker">Solicitar exclusão</div>
+          <h2>Não consegue acessar o app?</h2>
+          <p>Preencha os dados abaixo para preparar sua solicitação de exclusão por e-mail.</p>
+          <div class="notice">Antes de publicar esta página, substitua o e-mail de suporte no código pelo endereço oficial usado pelo eucorredor.</div>
+          <form class="form" id="deletionForm">
+            <label>Nome completo<input id="name" type="text" placeholder="Seu nome" required /></label>
+            <label>E-mail da conta<input id="email" type="email" placeholder="email@exemplo.com" required /></label>
+            <label>@usuário, se lembrar<input id="handle" type="text" placeholder="@seuusuario" /></label>
+            <label>Detalhes adicionais, se necessário<textarea id="details" placeholder="Explique brevemente o pedido ou informe que deseja excluir sua conta e dados associados."></textarea></label>
+            <label class="checkbox-row"><input id="confirm" type="checkbox" required /><span>Confirmo que desejo solicitar a exclusão da minha conta do eucorredor e dos dados associados.</span></label>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Preparar e-mail de solicitação</button>
+              <p class="email-fallback">E-mail de suporte configurado no arquivo: <code>suporte@eucorredor.com.br</code></p>
+            </div>
+          </form>
+          <div class="success-box" id="successBox">Seu aplicativo de e-mail foi aberto com a solicitação preparada. Revise e envie a mensagem para concluir o pedido.</div>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <div class="container footer-inner">
+      <p>© 2026 eucorredor</p>
+      <div class="footer-links">
+        <a href="https://eucorredor.com.br/termos" target="_blank" rel="noopener noreferrer">Termos de uso</a>
+        <a href="https://eucorredor.com.br/privacidade" target="_blank" rel="noopener noreferrer">Política de privacidade</a>
+        <a href="https://eucorredor.com.br" target="_blank" rel="noopener noreferrer">Acessar o app</a>
+      </div>
+    </div>
+  </footer>
+  <script>
+    const SUPPORT_EMAIL = "suporte@eucorredor.com.br";
+    const form = document.getElementById("deletionForm");
+    const successBox = document.getElementById("successBox");
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const handle = document.getElementById("handle").value.trim();
+      const details = document.getElementById("details").value.trim();
+      const subject = encodeURIComponent("Solicitação de exclusão de conta - eucorredor");
+      const body = encodeURIComponent(
+`Olá, equipe eucorredor,
+
+Solicito a exclusão da minha conta e dos dados associados.
+
+Nome: ${name}
+E-mail vinculado à conta: ${email}
+@usuário: ${handle || "Não informado"}
+
+Detalhes adicionais:
+${details || "Não há."}
+
+Declaro que desejo solicitar a exclusão da minha conta e dos dados associados ao eucorredor.`
+      );
+      window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+      successBox.classList.add("show");
+    });
+  </script>
+</body>
+</html>
