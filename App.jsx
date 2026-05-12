@@ -3260,8 +3260,10 @@ function AppMain({ user, userName }) {
                         {n.type === "comment" ? (
                           <>
                             <span style={{ fontWeight: 700 }}>@{n.from_user?.handle || (n.from_user?.name || "alguem").toLowerCase().replace(/\s+/g, "")}</span>
-                            {" comentou na sua publicação "}
-                            <span style={{ color: "#d7d7df" }}>“{n.comment_text || "novo comentário"}”</span>
+                            {" comentou na sua publicação"}
+                            {n.comment_text && (
+                              <> {" "}<span style={{ color: "#d7d7df" }}>“{n.comment_text}”</span></>
+                            )}
                           </>
                         ) : (
                           <>
