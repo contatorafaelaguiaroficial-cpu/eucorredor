@@ -336,6 +336,12 @@ function AppMain({ user, userName }) {
   const [clubAvatarFile, setClubAvatarFile] = useState(null);
   const [clubAvatarPreview, setClubAvatarPreview] = useState(null);
   const [newClubPost, setNewClubPost] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshMessage, setRefreshMessage] = useState("");
+  const pullStartYRef = useRef(null);
+  const pullDistanceRef = useRef(0);
+  const refreshNoticeTimerRef = useRef(null);
 
   useEffect(() => {
     if (activeStory) {
@@ -354,6 +360,33 @@ function AppMain({ user, userName }) {
   }, [activeStory]);
 
   useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadRankingUsers(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
+
+  useEffect(() => {
+    const liveChannel = supabase
+      .channel(`eucorredor-live-${user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => loadPosts())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "posts" }, () => loadPosts())
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "posts" }, () => loadPosts())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, (payload) => {
+        if (openComments && payload.new?.post_id === openComments) loadComments(openComments);
+        loadNotifications();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => loadNotifications())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => loadNotifications())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities" }, () => { loadActivities(); loadRankingUsers(); })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload) => {
+        loadRankingUsers();
+        if (payload.new?.id === user.id) loadProfile();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "events" }, () => loadEvents())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "events" }, () => loadEvents())
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "events" }, () => loadEvents())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(liveChannel);
+    };
+  }, [user.id, openComments]);
 
   const loadStories = async () => {
     const { data } = await supabase.from("stories")
@@ -692,6 +725,65 @@ function AppMain({ user, userName }) {
   const loadActivities = async () => {
     const { data } = await supabase.from("activities").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false }).limit(20);
     setActivities(data || []);
+  };
+
+  const refreshAllData = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshMessage("");
+
+    try {
+      await Promise.all([
+        loadProfile(),
+        loadPosts(),
+        loadActivities(),
+        loadFollowCounts(),
+        loadNotifications(),
+        loadRealFollowingList(),
+        loadEvents(),
+        loadStories(),
+        loadSuggestions(),
+        loadRankingUsers(),
+        loadMyClubs(),
+        loadAllClubs(),
+        loadClubMembership(),
+      ]);
+
+      if (openComments) await loadComments(openComments);
+      if (activeClub) await openClub(activeClub);
+      setRefreshMessage("Conteúdo atualizado");
+    } catch (err) {
+      console.error("Erro ao atualizar conteúdo:", err);
+      setRefreshMessage("Não foi possível atualizar agora");
+    } finally {
+      setIsRefreshing(false);
+      if (refreshNoticeTimerRef.current) clearTimeout(refreshNoticeTimerRef.current);
+      refreshNoticeTimerRef.current = setTimeout(() => setRefreshMessage(""), 1800);
+    }
+  };
+
+  const handlePullStart = (event) => {
+    if (hubScreen === "tracking" || showNotifications || showAdminEvents || showSearch || activeStory) return;
+    if (window.scrollY > 0) return;
+    pullStartYRef.current = event.touches?.[0]?.clientY ?? null;
+    pullDistanceRef.current = 0;
+  };
+
+  const handlePullMove = (event) => {
+    if (pullStartYRef.current === null || window.scrollY > 0) return;
+    const currentY = event.touches?.[0]?.clientY;
+    if (typeof currentY !== "number") return;
+    const distance = Math.max(0, Math.min(112, currentY - pullStartYRef.current));
+    pullDistanceRef.current = distance;
+    setPullDistance(distance);
+  };
+
+  const handlePullEnd = () => {
+    const shouldRefresh = pullDistanceRef.current >= 72;
+    pullStartYRef.current = null;
+    pullDistanceRef.current = 0;
+    setPullDistance(0);
+    if (shouldRefresh) refreshAllData();
   };
 
   const handlePost = async () => {
@@ -1287,7 +1379,38 @@ function AppMain({ user, userName }) {
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
       `}</style>
 
-      <div style={{ width: "100%", maxWidth: 390, minHeight: "100vh" }}>
+      <div
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+        onTouchCancel={handlePullEnd}
+        style={{ width: "100%", maxWidth: 390, minHeight: "100vh", touchAction: "pan-y" }}
+      >
+        {(pullDistance > 0 || isRefreshing || refreshMessage) && (
+          <div style={{
+            position: "fixed",
+            top: 76,
+            left: "50%",
+            transform: `translateX(-50%) translateY(${Math.min(pullDistance / 3, 24)}px)`,
+            zIndex: 190,
+            background: "rgba(19,19,26,0.96)",
+            border: "1px solid #252536",
+            boxShadow: "0 18px 46px rgba(0,0,0,0.36)",
+            borderRadius: 999,
+            padding: "10px 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            minWidth: 154,
+            justifyContent: "center",
+            pointerEvents: "none",
+          }}>
+            <span style={{ color: "#e11d48", fontSize: 15, display: "inline-block", transform: isRefreshing ? "rotate(360deg)" : "none", transition: "transform 0.8s linear" }}>↻</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#f0f0f0", whiteSpace: "nowrap" }}>
+              {isRefreshing ? "Atualizando..." : refreshMessage || (pullDistance >= 72 ? "Solte para atualizar" : "Puxe para atualizar")}
+            </span>
+          </div>
+        )}
 
         {/* Modal onboarding */}
         {showOnboarding && (
