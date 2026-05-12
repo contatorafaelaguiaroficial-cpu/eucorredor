@@ -349,6 +349,7 @@ function AppMain({ user, userName }) {
     distance: "",
     is_pinned: true,
   });
+  const [onlineUserIds, setOnlineUserIds] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshMessage, setRefreshMessage] = useState("");
@@ -373,6 +374,46 @@ function AppMain({ user, userName }) {
   }, [activeStory]);
 
   useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadEvents(); loadStories(); loadSuggestions(); loadRankingUsers(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const presenceChannel = supabase.channel("eucorredor-online-users", {
+      config: { presence: { key: user.id } },
+    });
+
+    const syncPresenceState = () => {
+      const presenceState = presenceChannel.presenceState() || {};
+      const onlineMap = {};
+
+      Object.entries(presenceState).forEach(([presenceKey, presences]) => {
+        if (Array.isArray(presences) && presences.length > 0) onlineMap[presenceKey] = true;
+        (presences || []).forEach((presence) => {
+          if (presence?.user_id) onlineMap[presence.user_id] = true;
+        });
+      });
+
+      setOnlineUserIds(onlineMap);
+    };
+
+    presenceChannel
+      .on("presence", { event: "sync" }, syncPresenceState)
+      .on("presence", { event: "join" }, syncPresenceState)
+      .on("presence", { event: "leave" }, syncPresenceState)
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await presenceChannel.track({
+            user_id: user.id,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      presenceChannel.untrack();
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     const liveChannel = supabase
@@ -1397,6 +1438,8 @@ function AppMain({ user, userName }) {
     return <div style={{ width: size, height: size, borderRadius: "50%", background: "#1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.3, fontWeight: 700, color: "#fff", border: `2px solid ${getLevelColor(p?.level)}`, flexShrink: 0 }}>{p?.name?.charAt(0) || "?"}</div>;
   };
 
+  const isUserOnline = (profileId) => Boolean(profileId && onlineUserIds[profileId]);
+
   const eventFilters = ["Todos", "3K", "5K", "10K", "21K", "Maratona", "Trail"];
 
   const normalizeEventText = (value = "") => value.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -2268,6 +2311,7 @@ function AppMain({ user, userName }) {
                           <p style={{ fontWeight: 900, fontSize: 18, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{activeClub.name}</p>
                           <p style={{ fontSize: 12, color: "#777", marginTop: 3 }}>
                             {clubMembers.length} {clubMembers.length === 1 ? "membro" : "membros"}
+                            <span style={{ color: "#22c55e", fontWeight: 900 }}> · {clubMembers.filter((member) => isUserOnline(member.profiles?.id)).length} online</span>
                             {activeClub.owner_id === user.id && <span style={{ color: "#e11d48", fontWeight: 900 }}> · você é administrador</span>}
                           </p>
                         </div>
@@ -2401,18 +2445,25 @@ function AppMain({ user, userName }) {
                             </div>
                           )}
 
-                          {clubMembers.map((member) => (
-                            <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 18, padding: 13, marginBottom: 10 }}>
-                              {getAvatar(member.profiles, 42)}
-                              <div style={{ flex: 1 }}>
-                                <p style={{ fontSize: 14, fontWeight: 900 }}>{member.profiles?.name || "Corredor"}</p>
-                                <p style={{ fontSize: 11, color: "#777" }}>@{member.profiles?.handle || "usuario"} · {member.role === "owner" ? "Administrador" : "Membro"}</p>
+                          {clubMembers.map((member) => {
+                            const memberOnline = isUserOnline(member.profiles?.id);
+                            return (
+                              <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025))", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 18, padding: 13, marginBottom: 10 }}>
+                                <div style={{ position: "relative", flexShrink: 0 }}>
+                                  {getAvatar(member.profiles, 42)}
+                                  <span style={{ position: "absolute", right: 0, bottom: 0, width: 12, height: 12, borderRadius: "50%", background: memberOnline ? "#22c55e" : "#555", border: "2px solid #13131a", boxShadow: memberOnline ? "0 0 14px rgba(34,197,94,0.65)" : "none" }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <p style={{ fontSize: 14, fontWeight: 900 }}>{member.profiles?.name || "Corredor"}</p>
+                                  <p style={{ fontSize: 11, color: "#777" }}>@{member.profiles?.handle || "usuario"} · {member.role === "owner" ? "Administrador" : "Membro"}</p>
+                                  <p style={{ fontSize: 11, color: memberOnline ? "#22c55e" : "#666", fontWeight: 900, marginTop: 3 }}>● {memberOnline ? "Online agora" : "Offline"}</p>
+                                </div>
+                                {member.profiles?.id && member.profiles.id !== user.id && (
+                                  <button onClick={() => openProfile(member.profiles.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#ddd", borderRadius: 999, padding: "7px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver</button>
+                                )}
                               </div>
-                              {member.profiles?.id && member.profiles.id !== user.id && (
-                                <button onClick={() => openProfile(member.profiles.id)} style={{ background: "none", border: "1px solid #1e1e2e", color: "#ddd", borderRadius: 999, padding: "7px 10px", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: "inherit" }}>Ver</button>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
