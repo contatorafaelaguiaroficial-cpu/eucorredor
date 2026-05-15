@@ -352,8 +352,34 @@ function AppMain({ user, userName }) {
   const [onboardingForm, setOnboardingForm] = useState({ name: "", handle: "", terms: false });
   const [dbEvents, setDbEvents] = useState([]);
   const [showAdminEvents, setShowAdminEvents] = useState(false);
+  const [adminEventsView, setAdminEventsView] = useState("agenda");
   const [eventFilter, setEventFilter] = useState("Todos");
   const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "", featured: false });
+  const [nativeRaceStep, setNativeRaceStep] = useState("basic");
+  const [nativeRaceForm, setNativeRaceForm] = useState({
+    name: "",
+    slug: "",
+    eventDate: "",
+    city: "",
+    state: "RS",
+    organizerName: "",
+    salesStatus: "open",
+    featured: false,
+    kitDescription: "",
+    kitItemsText: "",
+    hasTshirt: true,
+    tshirtSizesText: "PP, P, M, G, GG",
+    requiresEmergencyContact: true
+  });
+  const [nativeKitImageFile, setNativeKitImageFile] = useState(null);
+  const [nativeKitImagePreview, setNativeKitImagePreview] = useState(null);
+  const [nativeRaceModalities, setNativeRaceModalities] = useState([]);
+  const [nativeModalityDraft, setNativeModalityDraft] = useState({
+    name: "",
+    lotName: "1º lote",
+    price: "",
+    totalSlots: ""
+  });
   const [savingEvent, setSavingEvent] = useState(false);
   const [selectedRaceEvent, setSelectedRaceEvent] = useState(null);
   const [raceEventDetails, setRaceEventDetails] = useState(null);
@@ -4091,8 +4117,41 @@ function AppMain({ user, userName }) {
                       <p style={{ fontWeight: 700, fontSize: 16 }}>Gerenciar eventos</p>
                       <button onClick={() => setShowAdminEvents(false)} style={{ background: "none", border: "none", color: "#555", fontSize: 22, cursor: "pointer" }}>✕</button>
                     </div>
-                    <p style={{ fontSize: 12, color: "#555", marginBottom: 14, fontWeight: 700 }}>Adicionar novo evento</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+                      {[
+                        { id: "agenda", label: "Agenda" },
+                        { id: "native", label: "Inscrição nativa" }
+                      ].map((view) => (
+                        <button
+                          key={view.id}
+                          type="button"
+                          onClick={() => setAdminEventsView(view.id)}
+                          style={{
+                            flex: 1,
+                            border: adminEventsView === view.id
+                              ? "1px solid rgba(255,61,99,0.72)"
+                              : "1px solid #1e1e2e",
+                            background: adminEventsView === view.id
+                              ? "linear-gradient(135deg, rgba(225,29,72,0.20), rgba(255,61,99,0.08))"
+                              : "rgba(255,255,255,0.03)",
+                            color: adminEventsView === view.id ? "#fff" : "#777",
+                            borderRadius: 14,
+                            padding: "12px 10px",
+                            fontSize: 12.5,
+                            fontWeight: 900,
+                            cursor: "pointer",
+                            fontFamily: "inherit"
+                          }}
+                        >
+                          {view.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {adminEventsView === "agenda" ? (
+                      <>
+                        <p style={{ fontSize: 12, color: "#555", marginBottom: 14, fontWeight: 700 }}>Adicionar novo evento</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                       <input className="tinput" placeholder="Nome do evento" value={eventForm.name} onChange={(e) => setEventForm(f => ({ ...f, name: e.target.value }))} />
                       <div style={{ display: "flex", gap: 8 }}>
                         <input className="tinput" placeholder="Data (ex: 15 Jun)" value={eventForm.date} onChange={(e) => setEventForm(f => ({ ...f, date: e.target.value }))} />
@@ -4127,10 +4186,826 @@ function AppMain({ user, userName }) {
                         {eventForm.featured ? "★ Este evento será destaque" : "☆ Marcar como evento destaque"}
                       </button>
                     </div>
-                    <button onClick={handleSaveEvent} disabled={savingEvent} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}>
-                      {savingEvent ? "Salvando..." : "Adicionar evento"}
-                    </button>
-                    {dbEvents.length > 0 && (
+                        <button onClick={handleSaveEvent} disabled={savingEvent} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}>
+                          {savingEvent ? "Salvando..." : "Adicionar evento"}
+                        </button>
+                      </>
+                    ) : nativeRaceStep === "basic" ? (
+                        <div style={{ marginBottom: 20 }}>
+                          <div
+                          style={{
+                            background: "linear-gradient(135deg, rgba(124,58,237,0.15), rgba(255,255,255,0.035))",
+                            border: "1px solid rgba(168,85,247,0.25)",
+                            borderRadius: 20,
+                            padding: 16,
+                            marginBottom: 16
+                          }}
+                        >
+                          <p style={{ fontSize: 12, color: "#c4a7ff", fontWeight: 950, marginBottom: 8 }}>
+                            INSCRIÇÃO NATIVA EUCORREDOR
+                          </p>
+                          <p style={{ fontSize: 17, lineHeight: 1.25, color: "#fff", fontWeight: 950, marginBottom: 8 }}>
+                            Dados básicos da prova
+                          </p>
+                          <p style={{ fontSize: 13, lineHeight: 1.5, color: "#b9b9c4", fontWeight: 750 }}>
+                            Primeiro definimos o evento e o organizador. Depois seguimos para kit, modalidades, lotes e vagas.
+                          </p>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                          <input
+                            className="tinput"
+                            placeholder="Nome da prova"
+                            value={nativeRaceForm.name}
+                            onChange={(e) => {
+                              const name = e.target.value;
+                              const autoSlug = name
+                                .normalize("NFD")
+                                .replace(/[\u0300-\u036f]/g, "")
+                                .toLowerCase()
+                                .trim()
+                                .replace(/[^a-z0-9]+/g, "-")
+                                .replace(/^-+|-+$/g, "");
+
+                              setNativeRaceForm((form) => ({
+                                ...form,
+                                name,
+                                slug: form.slug && form.slug !== autoSlug ? form.slug : autoSlug
+                              }));
+                            }}
+                          />
+
+                          <input
+                            className="tinput"
+                            placeholder="Slug da prova, ex: corrida-noturna-canoas"
+                            value={nativeRaceForm.slug}
+                            onChange={(e) => setNativeRaceForm((form) => ({ ...form, slug: e.target.value }))}
+                          />
+
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <input
+                              className="tinput"
+                              type="date"
+                              value={nativeRaceForm.eventDate}
+                              onChange={(e) => setNativeRaceForm((form) => ({ ...form, eventDate: e.target.value }))}
+                            />
+
+                            <select
+                              className="tinput"
+                              value={nativeRaceForm.salesStatus}
+                              onChange={(e) => setNativeRaceForm((form) => ({ ...form, salesStatus: e.target.value }))}
+                            >
+                              <option value="open">Vendas abertas</option>
+                              <option value="draft">Rascunho</option>
+                              <option value="closed">Vendas encerradas</option>
+                            </select>
+                          </div>
+
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <input
+                              className="tinput"
+                              placeholder="Cidade"
+                              value={nativeRaceForm.city}
+                              onChange={(e) => setNativeRaceForm((form) => ({ ...form, city: e.target.value }))}
+                            />
+                            <input
+                              className="tinput"
+                              placeholder="Estado"
+                              value={nativeRaceForm.state}
+                              onChange={(e) => setNativeRaceForm((form) => ({ ...form, state: e.target.value }))}
+                            />
+                          </div>
+
+                          <input
+                            className="tinput"
+                            placeholder="Nome do organizador"
+                            value={nativeRaceForm.organizerName}
+                            onChange={(e) => setNativeRaceForm((form) => ({ ...form, organizerName: e.target.value }))}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => setNativeRaceForm((form) => ({ ...form, featured: !form.featured }))}
+                            style={{
+                              width: "100%",
+                              background: nativeRaceForm.featured ? "rgba(124,58,237,0.18)" : "rgba(255,255,255,0.035)",
+                              border: nativeRaceForm.featured ? "1px solid rgba(168,85,247,0.72)" : "1px solid #1e1e2e",
+                              color: nativeRaceForm.featured ? "#fff" : "#888",
+                              borderRadius: 12,
+                              padding: "13px 14px",
+                              fontSize: 13,
+                              fontWeight: 800,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              textAlign: "left"
+                            }}
+                          >
+                            {nativeRaceForm.featured ? "★ Esta prova será destaque" : "☆ Marcar como prova destaque"}
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setNativeRaceStep("kit")}
+                          disabled={
+                            !nativeRaceForm.name.trim() ||
+                            !nativeRaceForm.slug.trim() ||
+                            !nativeRaceForm.eventDate ||
+                            !nativeRaceForm.city.trim() ||
+                            !nativeRaceForm.state.trim() ||
+                            !nativeRaceForm.organizerName.trim()
+                          }
+                          style={{
+                            width: "100%",
+                            background:
+                              nativeRaceForm.name.trim() &&
+                              nativeRaceForm.slug.trim() &&
+                              nativeRaceForm.eventDate &&
+                              nativeRaceForm.city.trim() &&
+                              nativeRaceForm.state.trim() &&
+                              nativeRaceForm.organizerName.trim()
+                                ? "linear-gradient(135deg, #7c3aed, #a855f7)"
+                                : "linear-gradient(135deg, rgba(124,58,237,0.45), rgba(168,85,247,0.45))",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 14,
+                            padding: 16,
+                            fontSize: 15,
+                            fontWeight: 800,
+                            cursor:
+                              nativeRaceForm.name.trim() &&
+                              nativeRaceForm.slug.trim() &&
+                              nativeRaceForm.eventDate &&
+                              nativeRaceForm.city.trim() &&
+                              nativeRaceForm.state.trim() &&
+                              nativeRaceForm.organizerName.trim()
+                                ? "pointer"
+                                : "not-allowed",
+                            opacity:
+                              nativeRaceForm.name.trim() &&
+                              nativeRaceForm.slug.trim() &&
+                              nativeRaceForm.eventDate &&
+                              nativeRaceForm.city.trim() &&
+                              nativeRaceForm.state.trim() &&
+                              nativeRaceForm.organizerName.trim()
+                                ? 1
+                                : 0.78,
+                            fontFamily: "inherit"
+                          }}
+                        >
+                          Próxima etapa: kit e configurações
+                        </button>
+                        </div>
+                      ) : nativeRaceStep === "kit" ? (
+                        <div style={{ marginBottom: 20 }}>
+                          <button
+                            type="button"
+                            onClick={() => setNativeRaceStep("basic")}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 7,
+                              background: "rgba(255,255,255,0.045)",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                              color: "#d6d6df",
+                              borderRadius: 999,
+                              padding: "9px 12px",
+                              fontSize: 12,
+                              fontWeight: 900,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              marginBottom: 16
+                            }}
+                          >
+                            ← Voltar para dados básicos
+                          </button>
+
+                          <div
+                            style={{
+                              background: "linear-gradient(135deg, rgba(124,58,237,0.15), rgba(255,255,255,0.035))",
+                              border: "1px solid rgba(168,85,247,0.25)",
+                              borderRadius: 20,
+                              padding: 16,
+                              marginBottom: 16
+                            }}
+                          >
+                            <p style={{ fontSize: 12, color: "#c4a7ff", fontWeight: 950, marginBottom: 8 }}>
+                              ETAPA 2
+                            </p>
+                            <p style={{ fontSize: 17, lineHeight: 1.25, color: "#fff", fontWeight: 950, marginBottom: 8 }}>
+                              Kit e configurações da inscrição
+                            </p>
+                            <p style={{ fontSize: 13, lineHeight: 1.5, color: "#b9b9c4", fontWeight: 750 }}>
+                              Defina o que o corredor recebe e quais campos extras serão exigidos no checkout.
+                            </p>
+                          </div>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                            <textarea
+                              className="tinput"
+                              placeholder="Descrição do kit"
+                              value={nativeRaceForm.kitDescription}
+                              onChange={(e) => setNativeRaceForm((form) => ({ ...form, kitDescription: e.target.value }))}
+                              style={{ minHeight: 92, resize: "vertical" }}
+                            />
+
+                            <textarea
+                              className="tinput"
+                              placeholder="Itens do kit, separados por vírgula. Ex: camiseta, medalha, número de peito"
+                              value={nativeRaceForm.kitItemsText}
+                              onChange={(e) => setNativeRaceForm((form) => ({ ...form, kitItemsText: e.target.value }))}
+                              style={{ minHeight: 92, resize: "vertical" }}
+                            />
+
+                            <div
+                              style={{
+                                background: "rgba(255,255,255,0.035)",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                borderRadius: 16,
+                                padding: 14
+                              }}
+                            >
+                              <p style={{ fontSize: 12, color: "#b9b9c4", fontWeight: 900, marginBottom: 5 }}>
+                                FOTO DO KIT
+                              </p>
+                              <p style={{ fontSize: 12.5, color: "#7f7f8d", lineHeight: 1.45, fontWeight: 750, marginBottom: 12 }}>
+                                Opcional. Use uma imagem da camiseta, medalha ou composição completa do kit.
+                              </p>
+
+                              {!nativeKitImagePreview ? (
+                                <label
+                                  style={{
+                                    width: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 8,
+                                    borderRadius: 14,
+                                    padding: "14px 12px",
+                                    border: "1px dashed rgba(168,85,247,0.55)",
+                                    background: "rgba(124,58,237,0.10)",
+                                    color: "#e4d4ff",
+                                    fontSize: 13,
+                                    fontWeight: 900,
+                                    cursor: "pointer",
+                                    fontFamily: "inherit"
+                                  }}
+                                >
+                                  ＋ Adicionar foto do kit
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: "none" }}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+
+                                      setNativeKitImageFile(file);
+
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => {
+                                        setNativeKitImagePreview(reader.result);
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }}
+                                  />
+                                </label>
+                              ) : (
+                                <div>
+                                  <div
+                                    style={{
+                                      width: "100%",
+                                      height: 180,
+                                      borderRadius: 16,
+                                      overflow: "hidden",
+                                      border: "1px solid rgba(255,255,255,0.12)",
+                                      background: "#0f0f15",
+                                      marginBottom: 10
+                                    }}
+                                  >
+                                    <img
+                                      src={nativeKitImagePreview}
+                                      alt="Prévia do kit"
+                                      style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "cover",
+                                        display: "block"
+                                      }}
+                                    />
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setNativeKitImageFile(null);
+                                      setNativeKitImagePreview(null);
+                                    }}
+                                    style={{
+                                      width: "100%",
+                                      background: "rgba(255,255,255,0.05)",
+                                      border: "1px solid rgba(255,255,255,0.12)",
+                                      color: "#d5d5df",
+                                      borderRadius: 12,
+                                      padding: "12px 14px",
+                                      fontSize: 13,
+                                      fontWeight: 850,
+                                      cursor: "pointer",
+                                      fontFamily: "inherit"
+                                    }}
+                                  >
+                                    Remover imagem
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setNativeRaceForm((form) => ({ ...form, hasTshirt: !form.hasTshirt }))}
+                              style={{
+                                width: "100%",
+                                background: nativeRaceForm.hasTshirt ? "rgba(124,58,237,0.18)" : "rgba(255,255,255,0.035)",
+                                border: nativeRaceForm.hasTshirt ? "1px solid rgba(168,85,247,0.72)" : "1px solid #1e1e2e",
+                                color: nativeRaceForm.hasTshirt ? "#fff" : "#888",
+                                borderRadius: 12,
+                                padding: "13px 14px",
+                                fontSize: 13,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                textAlign: "left"
+                              }}
+                            >
+                              {nativeRaceForm.hasTshirt ? "✓ A prova terá camiseta" : "Adicionar camiseta ao kit"}
+                            </button>
+
+                            {nativeRaceForm.hasTshirt && (
+                              <input
+                                className="tinput"
+                                placeholder="Tamanhos da camiseta, separados por vírgula"
+                                value={nativeRaceForm.tshirtSizesText}
+                                onChange={(e) => setNativeRaceForm((form) => ({ ...form, tshirtSizesText: e.target.value }))}
+                              />
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setNativeRaceForm((form) => ({ ...form, requiresEmergencyContact: !form.requiresEmergencyContact }))}
+                              style={{
+                                width: "100%",
+                                background: nativeRaceForm.requiresEmergencyContact ? "rgba(124,58,237,0.18)" : "rgba(255,255,255,0.035)",
+                                border: nativeRaceForm.requiresEmergencyContact ? "1px solid rgba(168,85,247,0.72)" : "1px solid #1e1e2e",
+                                color: nativeRaceForm.requiresEmergencyContact ? "#fff" : "#888",
+                                borderRadius: 12,
+                                padding: "13px 14px",
+                                fontSize: 13,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                textAlign: "left"
+                              }}
+                            >
+                              {nativeRaceForm.requiresEmergencyContact ? "✓ Exigir contato de emergência" : "Não exigir contato de emergência"}
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setNativeRaceStep("modalities")}
+                            style={{
+                              width: "100%",
+                              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 14,
+                              padding: 16,
+                              fontSize: 15,
+                              fontWeight: 800,
+                              cursor: "pointer",
+                              fontFamily: "inherit"
+                            }}
+                          >
+                            Próxima etapa: modalidades e lotes
+                          </button>
+                        </div>
+                      ) : nativeRaceStep === "modalities" ? (
+                        <div style={{ marginBottom: 20 }}>
+                          <button
+                            type="button"
+                            onClick={() => setNativeRaceStep("kit")}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 7,
+                              background: "rgba(255,255,255,0.045)",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                              color: "#d6d6df",
+                              borderRadius: 999,
+                              padding: "9px 12px",
+                              fontSize: 12,
+                              fontWeight: 900,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              marginBottom: 16
+                            }}
+                          >
+                            ← Voltar para kit e configurações
+                          </button>
+
+                          <div
+                            style={{
+                              background: "linear-gradient(135deg, rgba(124,58,237,0.15), rgba(255,255,255,0.035))",
+                              border: "1px solid rgba(168,85,247,0.25)",
+                              borderRadius: 20,
+                              padding: 16,
+                              marginBottom: 16
+                            }}
+                          >
+                            <p style={{ fontSize: 12, color: "#c4a7ff", fontWeight: 950, marginBottom: 8 }}>
+                              ETAPA 3
+                            </p>
+                            <p style={{ fontSize: 17, lineHeight: 1.25, color: "#fff", fontWeight: 950, marginBottom: 8 }}>
+                              Modalidades e lotes
+                            </p>
+                            <p style={{ fontSize: 13, lineHeight: 1.5, color: "#b9b9c4", fontWeight: 750 }}>
+                              Cadastre cada distância da prova com seu lote inicial, preço e quantidade de vagas.
+                            </p>
+                          </div>
+
+                          <div
+                            style={{
+                              background: "rgba(255,255,255,0.035)",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                              borderRadius: 18,
+                              padding: 14,
+                              marginBottom: 16
+                            }}
+                          >
+                            <p style={{ fontSize: 12, color: "#b9b9c4", fontWeight: 950, marginBottom: 12 }}>
+                              ADICIONAR MODALIDADE
+                            </p>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              <input
+                                className="tinput"
+                                placeholder="Modalidade, ex: 5 km"
+                                value={nativeModalityDraft.name}
+                                onChange={(e) => setNativeModalityDraft((draft) => ({ ...draft, name: e.target.value }))}
+                              />
+
+                              <input
+                                className="tinput"
+                                placeholder="Nome do lote, ex: 1º lote"
+                                value={nativeModalityDraft.lotName}
+                                onChange={(e) => setNativeModalityDraft((draft) => ({ ...draft, lotName: e.target.value }))}
+                              />
+
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <input
+                                  className="tinput"
+                                  placeholder="Valor, ex: 79,00"
+                                  value={nativeModalityDraft.price}
+                                  onChange={(e) => setNativeModalityDraft((draft) => ({ ...draft, price: e.target.value }))}
+                                />
+
+                                <input
+                                  className="tinput"
+                                  placeholder="Vagas"
+                                  value={nativeModalityDraft.totalSlots}
+                                  onChange={(e) => setNativeModalityDraft((draft) => ({ ...draft, totalSlots: e.target.value }))}
+                                />
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const modalityName = nativeModalityDraft.name.trim();
+                                  const lotName = nativeModalityDraft.lotName.trim();
+                                  const priceText = nativeModalityDraft.price.trim().replace(",", ".");
+                                  const priceNumber = Number(priceText);
+                                  const slotsNumber = Number(nativeModalityDraft.totalSlots);
+
+                                  if (!modalityName || !lotName || !Number.isFinite(priceNumber) || priceNumber <= 0 || !Number.isFinite(slotsNumber) || slotsNumber <= 0) {
+                                    alert("Preencha modalidade, lote, valor e vagas corretamente.");
+                                    return;
+                                  }
+
+                                  setNativeRaceModalities((items) => ([
+                                    ...items,
+                                    {
+                                      id: `mod-${Date.now()}`,
+                                      name: modalityName,
+                                      lots: [
+                                        {
+                                          id: `lot-${Date.now()}`,
+                                          name: lotName,
+                                          price: priceNumber,
+                                          totalSlots: slotsNumber
+                                        }
+                                      ]
+                                    }
+                                  ]));
+
+                                  setNativeModalityDraft({
+                                    name: "",
+                                    lotName: "1º lote",
+                                    price: "",
+                                    totalSlots: ""
+                                  });
+                                }}
+                                style={{
+                                  width: "100%",
+                                  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: 14,
+                                  padding: 14,
+                                  fontSize: 14,
+                                  fontWeight: 900,
+                                  cursor: "pointer",
+                                  fontFamily: "inherit"
+                                }}
+                              >
+                                ＋ Adicionar modalidade
+                              </button>
+                            </div>
+                          </div>
+
+                          {nativeRaceModalities.length > 0 && (
+                            <div style={{ marginBottom: 16 }}>
+                              <p style={{ fontSize: 12, color: "#b9b9c4", fontWeight: 950, marginBottom: 12 }}>
+                                MODALIDADES CADASTRADAS
+                              </p>
+
+                              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                {nativeRaceModalities.map((modality) => {
+                                  const lot = modality.lots?.[0];
+                                  const formattedPrice = Number.isFinite(lot?.price)
+                                    ? lot.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                                    : "—";
+
+                                  return (
+                                    <div
+                                      key={modality.id}
+                                      style={{
+                                        background: "rgba(255,255,255,0.04)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 18,
+                                        padding: 14
+                                      }}
+                                    >
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                                        <div>
+                                          <p style={{ fontSize: 16, color: "#fff", fontWeight: 950, marginBottom: 4 }}>
+                                            {modality.name}
+                                          </p>
+                                          <p style={{ fontSize: 12.5, color: "#9e9eac", fontWeight: 800 }}>
+                                            {lot?.name || "Lote"} · {lot?.totalSlots || 0} vagas
+                                          </p>
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => setNativeRaceModalities((items) => items.filter((item) => item.id !== modality.id))}
+                                          style={{
+                                            background: "rgba(255,255,255,0.04)",
+                                            border: "1px solid rgba(255,255,255,0.10)",
+                                            color: "#aaa",
+                                            borderRadius: 10,
+                                            padding: "7px 10px",
+                                            fontSize: 12,
+                                            cursor: "pointer",
+                                            fontFamily: "inherit"
+                                          }}
+                                        >
+                                          🗑️
+                                        </button>
+                                      </div>
+
+                                      <p style={{ fontSize: 18, color: "#fff", fontWeight: 950 }}>
+                                        {formattedPrice}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={nativeRaceModalities.length === 0}
+                            onClick={() => {
+                              if (nativeRaceModalities.length === 0) return;
+                              setNativeRaceStep("review");
+                            }}
+                            style={{
+                              width: "100%",
+                              background: nativeRaceModalities.length > 0
+                                ? "linear-gradient(135deg, #7c3aed, #a855f7)"
+                                : "linear-gradient(135deg, rgba(124,58,237,0.45), rgba(168,85,247,0.45))",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 14,
+                              padding: 16,
+                              fontSize: 15,
+                              fontWeight: 800,
+                              cursor: nativeRaceModalities.length > 0 ? "pointer" : "not-allowed",
+                              opacity: nativeRaceModalities.length > 0 ? 1 : 0.78,
+                              fontFamily: "inherit"
+                            }}
+                          >
+                            Próxima etapa: revisar e salvar
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ marginBottom: 20 }}>
+                          <button
+                            type="button"
+                            onClick={() => setNativeRaceStep("modalities")}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 7,
+                              background: "rgba(255,255,255,0.045)",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                              color: "#d6d6df",
+                              borderRadius: 999,
+                              padding: "9px 12px",
+                              fontSize: 12,
+                              fontWeight: 900,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              marginBottom: 16
+                            }}
+                          >
+                            ← Voltar para modalidades e lotes
+                          </button>
+
+                          <div
+                            style={{
+                              background: "linear-gradient(135deg, rgba(124,58,237,0.15), rgba(255,255,255,0.035))",
+                              border: "1px solid rgba(168,85,247,0.25)",
+                              borderRadius: 20,
+                              padding: 16,
+                              marginBottom: 16
+                            }}
+                          >
+                            <p style={{ fontSize: 12, color: "#c4a7ff", fontWeight: 950, marginBottom: 8 }}>
+                              ETAPA 4
+                            </p>
+                            <p style={{ fontSize: 17, lineHeight: 1.25, color: "#fff", fontWeight: 950, marginBottom: 8 }}>
+                              Revisar e salvar prova nativa
+                            </p>
+                            <p style={{ fontSize: 13, lineHeight: 1.5, color: "#b9b9c4", fontWeight: 750 }}>
+                              Confira as informações antes de publicar a prova dentro do EuCorredor.
+                            </p>
+                          </div>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+                            <div
+                              style={{
+                                background: "rgba(255,255,255,0.04)",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                borderRadius: 18,
+                                padding: 14
+                              }}
+                            >
+                              <p style={{ fontSize: 12, color: "#b9b9c4", fontWeight: 950, marginBottom: 10 }}>
+                                DADOS DA PROVA
+                              </p>
+                              <p style={{ fontSize: 16, color: "#fff", fontWeight: 950, marginBottom: 6 }}>
+                                {nativeRaceForm.name}
+                              </p>
+                              <p style={{ fontSize: 13, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.5 }}>
+                                {nativeRaceForm.eventDate} · {nativeRaceForm.city}/{nativeRaceForm.state}
+                              </p>
+                              <p style={{ fontSize: 13, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.5 }}>
+                                Organizador: {nativeRaceForm.organizerName}
+                              </p>
+                              <p style={{ fontSize: 13, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.5 }}>
+                                Status: {nativeRaceForm.salesStatus === "open" ? "Vendas abertas" : nativeRaceForm.salesStatus === "closed" ? "Vendas encerradas" : "Rascunho"}
+                              </p>
+                            </div>
+
+                            <div
+                              style={{
+                                background: "rgba(255,255,255,0.04)",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                borderRadius: 18,
+                                padding: 14
+                              }}
+                            >
+                              <p style={{ fontSize: 12, color: "#b9b9c4", fontWeight: 950, marginBottom: 10 }}>
+                                KIT E CONFIGURAÇÕES
+                              </p>
+
+                              {nativeKitImagePreview && (
+                                <div
+                                  style={{
+                                    width: "100%",
+                                    height: 170,
+                                    borderRadius: 16,
+                                    overflow: "hidden",
+                                    border: "1px solid rgba(255,255,255,0.12)",
+                                    background: "#0f0f15",
+                                    marginBottom: 12
+                                  }}
+                                >
+                                  <img
+                                    src={nativeKitImagePreview}
+                                    alt="Prévia do kit"
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      display: "block"
+                                    }}
+                                  />
+                                </div>
+                              )}
+
+                              <p style={{ fontSize: 13, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.5 }}>
+                                {nativeRaceForm.kitDescription?.trim() || "Sem descrição de kit."}
+                              </p>
+
+                              <p style={{ fontSize: 13, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.5, marginTop: 8 }}>
+                                Itens: {nativeRaceForm.kitItemsText?.trim() || "Não informado"}
+                              </p>
+
+                              <p style={{ fontSize: 13, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.5 }}>
+                                Camiseta: {nativeRaceForm.hasTshirt ? `Sim · ${nativeRaceForm.tshirtSizesText || "tamanhos não informados"}` : "Não"}
+                              </p>
+
+                              <p style={{ fontSize: 13, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.5 }}>
+                                Contato de emergência: {nativeRaceForm.requiresEmergencyContact ? "Obrigatório" : "Não obrigatório"}
+                              </p>
+                            </div>
+
+                            <div
+                              style={{
+                                background: "rgba(255,255,255,0.04)",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                borderRadius: 18,
+                                padding: 14
+                              }}
+                            >
+                              <p style={{ fontSize: 12, color: "#b9b9c4", fontWeight: 950, marginBottom: 10 }}>
+                                MODALIDADES E LOTES
+                              </p>
+
+                              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                {nativeRaceModalities.map((modality) => {
+                                  const lot = modality.lots?.[0];
+                                  const formattedPrice = Number.isFinite(lot?.price)
+                                    ? lot.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                                    : "—";
+
+                                  return (
+                                    <div
+                                      key={modality.id}
+                                      style={{
+                                        borderRadius: 14,
+                                        padding: 12,
+                                        background: "rgba(255,255,255,0.035)",
+                                        border: "1px solid rgba(255,255,255,0.08)"
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 15, color: "#fff", fontWeight: 950, marginBottom: 4 }}>
+                                        {modality.name}
+                                      </p>
+                                      <p style={{ fontSize: 12.5, color: "#a4a4b2", fontWeight: 800 }}>
+                                        {lot?.name || "Lote"} · {formattedPrice} · {lot?.totalSlots || 0} vagas
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 14,
+                              padding: 16,
+                              fontSize: 15,
+                              fontWeight: 900,
+                              cursor: "pointer",
+                              fontFamily: "inherit"
+                            }}
+                          >
+                            Salvar prova nativa
+                          </button>
+                        </div>
+                      )}
+
+                    {adminEventsView === "agenda" && dbEvents.length > 0 && (
                       <>
                         <p style={{ fontSize: 12, color: "#555", marginBottom: 12, fontWeight: 700 }}>Eventos cadastrados</p>
                         {dbEvents.map((e) => (
