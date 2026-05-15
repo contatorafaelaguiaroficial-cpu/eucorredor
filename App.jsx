@@ -362,6 +362,9 @@ function AppMain({ user, userName }) {
   const [raceCheckoutStep, setRaceCheckoutStep] = useState("details");
   const [creatingRaceRegistration, setCreatingRaceRegistration] = useState(false);
   const [pendingRaceRegistration, setPendingRaceRegistration] = useState(null);
+  const [myRaceRegistrations, setMyRaceRegistrations] = useState([]);
+  const [loadingMyRaceRegistrations, setLoadingMyRaceRegistrations] = useState(true);
+  const [myRaceFilter, setMyRaceFilter] = useState("Todas");
   const [raceParticipantForm, setRaceParticipantForm] = useState({
     name: "",
     cpf: "",
@@ -529,7 +532,7 @@ function AppMain({ user, userName }) {
     return () => clearInterval(storyTimerRef.current);
   }, [activeStory]);
 
-  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadBlockedUsers(); loadEvents(); loadStories(); loadSuggestions(); loadRankingUsers(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
+  useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadBlockedUsers(); loadEvents(); loadMyRaceRegistrations(); loadStories(); loadSuggestions(); loadRankingUsers(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1112,6 +1115,54 @@ function AppMain({ user, userName }) {
     setProductOnboardingStep((step) => Math.max(step - 1, 0));
   };
 
+  const loadMyRaceRegistrations = async () => {
+    setLoadingMyRaceRegistrations(true);
+
+    try {
+      const nowIso = new Date().toISOString();
+
+      const { data, error } = await supabase
+        .from("race_registrations")
+        .select(`
+          id,
+          status,
+          reservation_expires_at,
+          amount_cents,
+          created_at,
+          race_event:race_events (
+            id,
+            event_id,
+            base_event:events (
+              id,
+              name,
+              date,
+              city,
+              state
+            )
+          ),
+          modality:race_modalities (
+            id,
+            name
+          ),
+          lot:race_lots (
+            id,
+            name
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setMyRaceRegistrations(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar Minhas provas:", err.message || err);
+      setMyRaceRegistrations([]);
+    } finally {
+      setLoadingMyRaceRegistrations(false);
+    }
+  };
+
   const loadEvents = async () => {
     const { data: eventsData, error: eventsError } = await supabase
       .from("events")
@@ -1290,6 +1341,7 @@ function AppMain({ user, userName }) {
       const reservation = Array.isArray(data) ? data[0] : data;
 
       setPendingRaceRegistration(reservation || null);
+      await loadMyRaceRegistrations();
 
       setRaceCheckoutStep("reserved");
     } catch (err) {
@@ -2022,6 +2074,30 @@ function AppMain({ user, userName }) {
   });
   const featuredEvent = sortedFilteredEvents.find((event) => event.featured) || sortedFilteredEvents[0];
   const listEvents = featuredEvent ? sortedFilteredEvents.filter((event) => event.id !== featuredEvent.id) : sortedFilteredEvents;
+
+  const myRaceFilters = ["Todas", "Aguardando pagamento", "Confirmadas", "Histórico"];
+
+  const isActivePendingRaceRegistration = (registration) =>
+    registration.status === "pending_payment" &&
+    registration.reservation_expires_at &&
+    new Date(registration.reservation_expires_at).getTime() > Date.now();
+
+  const filteredMyRaceRegistrations = myRaceRegistrations.filter((registration) => {
+    const isPending = isActivePendingRaceRegistration(registration);
+    const isConfirmed = registration.status === "confirmed";
+    const isHistory =
+      registration.status === "expired" ||
+      registration.status === "cancelled" ||
+      registration.status === "canceled" ||
+      registration.status === "refunded" ||
+      (registration.status === "pending_payment" && !isPending);
+
+    if (myRaceFilter === "Aguardando pagamento") return isPending;
+    if (myRaceFilter === "Confirmadas") return isConfirmed;
+    if (myRaceFilter === "Histórico") return isHistory;
+
+    return true;
+  });
 
   const getEventImage = (event) => {
     const text = normalizeEventText(`${event?.name || ""} ${event?.category || ""} ${event?.distance || ""} ${event?.city || ""}`);
@@ -2866,6 +2942,250 @@ function AppMain({ user, userName }) {
                   </div>
                 );
               })()}
+
+              {(loadingMyRaceRegistrations || myRaceRegistrations.length > 0) && (
+                <div style={{ marginTop: 18, marginBottom: 18 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <h3 style={{ fontSize: 19, fontWeight: 900, letterSpacing: -0.4, marginBottom: 4 }}>
+                        Minhas provas
+                      </h3>
+                      <p style={{ fontSize: 12.5, color: "#858591", fontWeight: 750 }}>
+                        Inscrições e reservas feitas pelo EuCorredor.
+                      </p>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        overflowX: "auto",
+                        paddingBottom: 2
+                      }}
+                    >
+                      {myRaceFilters.map((filter) => (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setMyRaceFilter(filter)}
+                          style={{
+                            flexShrink: 0,
+                            border: myRaceFilter === filter
+                              ? "1px solid rgba(255,61,99,0.72)"
+                              : "1px solid rgba(255,255,255,0.10)",
+                            background: myRaceFilter === filter
+                              ? "linear-gradient(135deg, rgba(225,29,72,0.24), rgba(255,61,99,0.12))"
+                              : "rgba(255,255,255,0.035)",
+                            color: myRaceFilter === filter ? "#fff" : "#b9b9c5",
+                            borderRadius: 999,
+                            padding: "10px 13px",
+                            fontSize: 12,
+                            fontWeight: 900,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            whiteSpace: "nowrap"
+                          }}
+                        >
+                          {filter}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {loadingMyRaceRegistrations && (
+                    <div
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.10)",
+                        borderRadius: 22,
+                        padding: 16,
+                        color: "#b9b9c4",
+                        fontSize: 13.5,
+                        fontWeight: 800
+                      }}
+                    >
+                      Carregando suas provas...
+                    </div>
+                  )}
+
+                  {!loadingMyRaceRegistrations && myRaceRegistrations.length > 0 && filteredMyRaceRegistrations.length === 0 && (
+                    <div
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.10)",
+                        borderRadius: 22,
+                        padding: 16,
+                        color: "#b9b9c4",
+                        fontSize: 13.5,
+                        lineHeight: 1.45,
+                        fontWeight: 800
+                      }}
+                    >
+                      Nenhuma prova encontrada neste filtro.
+                    </div>
+                  )}
+
+                  {!loadingMyRaceRegistrations && filteredMyRaceRegistrations.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {filteredMyRaceRegistrations.map((registration) => {
+                        const event = registration.race_event?.base_event || {};
+                        const isPending = isActivePendingRaceRegistration(registration);
+                        const isConfirmed = registration.status === "confirmed";
+                        const isExpired =
+                          registration.status === "expired" ||
+                          (
+                            registration.status === "pending_payment" &&
+                            !isActivePendingRaceRegistration(registration)
+                          );
+
+                        const remainingReservationMs = registration.reservation_expires_at
+                          ? new Date(registration.reservation_expires_at).getTime() - Date.now()
+                          : null;
+
+                        const isExpiringSoon =
+                          isPending &&
+                          remainingReservationMs !== null &&
+                          remainingReservationMs <= 3 * 60 * 1000;
+
+                        const amount = Number.isFinite(registration.amount_cents)
+                          ? (registration.amount_cents / 100).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL"
+                            })
+                          : "—";
+
+                        const reservationTime = registration.reservation_expires_at
+                          ? new Date(registration.reservation_expires_at).toLocaleTimeString("pt-BR", {
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })
+                          : null;
+
+                        return (
+                          <div
+                            key={registration.id}
+                            style={{
+                              background: isExpiringSoon
+                                ? "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(255,255,255,0.035))"
+                                : isPending
+                                  ? "linear-gradient(135deg, rgba(225,29,72,0.15), rgba(255,255,255,0.035))"
+                                  : isConfirmed
+                                    ? "linear-gradient(135deg, rgba(34,197,94,0.14), rgba(255,255,255,0.035))"
+                                    : "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025))",
+                              border: isExpiringSoon
+                                ? "1px solid rgba(245,158,11,0.38)"
+                                : isPending
+                                  ? "1px solid rgba(255,61,99,0.28)"
+                                  : isConfirmed
+                                    ? "1px solid rgba(34,197,94,0.28)"
+                                    : "1px solid rgba(255,255,255,0.14)",
+                              borderRadius: 24,
+                              padding: 16,
+                              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05)"
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+                              <div style={{ minWidth: 0 }}>
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    borderRadius: 999,
+                                    padding: "6px 10px",
+                                    fontSize: 10.5,
+                                    fontWeight: 950,
+                                    letterSpacing: 0.25,
+                                    marginBottom: 10,
+                                    color: isExpiringSoon ? "#fcd34d" : isPending ? "#ff8da3" : isConfirmed ? "#86efac" : "#c9c9d3",
+                                    background: isExpiringSoon ? "rgba(245,158,11,0.15)" : isPending ? "rgba(225,29,72,0.14)" : isConfirmed ? "rgba(34,197,94,0.14)" : "rgba(255,255,255,0.08)",
+                                    border: isExpiringSoon ? "1px solid rgba(252,211,77,0.34)" : isPending ? "1px solid rgba(255,61,99,0.32)" : isConfirmed ? "1px solid rgba(134,239,172,0.28)" : "1px solid rgba(255,255,255,0.16)"
+                                  }}
+                                >
+                                  {isExpiringSoon ? "PAGAMENTO PENDENTE · URGENTE" : isPending ? "PAGAMENTO PENDENTE" : isConfirmed ? "INSCRIÇÃO CONFIRMADA" : isExpired ? "RESERVA EXPIRADA" : registration.status}
+                                </span>
+
+                                <p style={{ fontSize: 17, lineHeight: 1.18, fontWeight: 950, letterSpacing: -0.35, marginBottom: 6 }}>
+                                  {event.name || "Prova"}
+                                </p>
+
+                                <p style={{ fontSize: 12.5, color: "#b6b6c2", fontWeight: 800 }}>
+                                  {registration.modality?.name || "Modalidade"} · {registration.lot?.name || "Lote"}
+                                </p>
+                              </div>
+
+                              <p style={{ fontSize: 19, color: "#fff", fontWeight: 950, whiteSpace: "nowrap" }}>
+                                {amount}
+                              </p>
+                            </div>
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr",
+                                gap: 10,
+                                marginBottom: isPending ? 12 : 0
+                              }}
+                            >
+                              <div
+                                style={{
+                                  background: "rgba(0,0,0,0.22)",
+                                  border: "1px solid rgba(255,255,255,0.08)",
+                                  borderRadius: 15,
+                                  padding: "11px 12px"
+                                }}
+                              >
+                                <p style={{ fontSize: 10.5, color: "#8f8f9d", fontWeight: 950, marginBottom: 5 }}>DATA</p>
+                                <p style={{ fontSize: 12.5, color: "#f0f0f5", fontWeight: 900 }}>
+                                  {event.date || "—"}
+                                </p>
+                              </div>
+
+                              <div
+                                style={{
+                                  background: "rgba(0,0,0,0.22)",
+                                  border: "1px solid rgba(255,255,255,0.08)",
+                                  borderRadius: 15,
+                                  padding: "11px 12px"
+                                }}
+                              >
+                                <p style={{ fontSize: 10.5, color: "#8f8f9d", fontWeight: 950, marginBottom: 5 }}>
+                                  {isPending ? "RESERVA ATÉ" : "LOCAL"}
+                                </p>
+                                <p style={{ fontSize: 12.5, color: "#f0f0f5", fontWeight: 900 }}>
+                                  {isPending ? (reservationTime || "—") : `${event.city || ""}${event.state ? `, ${event.state}` : ""}` || "—"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {isPending && (
+                              <button
+                                type="button"
+                                disabled
+                                style={{
+                                  width: "100%",
+                                  border: "none",
+                                  borderRadius: 16,
+                                  padding: "13px 15px",
+                                  fontSize: 13.5,
+                                  fontWeight: 950,
+                                  color: "#fff",
+                                  background: "linear-gradient(135deg, rgba(225,29,72,0.48), rgba(255,61,99,0.48))",
+                                  opacity: 0.78,
+                                  cursor: "not-allowed",
+                                  fontFamily: "inherit"
+                                }}
+                              >
+                                Concluir pagamento em breve
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {!loadingSections.events && listEvents.length > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
