@@ -374,6 +374,7 @@ function AppMain({ user, userName }) {
   const [nativeKitImageFile, setNativeKitImageFile] = useState(null);
   const [nativeKitImagePreview, setNativeKitImagePreview] = useState(null);
   const [nativeRaceModalities, setNativeRaceModalities] = useState([]);
+  const [savingNativeRace, setSavingNativeRace] = useState(false);
   const [nativeModalityDraft, setNativeModalityDraft] = useState({
     name: "",
     lotName: "1º lote",
@@ -1410,6 +1411,219 @@ function AppMain({ user, userName }) {
     }
 
     setSavingEvent(false);
+  };
+
+  const handleSaveNativeRace = async () => {
+    if (
+      !nativeRaceForm.name.trim() ||
+      !nativeRaceForm.slug.trim() ||
+      !nativeRaceForm.eventDate ||
+      !nativeRaceForm.city.trim() ||
+      !nativeRaceForm.state.trim() ||
+      !nativeRaceForm.organizerName.trim()
+    ) {
+      alert("Preencha os dados básicos da prova.");
+      return;
+    }
+
+    if (nativeRaceModalities.length === 0) {
+      alert("Cadastre ao menos uma modalidade.");
+      return;
+    }
+
+    setSavingNativeRace(true);
+
+    try {
+      const [year, month, day] = nativeRaceForm.eventDate.split("-");
+      const monthNames = [
+        "",
+        "janeiro",
+        "fevereiro",
+        "março",
+        "abril",
+        "maio",
+        "junho",
+        "julho",
+        "agosto",
+        "setembro",
+        "outubro",
+        "novembro",
+        "dezembro"
+      ];
+
+      const eventDateLabel = `${Number(day)} ${monthNames[Number(month)] || ""} ${year}`.trim();
+      const nativeDistanceLabel = nativeRaceModalities.map((modality) => modality.name).join(" · ");
+      const nativeCategoryLabel = nativeRaceModalities[0]?.name || "Corrida";
+
+      if (nativeRaceForm.featured) {
+        await supabase
+          .from("events")
+          .update({ featured: false })
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+      }
+
+      const { data: eventData, error: eventError } = await supabase
+        .from("events")
+        .insert({
+          name: nativeRaceForm.name.trim(),
+          date: eventDateLabel,
+          city: nativeRaceForm.city.trim(),
+          state: nativeRaceForm.state.trim(),
+          distance: nativeDistanceLabel,
+          category: nativeCategoryLabel,
+          link: "",
+          featured: !!nativeRaceForm.featured,
+        })
+        .select("id")
+        .single();
+
+      if (eventError) throw eventError;
+
+      const { data: organizerData, error: organizerError } = await supabase
+        .from("race_organizers")
+        .insert({
+          name: nativeRaceForm.organizerName.trim(),
+          is_active: true,
+        })
+        .select("id")
+        .single();
+
+      if (organizerError) throw organizerError;
+
+      let kitImageUrl = null;
+
+      if (nativeKitImageFile) {
+        const safeFileName = nativeKitImageFile.name
+          .toLowerCase()
+          .replace(/[^a-z0-9._-]+/g, "-");
+
+        const imagePath = `race-kits/${Date.now()}-${safeFileName}`;
+
+        const { error: uploadError } = await supabase
+          .storage
+          .from("posts")
+          .upload(imagePath, nativeKitImageFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: kitImagePublicData } = supabase
+          .storage
+          .from("posts")
+          .getPublicUrl(imagePath);
+
+        kitImageUrl = kitImagePublicData?.publicUrl || null;
+      }
+
+      const kitItems = nativeRaceForm.kitItemsText
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      const tshirtSizes = nativeRaceForm.tshirtSizesText
+        .split(",")
+        .map((size) => size.trim())
+        .filter(Boolean);
+
+      const { data: raceEventData, error: raceEventError } = await supabase
+        .from("race_events")
+        .insert({
+          event_id: eventData.id,
+          organizer_id: organizerData.id,
+          slug: nativeRaceForm.slug.trim(),
+          sales_status: nativeRaceForm.salesStatus,
+          native_registration_enabled: true,
+          kit_image_url: kitImageUrl,
+          kit_description: nativeRaceForm.kitDescription.trim() || null,
+          kit_items: kitItems,
+          has_tshirt: !!nativeRaceForm.hasTshirt,
+          tshirt_sizes: nativeRaceForm.hasTshirt ? tshirtSizes : [],
+          checkout_settings: {
+            requires_emergency_contact: !!nativeRaceForm.requiresEmergencyContact,
+          },
+        })
+        .select("id")
+        .single();
+
+      if (raceEventError) throw raceEventError;
+
+      for (let modalityIndex = 0; modalityIndex < nativeRaceModalities.length; modalityIndex++) {
+        const modality = nativeRaceModalities[modalityIndex];
+        const distanceMatch = modality.name.match(/\d+(?:[.,]\d+)?/);
+        const distanceKm = distanceMatch ? Number(distanceMatch[0].replace(",", ".")) : null;
+
+        const { data: modalityData, error: modalityError } = await supabase
+          .from("race_modalities")
+          .insert({
+            race_event_id: raceEventData.id,
+            name: modality.name,
+            distance_km: Number.isFinite(distanceKm) ? distanceKm : null,
+            description: null,
+            display_order: modalityIndex + 1,
+            is_active: true,
+          })
+          .select("id")
+          .single();
+
+        if (modalityError) throw modalityError;
+
+        const lots = Array.isArray(modality.lots) ? modality.lots : [];
+
+        for (let lotIndex = 0; lotIndex < lots.length; lotIndex++) {
+          const lot = lots[lotIndex];
+          const priceInCents = Math.round(Number(lot.price || 0) * 100);
+
+          const { error: lotError } = await supabase
+            .from("race_lots")
+            .insert({
+              modality_id: modalityData.id,
+              name: lot.name,
+              price_cents: priceInCents,
+              total_slots: Number(lot.totalSlots || 0),
+              reserved_slots: 0,
+              confirmed_slots: 0,
+              is_active: true,
+              display_order: lotIndex + 1,
+            });
+
+          if (lotError) throw lotError;
+        }
+      }
+
+      alert("Prova nativa salva com sucesso!");
+
+      setNativeRaceStep("basic");
+      setNativeRaceForm({
+        name: "",
+        slug: "",
+        eventDate: "",
+        city: "",
+        state: "RS",
+        organizerName: "",
+        salesStatus: "open",
+        featured: false,
+        kitDescription: "",
+        kitItemsText: "",
+        hasTshirt: true,
+        tshirtSizesText: "PP, P, M, G, GG",
+        requiresEmergencyContact: true
+      });
+      setNativeKitImageFile(null);
+      setNativeKitImagePreview(null);
+      setNativeRaceModalities([]);
+      setNativeModalityDraft({
+        name: "",
+        lotName: "1º lote",
+        price: "",
+        totalSlots: ""
+      });
+
+      await loadEvents();
+    } catch (err) {
+      console.error("Erro ao salvar prova nativa:", err.message || err);
+      alert("Erro ao salvar prova nativa: " + (err.message || "tente novamente."));
+    } finally {
+      setSavingNativeRace(false);
+    }
   };
 
   const handleSetFeaturedEvent = async (eventId) => {
@@ -4987,20 +5201,25 @@ function AppMain({ user, userName }) {
 
                           <button
                             type="button"
+                            onClick={handleSaveNativeRace}
+                            disabled={savingNativeRace}
                             style={{
                               width: "100%",
-                              background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                              background: savingNativeRace
+                                ? "linear-gradient(135deg, rgba(124,58,237,0.5), rgba(168,85,247,0.5))"
+                                : "linear-gradient(135deg, #7c3aed, #a855f7)",
                               color: "#fff",
                               border: "none",
                               borderRadius: 14,
                               padding: 16,
                               fontSize: 15,
                               fontWeight: 900,
-                              cursor: "pointer",
+                              cursor: savingNativeRace ? "wait" : "pointer",
+                              opacity: savingNativeRace ? 0.82 : 1,
                               fontFamily: "inherit"
                             }}
                           >
-                            Salvar prova nativa
+                            {savingNativeRace ? "Salvando prova..." : "Salvar prova nativa"}
                           </button>
                         </div>
                       )}
