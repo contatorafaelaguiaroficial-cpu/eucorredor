@@ -1261,7 +1261,7 @@ function AppMain({ user, userName }) {
   const formatGpsPace = (km, secs) => {
     if (!km || km < 0.05 || secs < 10) return "--'--";
     const minPerKm = (secs / 60) / km;
-    if (minPerKm > 20 || minPerKm < 2) return "--'--";
+    if (minPerKm < 2) return "--'--";
     const min = Math.floor(minPerKm);
     const sec = Math.round((minPerKm - min) * 60);
     const adjMin = sec >= 60 ? min + 1 : min;
