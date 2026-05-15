@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
+import { PushNotifications } from "@capacitor/push-notifications";
 
 const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
@@ -439,6 +440,61 @@ function AppMain({ user, userName }) {
   const pullStartYRef = useRef(null);
   const pullDistanceRef = useRef(0);
   const refreshNoticeTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let registrationListener;
+    let registrationErrorListener;
+    let receivedListener;
+    let actionListener;
+
+    const setupPushNotifications = async () => {
+      try {
+        registrationListener = await PushNotifications.addListener("registration", (token) => {
+          console.info("Token de push recebido:", token.value);
+          window.localStorage?.setItem("eucorredor_push_token", token.value);
+        });
+
+        registrationErrorListener = await PushNotifications.addListener("registrationError", (error) => {
+          console.error("Erro ao registrar push:", error?.error || error);
+        });
+
+        receivedListener = await PushNotifications.addListener("pushNotificationReceived", (notification) => {
+          console.log("Push recebido com o app aberto:", notification);
+        });
+
+        actionListener = await PushNotifications.addListener("pushNotificationActionPerformed", (notification) => {
+          console.log("Usuário tocou na notificação:", notification);
+        });
+
+        let permission = await PushNotifications.checkPermissions();
+
+        if (permission.receive === "prompt") {
+          permission = await PushNotifications.requestPermissions();
+        }
+
+        if (permission.receive !== "granted") {
+          console.warn("Permissão de push não concedida.");
+          return;
+        }
+
+        await PushNotifications.register();
+        console.log("Registro de push solicitado ao iOS.");
+      } catch (error) {
+        console.error("Falha ao configurar push notifications:", error);
+      }
+    };
+
+    setupPushNotifications();
+
+    return () => {
+      registrationListener?.remove();
+      registrationErrorListener?.remove();
+      receivedListener?.remove();
+      actionListener?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (activeStory) {
