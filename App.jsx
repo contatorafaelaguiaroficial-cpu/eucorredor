@@ -2096,8 +2096,8 @@ function AppMain({ user, userName }) {
             font-size: 16px !important;
           }
         }
-        .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-around; align-items: center; padding: 10px 4px max(18px, calc(env(safe-area-inset-bottom) + 10px)); z-index: 100; }
-        .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
+        .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(255,255,255,0.08); display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; padding: 10px 4px max(18px, calc(env(safe-area-inset-bottom) + 10px)); z-index: 100; }
+        .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; min-width: 0; }
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
         .skeleton-block {
           background: linear-gradient(90deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.10) 45%, rgba(255,255,255,0.045) 100%);
@@ -2462,7 +2462,7 @@ function AppMain({ user, userName }) {
           ].map((t) => (
             <button key={t.id} className="nbtn"
               onClick={() => t.special ? setShowPublish(true) : setTab(t.id)}
-              style={{ background: t.special ? "#e11d48" : "none", borderRadius: t.special ? "50%" : 0, width: t.special ? 54 : "auto", height: t.special ? 54 : "auto", marginTop: t.special ? -12 : 0, boxShadow: t.special ? "0 8px 24px rgba(225,29,72,0.38)" : "none", justifyContent: "center", border: "none" }}>
+              style={{ background: t.special ? "#e11d48" : "none", borderRadius: t.special ? "50%" : 0, width: t.special ? 54 : "100%", height: t.special ? 54 : "auto", marginTop: t.special ? -12 : 0, boxShadow: t.special ? "0 8px 24px rgba(225,29,72,0.38)" : "none", justifyContent: "center", justifySelf: "center", border: "none" }}>
               {t.special
                 ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><polygon points="12 4 22 20 2 20"/></svg>
                 : <><span style={{ color: tab === t.id ? "#e11d48" : "#555" }}>{t.svg}</span><span style={{ fontSize: 10, fontWeight: 700, color: tab === t.id ? "#e11d48" : "#555" }}>{t.label}</span></>
@@ -5227,7 +5227,11 @@ function PublicProfilePage({ handle }) {
       `}</style>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: 24 }}>
         <div style={{ width: 74, height: 74, borderRadius: 24, background: "linear-gradient(135deg, rgba(225,29,72,0.26), rgba(225,29,72,0.10))", border: "1px solid rgba(225,29,72,0.38)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, boxShadow: "0 24px 70px rgba(225,29,72,0.18)", animation: "loadingPulse 1.8s ease-in-out infinite" }}>
-          <span style={{ color: "#e11d48", fontSize: 34, fontWeight: 900, lineHeight: 1 }}>▲</span>
+          <img
+            src="/logo-e.png"
+            alt="Logo EuCorredor"
+            style={{ width: 42, height: 42, objectFit: "contain", display: "block" }}
+          />
         </div>
         <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>
           eu<span style={{ color: "#e11d48" }}>corredor</span>
@@ -5397,7 +5401,11 @@ export default function App() {
       `}</style>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: 24 }}>
         <div style={{ width: 74, height: 74, borderRadius: 24, background: "linear-gradient(135deg, rgba(225,29,72,0.26), rgba(225,29,72,0.10))", border: "1px solid rgba(225,29,72,0.38)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, boxShadow: "0 24px 70px rgba(225,29,72,0.18)", animation: "loadingPulse 1.8s ease-in-out infinite" }}>
-          <span style={{ color: "#e11d48", fontSize: 34, fontWeight: 900, lineHeight: 1 }}>▲</span>
+          <img
+            src="/logo-e.png"
+            alt="Logo EuCorredor"
+            style={{ width: 42, height: 42, objectFit: "contain", display: "block" }}
+          />
         </div>
         <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>
           eu<span style={{ color: "#e11d48" }}>corredor</span>
