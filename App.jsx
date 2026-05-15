@@ -1630,7 +1630,7 @@ function AppMain({ user, userName }) {
 
   const handleShare = (type = "perfil", data = {}) => {
     const handle = profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "");
-    const url = `https://eucorredor.com.br/@${handle}`;
+    const url = `https://app.eucorredor.com.br/@${handle}`;
     let text = "";
     if (type === "atividade") text = `Acabei de correr ${data.distance} km em ${data.duration} com pace de ${data.pace}! 🏃`;
     else if (type === "perfil") text = `Me siga no eucorredor! Estou no nível ${level.name} com ${races} corridas. 🏃`;
