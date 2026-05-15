@@ -5213,7 +5213,34 @@ function PublicProfilePage({ handle }) {
     load();
   }, [handle]);
 
-  if (loading) return <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "sans-serif" }}>Carregando...</p></div>;
+  if (loading) return (
+    <div style={{ background: "radial-gradient(circle at 50% 36%, rgba(225,29,72,0.18), transparent 30%), #0a0a0f", position: "fixed", inset: 0, width: "100vw", height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", overflow: "hidden" }}>
+      <style>{`
+        @keyframes loadingPulse {
+          0%, 100% { transform: scale(1); opacity: 0.78; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes loadingGlow {
+          0%, 100% { opacity: 0.35; transform: scaleX(0.72); }
+          50% { opacity: 1; transform: scaleX(1); }
+        }
+      `}</style>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: 24 }}>
+        <div style={{ width: 74, height: 74, borderRadius: 24, background: "linear-gradient(135deg, rgba(225,29,72,0.26), rgba(225,29,72,0.10))", border: "1px solid rgba(225,29,72,0.38)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, boxShadow: "0 24px 70px rgba(225,29,72,0.18)", animation: "loadingPulse 1.8s ease-in-out infinite" }}>
+          <span style={{ color: "#e11d48", fontSize: 34, fontWeight: 900, lineHeight: 1 }}>▲</span>
+        </div>
+        <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>
+          eu<span style={{ color: "#e11d48" }}>corredor</span>
+        </h1>
+        <p style={{ color: "#8b8b96", fontSize: 13.5, fontWeight: 700, marginBottom: 18 }}>
+          Preparando sua experiência
+        </p>
+        <div style={{ width: 112, height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+          <div style={{ width: "100%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg, transparent, #e11d48, transparent)", animation: "loadingGlow 1.35s ease-in-out infinite" }} />
+        </div>
+      </div>
+    </div>
+  );
 
   if (!profile) return (
     <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", color: "#f0f0f0" }}>
@@ -5356,7 +5383,34 @@ export default function App() {
     supabase.auth.onAuthStateChange((_event, session) => { setSession(session); });
   }, []);
 
-  if (loading) return <div style={{ background: "#0a0a0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#555", fontFamily: "sans-serif" }}>Carregando...</p></div>;
+  if (loading) return (
+    <div style={{ background: "radial-gradient(circle at 50% 36%, rgba(225,29,72,0.18), transparent 30%), #0a0a0f", position: "fixed", inset: 0, width: "100vw", height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif", color: "#f0f0f0", overflow: "hidden" }}>
+      <style>{`
+        @keyframes loadingPulse {
+          0%, 100% { transform: scale(1); opacity: 0.78; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes loadingGlow {
+          0%, 100% { opacity: 0.35; transform: scaleX(0.72); }
+          50% { opacity: 1; transform: scaleX(1); }
+        }
+      `}</style>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: 24 }}>
+        <div style={{ width: 74, height: 74, borderRadius: 24, background: "linear-gradient(135deg, rgba(225,29,72,0.26), rgba(225,29,72,0.10))", border: "1px solid rgba(225,29,72,0.38)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, boxShadow: "0 24px 70px rgba(225,29,72,0.18)", animation: "loadingPulse 1.8s ease-in-out infinite" }}>
+          <span style={{ color: "#e11d48", fontSize: 34, fontWeight: 900, lineHeight: 1 }}>▲</span>
+        </div>
+        <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>
+          eu<span style={{ color: "#e11d48" }}>corredor</span>
+        </h1>
+        <p style={{ color: "#8b8b96", fontSize: 13.5, fontWeight: 700, marginBottom: 18 }}>
+          Preparando sua experiência
+        </p>
+        <div style={{ width: 112, height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+          <div style={{ width: "100%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg, transparent, #e11d48, transparent)", animation: "loadingGlow 1.35s ease-in-out infinite" }} />
+        </div>
+      </div>
+    </div>
+  );
 
   if (publicHandle) return <PublicProfilePage handle={publicHandle} />;
   if (!session) return <AuthScreen onLogin={(user, name) => { setSession({ user }); setUserName(name); }} />;
