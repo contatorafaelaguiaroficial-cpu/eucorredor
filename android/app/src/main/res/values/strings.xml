@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EuCorredor</string>
+    <string name="title_activity_main">EuCorredor</string>
+    <string name="package_name">com.eucorredor.app</string>
+    <string name="custom_url_scheme">com.eucorredor.app</string>
+</resources>

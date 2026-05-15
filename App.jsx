@@ -1,6 +1,8 @@
 // eucorredor v3.4 — hub com análise automática + percurso no feed
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
 
 const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
@@ -1394,32 +1396,51 @@ function AppMain({ user, userName }) {
     setShowGpsPermissionModal(true);
   };
 
-  const requestGpsPermissionAndStart = () => {
+  const requestGpsPermissionAndStart = async () => {
     setGpsError("");
-
-    if (!navigator.geolocation) {
-      setGpsError("Seu navegador não permite usar GPS neste dispositivo.");
-      return;
-    }
-
     setCheckingGpsPermission(true);
 
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        setCheckingGpsPermission(false);
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const permissions = await Geolocation.requestPermissions();
+
+        if (permissions.location !== "granted") {
+          setGpsError("Permissão negada. Ative a localização do EuCorredor nos Ajustes do iPhone.");
+          return;
+        }
+
+        await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        });
+
         beginGpsRun();
-      },
-      (err) => {
-        const msgs = {
-          1: "Permissão negada. Ative a localização do navegador para registrar sua corrida.",
-          2: "GPS indisponível no momento. Verifique sinal, internet e localização do aparelho.",
-          3: "Tempo esgotado. Tente novamente em um local com melhor sinal."
-        };
-        setCheckingGpsPermission(false);
-        setGpsError(msgs[err.code] || "Não foi possível acessar o GPS.");
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-    );
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        setGpsError("Seu navegador não permite usar GPS neste dispositivo.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        () => beginGpsRun(),
+        (err) => {
+          const msgs = {
+            1: "Permissão negada. Ative a localização do navegador para registrar sua corrida.",
+            2: "GPS indisponível no momento. Verifique sinal, internet e localização do aparelho.",
+            3: "Tempo esgotado ao buscar sua localização. Tente novamente em local aberto.",
+          };
+          setGpsError(msgs[err.code] || "Não foi possível acessar sua localização.");
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    } catch (err) {
+      setGpsError("Não foi possível acessar sua localização. Verifique a permissão de GPS e tente novamente.");
+    } finally {
+      setCheckingGpsPermission(false);
+    }
   };
 
   const finishGpsRun = async () => {
