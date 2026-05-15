@@ -355,6 +355,23 @@ function AppMain({ user, userName }) {
   const [eventFilter, setEventFilter] = useState("Todos");
   const [eventForm, setEventForm] = useState({ name: "", date: "", city: "", state: "RS", distance: "", category: "5K", link: "", featured: false });
   const [savingEvent, setSavingEvent] = useState(false);
+  const [selectedRaceEvent, setSelectedRaceEvent] = useState(null);
+  const [raceEventDetails, setRaceEventDetails] = useState(null);
+  const [loadingRaceDetails, setLoadingRaceDetails] = useState(false);
+  const [selectedRaceModalityId, setSelectedRaceModalityId] = useState(null);
+  const [raceCheckoutStep, setRaceCheckoutStep] = useState("details");
+  const [creatingRaceRegistration, setCreatingRaceRegistration] = useState(false);
+  const [pendingRaceRegistration, setPendingRaceRegistration] = useState(null);
+  const [raceParticipantForm, setRaceParticipantForm] = useState({
+    name: "",
+    cpf: "",
+    birthDate: "",
+    phone: "",
+    email: user?.email || "",
+    tshirtSize: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+  });
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [showFollowModal, setShowFollowModal] = useState(null);
@@ -1096,21 +1113,191 @@ function AppMain({ user, userName }) {
   };
 
   const loadEvents = async () => {
-    const { data, error } = await supabase.from("events").select("*").order("created_at", { ascending: true });
-    if (error) {
-      console.error("Erro ao carregar eventos:", error.message);
+    const { data: eventsData, error: eventsError } = await supabase
+      .from("events")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (eventsError) {
+      console.error("Erro ao carregar eventos:", eventsError.message);
       setDbEvents([]);
       setLoadingSections((prev) => ({ ...prev, events: false }));
       return;
     }
 
-    const sortedEvents = [...(data || [])].sort((a, b) => {
+    const eventIds = (eventsData || []).map((event) => event.id).filter(Boolean);
+
+    let raceEventsByEventId = {};
+
+    if (eventIds.length > 0) {
+      const { data: raceEventsData, error: raceEventsError } = await supabase
+        .from("race_events")
+        .select("id, event_id, slug, sales_status, native_registration_enabled")
+        .in("event_id", eventIds);
+
+      if (raceEventsError) {
+        console.error("Erro ao carregar inscrições nativas dos eventos:", raceEventsError.message);
+      } else {
+        raceEventsByEventId = Object.fromEntries(
+          (raceEventsData || []).map((raceEvent) => [raceEvent.event_id, raceEvent])
+        );
+      }
+    }
+
+    const eventsWithNativeRegistration = (eventsData || []).map((event) => ({
+      ...event,
+      race_event: raceEventsByEventId[event.id] || null,
+    }));
+
+    const sortedEvents = [...eventsWithNativeRegistration].sort((a, b) => {
       if (!!a.featured === !!b.featured) return 0;
       return a.featured ? -1 : 1;
     });
 
     setDbEvents(sortedEvents);
     setLoadingSections((prev) => ({ ...prev, events: false }));
+  };
+
+  const openRaceEventDetails = async (event) => {
+    const raceEventId = event?.race_event?.id;
+    if (!raceEventId) return;
+
+    setSelectedRaceEvent(event);
+    setRaceEventDetails(null);
+    setSelectedRaceModalityId(null);
+    setRaceCheckoutStep("details");
+    setPendingRaceRegistration(null);
+    setRaceParticipantForm({
+      name: "",
+      cpf: "",
+      birthDate: "",
+      phone: "",
+      email: user?.email || "",
+      tshirtSize: "",
+      emergencyContactName: "",
+      emergencyContactPhone: "",
+    });
+    setLoadingRaceDetails(true);
+
+    try {
+      const { data: raceEventData, error: raceEventError } = await supabase
+        .from("race_events")
+        .select("*")
+        .eq("id", raceEventId)
+        .single();
+
+      if (raceEventError) throw raceEventError;
+
+      const { data: organizerData, error: organizerError } = await supabase
+        .from("race_organizers")
+        .select("id, name, email, phone, instagram_url, logo_url, description")
+        .eq("id", raceEventData.organizer_id)
+        .maybeSingle();
+
+      if (organizerError) {
+        console.error("Erro ao carregar organizador da prova:", organizerError.message);
+      }
+
+      const { data: modalitiesData, error: modalitiesError } = await supabase
+        .from("race_modalities")
+        .select("*")
+        .eq("race_event_id", raceEventId)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+
+      if (modalitiesError) throw modalitiesError;
+
+      const modalityIds = (modalitiesData || []).map((modality) => modality.id);
+
+      let lotsData = [];
+
+      if (modalityIds.length > 0) {
+        const { data, error: lotsError } = await supabase
+          .from("race_lots")
+          .select("*")
+          .in("modality_id", modalityIds)
+          .order("display_order", { ascending: true });
+
+        if (lotsError) throw lotsError;
+        lotsData = data || [];
+      }
+
+      const lotsByModalityId = lotsData.reduce((acc, lot) => {
+        if (!acc[lot.modality_id]) acc[lot.modality_id] = [];
+        acc[lot.modality_id].push(lot);
+        return acc;
+      }, {});
+
+      const modalitiesWithLots = (modalitiesData || []).map((modality) => ({
+        ...modality,
+        lots: lotsByModalityId[modality.id] || [],
+      }));
+
+      setRaceEventDetails({
+        ...raceEventData,
+        organizer: organizerData || null,
+        modalities: modalitiesWithLots,
+      });
+    } catch (err) {
+      console.error("Erro ao carregar detalhes da prova:", err.message || err);
+      alert("Não foi possível carregar os detalhes desta prova agora.");
+      setSelectedRaceEvent(null);
+      setRaceEventDetails(null);
+    } finally {
+      setLoadingRaceDetails(false);
+    }
+  };
+
+  const handleCreatePendingRaceRegistration = async () => {
+    if (!raceEventDetails?.id || !selectedRaceModalityId) {
+      alert("Selecione uma modalidade antes de continuar.");
+      return;
+    }
+
+    const selectedModality = (raceEventDetails.modalities || []).find(
+      (modality) => modality.id === selectedRaceModalityId
+    );
+
+    const activeLot = (selectedModality?.lots || []).find((lot) => lot.is_active);
+
+    if (!selectedModality || !activeLot) {
+      alert("Não foi possível identificar a modalidade ou o lote ativo.");
+      return;
+    }
+
+    setCreatingRaceRegistration(true);
+
+    try {
+      const extraCheckoutData = {
+        emergency_contact_name: raceParticipantForm.emergencyContactName || "",
+        emergency_contact_phone: raceParticipantForm.emergencyContactPhone || "",
+      };
+
+      const { data, error } = await supabase.rpc("create_pending_race_registration", {
+        p_race_event_id: raceEventDetails.id,
+        p_modality_id: selectedRaceModalityId,
+        p_participant_name: raceParticipantForm.name,
+        p_participant_cpf: raceParticipantForm.cpf,
+        p_participant_birth_date: raceParticipantForm.birthDate,
+        p_participant_phone: raceParticipantForm.phone,
+        p_participant_email: raceParticipantForm.email,
+        p_tshirt_size: raceParticipantForm.tshirtSize || null,
+        p_extra_checkout_data: extraCheckoutData,
+      });
+
+      if (error) throw error;
+
+      const reservation = Array.isArray(data) ? data[0] : data;
+
+      setPendingRaceRegistration(reservation || null);
+
+      setRaceCheckoutStep("reserved");
+    } catch (err) {
+      console.error("Erro ao criar reserva da inscrição:", err.message || err);
+      alert(err.message || "Não foi possível criar a reserva agora.");
+    } finally {
+      setCreatingRaceRegistration(false);
+    }
   };
 
   const handleSaveEvent = async () => {
@@ -2649,7 +2836,26 @@ function AppMain({ user, userName }) {
                           {user.id === ADMIN_ID && (
                             <button onClick={() => handleDeleteEvent(featuredEvent.id)} style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.12)", color: "#777", borderRadius: 12, width: 36, height: 36, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
                           )}
-                          {featuredEvent.link ? (
+                          {featuredEvent.race_event && user.id === ADMIN_ID ? (
+                            <button
+                              onClick={() => openRaceEventDetails(featuredEvent)}
+                              style={{
+                                background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: 14,
+                                padding: "12px 17px",
+                                fontSize: 13,
+                                fontWeight: 900,
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                                boxShadow: "0 12px 28px rgba(124,58,237,0.28)",
+                                fontFamily: "inherit"
+                              }}
+                            >
+                              Testar inscrição
+                            </button>
+                          ) : featuredEvent.link ? (
                             <a href={featuredEvent.link} target="_blank" rel="noopener noreferrer" style={{ background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", borderRadius: 14, padding: "12px 17px", fontSize: 13, fontWeight: 900, textDecoration: "none", whiteSpace: "nowrap", boxShadow: "0 12px 28px rgba(225,29,72,0.28)" }}>Inscrever</a>
                           ) : (
                             <button className="jbtn" style={{ opacity: 0.55, cursor: "not-allowed", borderRadius: 14, padding: "12px 17px", whiteSpace: "nowrap" }}>Em breve</button>
@@ -2686,7 +2892,25 @@ function AppMain({ user, userName }) {
                         <span style={{ width: 1, height: 14, background: "#333" }} />
                         <span style={{ fontSize: 12, color: "#aaa", fontWeight: 800 }}>{e.distance}</span>
                       </div>
-                      {e.link ? (
+                      {e.race_event && user.id === ADMIN_ID ? (
+                        <button
+                          onClick={() => openRaceEventDetails(e)}
+                          style={{
+                            background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 12,
+                            padding: "9px 12px",
+                            fontSize: 12,
+                            fontWeight: 900,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            fontFamily: "inherit"
+                          }}
+                        >
+                          Testar inscrição
+                        </button>
+                      ) : e.link ? (
                         <a href={e.link} target="_blank" rel="noopener noreferrer" style={{ background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", borderRadius: 12, padding: "9px 12px", fontSize: 12, fontWeight: 900, textDecoration: "none", whiteSpace: "nowrap" }}>Inscrever</a>
                       ) : (
                         <button className="jbtn" style={{ opacity: 0.55, cursor: "not-allowed", borderRadius: 12, padding: "9px 12px", whiteSpace: "nowrap" }}>Em breve</button>
@@ -2695,6 +2919,849 @@ function AppMain({ user, userName }) {
                   </div>
                 </div>
               ))}
+
+              {/* Modal de prova com inscrição nativa */}
+              {selectedRaceEvent && (
+                <div
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(0,0,0,0.92)",
+                    zIndex: 240,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "flex-end"
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "#111118",
+                      borderRadius: "28px 28px 0 0",
+                      width: "100%",
+                      maxWidth: 430,
+                      maxHeight: "92vh",
+                      overflowY: "auto",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      padding: "22px 20px max(38px, env(safe-area-inset-bottom))"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, marginBottom: 20 }}>
+                      <div>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: "rgba(124,58,237,0.16)",
+                            color: "#c084fc",
+                            border: "1px solid rgba(192,132,252,0.34)",
+                            borderRadius: 999,
+                            padding: "7px 11px",
+                            fontSize: 11,
+                            fontWeight: 900,
+                            marginBottom: 12
+                          }}
+                        >
+                          TESTE · INSCRIÇÃO NATIVA
+                        </span>
+
+                        <h3 style={{ fontSize: 24, lineHeight: 1.08, letterSpacing: -0.7, fontWeight: 950, marginBottom: 8 }}>
+                          {selectedRaceEvent.name}
+                        </h3>
+
+                        <p style={{ color: "#9b9baa", fontSize: 13.5, lineHeight: 1.45 }}>
+                          ⌖ {selectedRaceEvent.city}, {selectedRaceEvent.state}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setSelectedRaceEvent(null);
+                          setRaceEventDetails(null);
+                          setSelectedRaceModalityId(null);
+                          setRaceCheckoutStep("details");
+                          setPendingRaceRegistration(null);
+                          setRaceParticipantForm({
+                            name: "",
+                            cpf: "",
+                            birthDate: "",
+                            phone: "",
+                            email: user?.email || "",
+                            tshirtSize: "",
+                            emergencyContactName: "",
+                            emergencyContactPhone: "",
+                          });
+                          setLoadingRaceDetails(false);
+                        }}
+                        style={{
+                          width: 42,
+                          height: 42,
+                          flexShrink: 0,
+                          borderRadius: 14,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.045)",
+                          color: "#fff",
+                          fontSize: 20,
+                          cursor: "pointer",
+                          fontFamily: "inherit"
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {loadingRaceDetails && (
+                      <div
+                        style={{
+                          padding: 20,
+                          borderRadius: 20,
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          color: "#b7b7c2",
+                          fontSize: 14,
+                          fontWeight: 800,
+                          textAlign: "center"
+                        }}
+                      >
+                        Carregando detalhes da prova...
+                      </div>
+                    )}
+
+                    {!loadingRaceDetails && raceEventDetails && (
+                      <>
+                        {raceCheckoutStep === "details" ? (
+                          <>
+                            <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 10,
+                            marginBottom: 16
+                          }}
+                        >
+                          <div
+                            style={{
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.09)",
+                              borderRadius: 18,
+                              padding: 13
+                            }}
+                          >
+                            <p style={{ fontSize: 11, color: "#777787", fontWeight: 900, marginBottom: 5 }}>STATUS</p>
+                            <p style={{ fontSize: 14, fontWeight: 900, color: "#f4f4f7" }}>{raceEventDetails.sales_status}</p>
+                          </div>
+
+                          <div
+                            style={{
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.09)",
+                              borderRadius: 18,
+                              padding: 13
+                            }}
+                          >
+                            <p style={{ fontSize: 11, color: "#777787", fontWeight: 900, marginBottom: 5 }}>ORGANIZADOR</p>
+                            <p style={{ fontSize: 14, fontWeight: 900, color: "#f4f4f7", lineHeight: 1.25 }}>
+                              {raceEventDetails.organizer?.name || "Não informado"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            background: "linear-gradient(180deg, rgba(225,29,72,0.10), rgba(255,255,255,0.035))",
+                            border: "1px solid rgba(225,29,72,0.22)",
+                            borderRadius: 22,
+                            padding: 16,
+                            marginBottom: 16
+                          }}
+                        >
+                          <p style={{ fontSize: 12, color: "#ff6b86", fontWeight: 950, marginBottom: 8 }}>KIT DA PROVA</p>
+                          <p style={{ fontSize: 14, color: "#d4d4df", lineHeight: 1.5, marginBottom: 12 }}>
+                            {raceEventDetails.kit_description || "Nenhuma descrição de kit cadastrada."}
+                          </p>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {(Array.isArray(raceEventDetails.kit_items) ? raceEventDetails.kit_items : []).map((item, index) => (
+                              <div
+                                key={index}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 9,
+                                  padding: "9px 11px",
+                                  borderRadius: 14,
+                                  background: "rgba(0,0,0,0.22)",
+                                  border: "1px solid rgba(255,255,255,0.08)",
+                                  fontSize: 13,
+                                  color: "#f0f0f5",
+                                  fontWeight: 800
+                                }}
+                              >
+                                <span style={{ color: "#e11d48" }}>✓</span>
+                                {item}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>MODALIDADES E LOTES</p>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            {(raceEventDetails.modalities || []).map((modality) => {
+                              const activeLot = (modality.lots || []).find((lot) => lot.is_active);
+                              const activePrice = activeLot
+                                ? (activeLot.price_cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                                : null;
+
+                              return (
+                                <button
+                                  key={modality.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (activeLot) setSelectedRaceModalityId(modality.id);
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    background: selectedRaceModalityId === modality.id
+                                      ? "linear-gradient(135deg, rgba(225,29,72,0.22), rgba(255,61,99,0.10))"
+                                      : "rgba(255,255,255,0.04)",
+                                    border: selectedRaceModalityId === modality.id
+                                      ? "1px solid rgba(255,61,99,0.72)"
+                                      : "1px solid rgba(255,255,255,0.10)",
+                                    borderRadius: 20,
+                                    padding: 15,
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    gap: 12,
+                                    cursor: activeLot ? "pointer" : "not-allowed",
+                                    textAlign: "left",
+                                    color: "#fff",
+                                    fontFamily: "inherit",
+                                    boxShadow: selectedRaceModalityId === modality.id
+                                      ? "0 14px 28px rgba(225,29,72,0.18)"
+                                      : "none",
+                                    opacity: activeLot ? 1 : 0.62
+                                  }}
+                                >
+                                  <div>
+                                    <p style={{ fontSize: 17, fontWeight: 950, marginBottom: 4 }}>{modality.name}</p>
+                                    <p style={{ fontSize: 12.5, color: "#8f8f9d", fontWeight: 800 }}>
+                                      {activeLot ? `${activeLot.name} · ${activeLot.total_slots} vagas no lote` : "Sem lote ativo"}
+                                    </p>
+                                  </div>
+
+                                  <div style={{ textAlign: "right" }}>
+                                    <p style={{ fontSize: 18, fontWeight: 950, color: "#fff" }}>
+                                      {activePrice || "—"}
+                                    </p>
+                                    <p style={{ fontSize: 11, color: "#e11d48", fontWeight: 950 }}>
+                                      {activeLot ? "ATIVO" : "INDISPONÍVEL"}
+                                    </p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={!selectedRaceModalityId}
+                          onClick={() => {
+                            if (!selectedRaceModalityId) return;
+                            setRaceCheckoutStep("participant");
+                          }}
+                          style={{
+                            width: "100%",
+                            border: "none",
+                            borderRadius: 18,
+                            padding: "16px 18px",
+                            fontSize: 15,
+                            fontWeight: 950,
+                            color: "#fff",
+                            background: selectedRaceModalityId
+                              ? "linear-gradient(135deg, #e11d48, #ff3d63)"
+                              : "linear-gradient(135deg, rgba(225,29,72,0.42), rgba(255,61,99,0.42))",
+                            opacity: selectedRaceModalityId ? 1 : 0.72,
+                            cursor: selectedRaceModalityId ? "pointer" : "not-allowed",
+                            fontFamily: "inherit",
+                            boxShadow: selectedRaceModalityId ? "0 16px 32px rgba(225,29,72,0.28)" : "none"
+                          }}
+                        >
+                          {selectedRaceModalityId ? "Continuar inscrição" : "Selecione uma modalidade"}
+                        </button>
+                          </>
+                        ) : raceCheckoutStep === "participant" ? (
+                          <>
+                            {(() => {
+                              const selectedModality = (raceEventDetails.modalities || []).find(
+                                (modality) => modality.id === selectedRaceModalityId
+                              );
+
+                              const activeLot = (selectedModality?.lots || []).find((lot) => lot.is_active);
+
+                              const activePrice = activeLot
+                                ? (activeLot.price_cents / 100).toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL"
+                                  })
+                                : "—";
+
+                              const requiresTshirt = !!raceEventDetails.has_tshirt;
+                              const requiresEmergencyContact = !!raceEventDetails.checkout_settings?.requires_emergency_contact;
+
+                              const participantFormIsValid =
+                                raceParticipantForm.name.trim() &&
+                                raceParticipantForm.cpf.trim() &&
+                                raceParticipantForm.birthDate &&
+                                raceParticipantForm.phone.trim() &&
+                                raceParticipantForm.email.trim() &&
+                                (!requiresTshirt || raceParticipantForm.tshirtSize) &&
+                                (
+                                  !requiresEmergencyContact ||
+                                  (
+                                    raceParticipantForm.emergencyContactName.trim() &&
+                                    raceParticipantForm.emergencyContactPhone.trim()
+                                  )
+                                );
+
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRaceCheckoutStep("details")}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 7,
+                                      background: "rgba(255,255,255,0.045)",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      color: "#d6d6df",
+                                      borderRadius: 999,
+                                      padding: "9px 12px",
+                                      fontSize: 12,
+                                      fontWeight: 900,
+                                      cursor: "pointer",
+                                      fontFamily: "inherit",
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    ← Voltar para modalidades
+                                  </button>
+
+                                  <div
+                                    style={{
+                                      background: "linear-gradient(135deg, rgba(225,29,72,0.18), rgba(255,61,99,0.06))",
+                                      border: "1px solid rgba(255,61,99,0.26)",
+                                      borderRadius: 22,
+                                      padding: 16,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <p style={{ fontSize: 12, color: "#ff6b86", fontWeight: 950, marginBottom: 8 }}>
+                                      SUA ESCOLHA
+                                    </p>
+
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                                      <div>
+                                        <p style={{ fontSize: 19, fontWeight: 950, marginBottom: 4 }}>
+                                          {selectedModality?.name || "Modalidade"}
+                                        </p>
+                                        <p style={{ fontSize: 12.5, color: "#ababba", fontWeight: 800 }}>
+                                          {activeLot ? activeLot.name : "Lote não encontrado"}
+                                        </p>
+                                      </div>
+
+                                      <p style={{ fontSize: 21, fontWeight: 950, color: "#fff" }}>
+                                        {activePrice}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div style={{ marginBottom: 16 }}>
+                                    <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
+                                      DADOS DO PARTICIPANTE
+                                    </p>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                      <input
+                                        className="tinput"
+                                        placeholder="Nome completo"
+                                        value={raceParticipantForm.name}
+                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, name: e.target.value }))}
+                                      />
+
+                                      <input
+                                        className="tinput"
+                                        placeholder="CPF"
+                                        value={raceParticipantForm.cpf}
+                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, cpf: e.target.value }))}
+                                      />
+
+                                      <input
+                                        className="tinput"
+                                        type="date"
+                                        value={raceParticipantForm.birthDate}
+                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, birthDate: e.target.value }))}
+                                      />
+
+                                      <input
+                                        className="tinput"
+                                        placeholder="Telefone"
+                                        value={raceParticipantForm.phone}
+                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, phone: e.target.value }))}
+                                      />
+
+                                      <input
+                                        className="tinput"
+                                        placeholder="E-mail da conta"
+                                        value={raceParticipantForm.email}
+                                        readOnly
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {requiresTshirt && (
+                                    <div style={{ marginBottom: 16 }}>
+                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
+                                        TAMANHO DA CAMISETA
+                                      </p>
+
+                                      <select
+                                        className="tinput"
+                                        value={raceParticipantForm.tshirtSize}
+                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, tshirtSize: e.target.value }))}
+                                      >
+                                        <option value="">Selecione um tamanho</option>
+                                        {(Array.isArray(raceEventDetails.tshirt_sizes) ? raceEventDetails.tshirt_sizes : []).map((size) => (
+                                          <option key={size} value={size}>{size}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  )}
+
+                                  {requiresEmergencyContact && (
+                                    <div style={{ marginBottom: 16 }}>
+                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
+                                        CONTATO DE EMERGÊNCIA
+                                      </p>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                        <input
+                                          className="tinput"
+                                          placeholder="Nome do contato"
+                                          value={raceParticipantForm.emergencyContactName}
+                                          onChange={(e) => setRaceParticipantForm((form) => ({ ...form, emergencyContactName: e.target.value }))}
+                                        />
+
+                                        <input
+                                          className="tinput"
+                                          placeholder="Telefone do contato"
+                                          value={raceParticipantForm.emergencyContactPhone}
+                                          onChange={(e) => setRaceParticipantForm((form) => ({ ...form, emergencyContactPhone: e.target.value }))}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    disabled={!participantFormIsValid}
+                                    onClick={() => {
+                                      if (!participantFormIsValid) return;
+                                      setRaceCheckoutStep("review");
+                                    }}
+                                    style={{
+                                      width: "100%",
+                                      border: "none",
+                                      borderRadius: 18,
+                                      padding: "16px 18px",
+                                      fontSize: 15,
+                                      fontWeight: 950,
+                                      color: "#fff",
+                                      background: participantFormIsValid
+                                        ? "linear-gradient(135deg, #e11d48, #ff3d63)"
+                                        : "linear-gradient(135deg, rgba(225,29,72,0.42), rgba(255,61,99,0.42))",
+                                      opacity: participantFormIsValid ? 1 : 0.72,
+                                      cursor: participantFormIsValid ? "pointer" : "not-allowed",
+                                      fontFamily: "inherit",
+                                      boxShadow: participantFormIsValid ? "0 16px 32px rgba(225,29,72,0.28)" : "none"
+                                    }}
+                                  >
+                                    {participantFormIsValid ? "Continuar para revisão" : "Preencha os dados obrigatórios"}
+                                  </button>
+                                </>
+                              );
+                            })()}
+                          </>
+                        ) : raceCheckoutStep === "review" ? (
+                          <>
+                            {(() => {
+                              const selectedModality = (raceEventDetails.modalities || []).find(
+                                (modality) => modality.id === selectedRaceModalityId
+                              );
+
+                              const activeLot = (selectedModality?.lots || []).find((lot) => lot.is_active);
+
+                              const activePrice = activeLot
+                                ? (activeLot.price_cents / 100).toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL"
+                                  })
+                                : "—";
+
+                              const requiresTshirt = !!raceEventDetails.has_tshirt;
+                              const requiresEmergencyContact = !!raceEventDetails.checkout_settings?.requires_emergency_contact;
+
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRaceCheckoutStep("participant")}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 7,
+                                      background: "rgba(255,255,255,0.045)",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      color: "#d6d6df",
+                                      borderRadius: 999,
+                                      padding: "9px 12px",
+                                      fontSize: 12,
+                                      fontWeight: 900,
+                                      cursor: "pointer",
+                                      fontFamily: "inherit",
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    ← Voltar para dados
+                                  </button>
+
+                                  <div
+                                    style={{
+                                      background: "linear-gradient(135deg, rgba(225,29,72,0.18), rgba(255,61,99,0.06))",
+                                      border: "1px solid rgba(255,61,99,0.26)",
+                                      borderRadius: 22,
+                                      padding: 16,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <p style={{ fontSize: 12, color: "#ff6b86", fontWeight: 950, marginBottom: 8 }}>
+                                      REVISE SUA INSCRIÇÃO
+                                    </p>
+
+                                    <p style={{ fontSize: 21, fontWeight: 950, lineHeight: 1.15, marginBottom: 6 }}>
+                                      {selectedRaceEvent?.name}
+                                    </p>
+
+                                    <p style={{ fontSize: 13, color: "#ababba", fontWeight: 800 }}>
+                                      {selectedModality?.name || "Modalidade"} · {activeLot?.name || "Lote"}
+                                    </p>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      background: "rgba(255,255,255,0.04)",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      borderRadius: 22,
+                                      padding: 16,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                                      <div>
+                                        <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 5 }}>
+                                          VALOR DA INSCRIÇÃO
+                                        </p>
+                                        <p style={{ fontSize: 13, color: "#d4d4df", fontWeight: 800 }}>
+                                          Pagamento será conectado na próxima etapa técnica.
+                                        </p>
+                                      </div>
+
+                                      <p style={{ fontSize: 24, fontWeight: 950, color: "#fff", whiteSpace: "nowrap" }}>
+                                        {activePrice}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div style={{ marginBottom: 16 }}>
+                                    <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
+                                      PARTICIPANTE
+                                    </p>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                                      {[
+                                        ["Nome", raceParticipantForm.name],
+                                        ["CPF", raceParticipantForm.cpf],
+                                        ["Nascimento", raceParticipantForm.birthDate],
+                                        ["Telefone", raceParticipantForm.phone],
+                                        ["E-mail", raceParticipantForm.email]
+                                      ].map(([label, value]) => (
+                                        <div
+                                          key={label}
+                                          style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            gap: 12,
+                                            padding: "11px 12px",
+                                            borderRadius: 14,
+                                            background: "rgba(255,255,255,0.04)",
+                                            border: "1px solid rgba(255,255,255,0.08)"
+                                          }}
+                                        >
+                                          <span style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 900 }}>{label}</span>
+                                          <span style={{ fontSize: 12.5, color: "#f0f0f5", fontWeight: 850, textAlign: "right" }}>{value || "—"}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {requiresTshirt && (
+                                    <div style={{ marginBottom: 16 }}>
+                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
+                                        CAMISETA
+                                      </p>
+
+                                      <div
+                                        style={{
+                                          padding: "12px 13px",
+                                          borderRadius: 14,
+                                          background: "rgba(255,255,255,0.04)",
+                                          border: "1px solid rgba(255,255,255,0.08)",
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          gap: 12
+                                        }}
+                                      >
+                                        <span style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 900 }}>Tamanho</span>
+                                        <span style={{ fontSize: 13, color: "#fff", fontWeight: 950 }}>
+                                          {raceParticipantForm.tshirtSize || "—"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {requiresEmergencyContact && (
+                                    <div style={{ marginBottom: 16 }}>
+                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
+                                        CONTATO DE EMERGÊNCIA
+                                      </p>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            gap: 12,
+                                            padding: "11px 12px",
+                                            borderRadius: 14,
+                                            background: "rgba(255,255,255,0.04)",
+                                            border: "1px solid rgba(255,255,255,0.08)"
+                                          }}
+                                        >
+                                          <span style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 900 }}>Nome</span>
+                                          <span style={{ fontSize: 12.5, color: "#f0f0f5", fontWeight: 850, textAlign: "right" }}>
+                                            {raceParticipantForm.emergencyContactName || "—"}
+                                          </span>
+                                        </div>
+
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            gap: 12,
+                                            padding: "11px 12px",
+                                            borderRadius: 14,
+                                            background: "rgba(255,255,255,0.04)",
+                                            border: "1px solid rgba(255,255,255,0.08)"
+                                          }}
+                                        >
+                                          <span style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 900 }}>Telefone</span>
+                                          <span style={{ fontSize: 12.5, color: "#f0f0f5", fontWeight: 850, textAlign: "right" }}>
+                                            {raceParticipantForm.emergencyContactPhone || "—"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={handleCreatePendingRaceRegistration}
+                                    disabled={creatingRaceRegistration}
+                                    style={{
+                                      width: "100%",
+                                      border: "none",
+                                      borderRadius: 18,
+                                      padding: "16px 18px",
+                                      fontSize: 15,
+                                      fontWeight: 950,
+                                      color: "#fff",
+                                      background: "linear-gradient(135deg, #e11d48, #ff3d63)",
+                                      cursor: "pointer",
+                                      fontFamily: "inherit",
+                                      boxShadow: "0 16px 32px rgba(225,29,72,0.28)"
+                                    }}
+                                  >
+                                    {creatingRaceRegistration ? "Criando reserva..." : "Confirmar dados e seguir para pagamento"}
+                                  </button>
+                                </>
+                              );
+                            })()}
+                          </>
+                        ) : (
+                          <>
+                            {(() => {
+                              const reservationExpiration = pendingRaceRegistration?.reservation_expires_at
+                                ? new Date(pendingRaceRegistration.reservation_expires_at).toLocaleTimeString("pt-BR", {
+                                    hour: "2-digit",
+                                    minute: "2-digit"
+                                  })
+                                : null;
+
+                              const reservedAmount = pendingRaceRegistration?.amount_cents
+                                ? (pendingRaceRegistration.amount_cents / 100).toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL"
+                                  })
+                                : "—";
+
+                              return (
+                                <>
+                                  <div
+                                    style={{
+                                      background: "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.05))",
+                                      border: "1px solid rgba(34,197,94,0.32)",
+                                      borderRadius: 24,
+                                      padding: 18,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        background: "rgba(34,197,94,0.16)",
+                                        color: "#86efac",
+                                        border: "1px solid rgba(134,239,172,0.30)",
+                                        borderRadius: 999,
+                                        padding: "7px 11px",
+                                        fontSize: 11,
+                                        fontWeight: 950,
+                                        marginBottom: 12
+                                      }}
+                                    >
+                                      ✓ VAGA RESERVADA
+                                    </span>
+
+                                    <h3 style={{ fontSize: 24, lineHeight: 1.08, letterSpacing: -0.7, fontWeight: 950, marginBottom: 9 }}>
+                                      Sua inscrição está aguardando pagamento.
+                                    </h3>
+
+                                    <p style={{ fontSize: 14, lineHeight: 1.5, color: "#d2d2dc", fontWeight: 750 }}>
+                                      A vaga foi segurada por 15 minutos. Quando o checkout for conectado ao Stripe, o corredor seguirá daqui para concluir via Pix ou cartão.
+                                    </p>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gridTemplateColumns: "1fr 1fr",
+                                      gap: 10,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        background: "rgba(255,255,255,0.04)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 18,
+                                        padding: 14
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 11, color: "#8f8f9d", fontWeight: 950, marginBottom: 6 }}>
+                                        RESERVA ATÉ
+                                      </p>
+                                      <p style={{ fontSize: 18, color: "#fff", fontWeight: 950 }}>
+                                        {reservationExpiration || "—"}
+                                      </p>
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        background: "rgba(255,255,255,0.04)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 18,
+                                        padding: 14
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 11, color: "#8f8f9d", fontWeight: 950, marginBottom: 6 }}>
+                                        VALOR
+                                      </p>
+                                      <p style={{ fontSize: 18, color: "#fff", fontWeight: 950 }}>
+                                        {reservedAmount}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      background: "rgba(255,255,255,0.04)",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      borderRadius: 20,
+                                      padding: 15,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 8 }}>
+                                      STATUS DA INSCRIÇÃO
+                                    </p>
+                                    <p style={{ fontSize: 15, color: "#fff", fontWeight: 950, marginBottom: 4 }}>
+                                      Pagamento pendente
+                                    </p>
+                                    <p style={{ fontSize: 13, color: "#b8b8c4", lineHeight: 1.45, fontWeight: 750 }}>
+                                      A inscrição já existe no banco com status <strong>pending_payment</strong> e a vaga está reservada no lote.
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    disabled
+                                    style={{
+                                      width: "100%",
+                                      border: "none",
+                                      borderRadius: 18,
+                                      padding: "16px 18px",
+                                      fontSize: 15,
+                                      fontWeight: 950,
+                                      color: "#fff",
+                                      background: "linear-gradient(135deg, rgba(225,29,72,0.45), rgba(255,61,99,0.45))",
+                                      opacity: 0.78,
+                                      cursor: "not-allowed",
+                                      fontFamily: "inherit",
+                                      marginBottom: 10
+                                    }}
+                                  >
+                                    Ir para pagamento
+                                  </button>
+
+                                  <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 750 }}>
+                                    O botão será ativado quando conectarmos o checkout Stripe.
+                                  </p>
+                                </>
+                              );
+                            })()}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Modal admin de eventos */}
               {showAdminEvents && user.id === ADMIN_ID && (
