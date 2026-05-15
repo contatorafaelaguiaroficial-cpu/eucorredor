@@ -155,7 +155,7 @@ function AuthScreen({ onLogin }) {
             {mode === "forgot" ? "Recuperação de senha" : mode === "reset" ? "Nova senha" : "A comunidade dos corredores"}
           </p>
         </div>
-        <div style={{ display: "flex", background: "#13131a", borderRadius: 12, padding: 4, marginBottom: 28, display: mode === "forgot" || mode === "reset" ? "none" : "flex" }}>
+        <div style={{ background: "#13131a", borderRadius: 12, padding: 4, marginBottom: 28, display: mode === "forgot" || mode === "reset" ? "none" : "flex" }}>
           {["login", "register"].map((m) => (
             <button key={m} onClick={() => { setMode(m); setError(""); }}
               style={{ flex: 1, background: mode === m ? "#1e1e2e" : "none", border: "none", borderRadius: 9, padding: "9px 0", color: mode === m ? "#fff" : "#555", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
@@ -1368,8 +1368,8 @@ function AppMain({ user, userName }) {
         <circle cx="${startX}" cy="${startY}" r="18" fill="#6ee7b7" stroke="#ffffff" stroke-width="7"/>
         <circle cx="${endX}" cy="${endY}" r="21" fill="#ffffff"/>
         <circle cx="${endX}" cy="${endY}" r="12" fill="#e11d48"/>
-        <text x="48" y="74" fill="#ffffff" font-family="Arial, sans-serif" font-size="34" font-weight="700">Percurso registrado</text>
-        <text x="48" y="116" fill="#a1a1aa" font-family="Arial, sans-serif" font-size="22">eucorredor</text>
+        <text x="72" y="74" fill="#ffffff" font-family="Arial, sans-serif" font-size="34" font-weight="700">Percurso registrado</text>
+        <text x="72" y="116" fill="#a1a1aa" font-family="Arial, sans-serif" font-size="22">eucorredor</text>
       </svg>`;
 
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
@@ -2091,7 +2091,12 @@ function AppMain({ user, userName }) {
         .tinput { width: 100%; background: #13131a; border: 1.5px solid #1e1e2e; border-radius: 12px; padding: 12px 16px; color: #f0f0f0; font-size: 14px; font-family: inherit; outline: none; resize: none; }
         .tinput:focus { border-color: #e11d48; }
         .tinput::placeholder { color: #444; }
-        .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.96); backdrop-filter: blur(20px); border-top: 1px solid #1e1e2e; display: flex; justify-content: space-around; align-items: center; padding: 10px 4px 28px; z-index: 100; }
+        @media (pointer: coarse) {
+          input, textarea, select, .tinput {
+            font-size: 16px !important;
+          }
+        }
+        .bnav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 390px; background: rgba(10,10,15,0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-around; align-items: center; padding: 10px 4px max(18px, calc(env(safe-area-inset-bottom) + 10px)); z-index: 100; }
         .nbtn { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 8px; font-family: inherit; }
         .post-sep { border: none; border-top: 1px solid #1e1e2e; margin: 0; }
         .skeleton-block {
@@ -2418,7 +2423,7 @@ function AppMain({ user, userName }) {
 
         {/* Header */}
         <div style={{ padding: "16px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 50 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "max(8px, env(safe-area-inset-top))", marginBottom: 0 }}>
             <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 900, color: "#fff" }}>eu<span style={{ color: "#e11d48" }}>corredor</span></h1>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button onClick={() => setShowSearch(!showSearch)} title="Buscar" style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#888" }}>
@@ -2457,7 +2462,7 @@ function AppMain({ user, userName }) {
           ].map((t) => (
             <button key={t.id} className="nbtn"
               onClick={() => t.special ? setShowPublish(true) : setTab(t.id)}
-              style={{ background: t.special ? "#e11d48" : "none", borderRadius: t.special ? "50%" : 0, width: t.special ? 54 : "auto", height: t.special ? 54 : "auto", marginTop: t.special ? -22 : 0, boxShadow: t.special ? "0 4px 24px #e11d4860" : "none", justifyContent: "center", border: "none" }}>
+              style={{ background: t.special ? "#e11d48" : "none", borderRadius: t.special ? "50%" : 0, width: t.special ? 54 : "auto", height: t.special ? 54 : "auto", marginTop: t.special ? -12 : 0, boxShadow: t.special ? "0 8px 24px rgba(225,29,72,0.38)" : "none", justifyContent: "center", border: "none" }}>
               {t.special
                 ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><polygon points="12 4 22 20 2 20"/></svg>
                 : <><span style={{ color: tab === t.id ? "#e11d48" : "#555" }}>{t.svg}</span><span style={{ fontSize: 10, fontWeight: 700, color: tab === t.id ? "#e11d48" : "#555" }}>{t.label}</span></>
@@ -2466,7 +2471,7 @@ function AppMain({ user, userName }) {
           ))}
         </nav>
 
-        <div style={{ padding: "20px", paddingBottom: 90 }}>
+        <div style={{ padding: "20px", paddingBottom: "max(170px, calc(env(safe-area-inset-bottom) + 145px))" }}>
 
           {/* EVENTOS */}
           {tab === "eventos" && (
@@ -2619,7 +2624,7 @@ function AppMain({ user, userName }) {
                     </div>
                     <p style={{ fontWeight: 900, fontSize: 15.5, lineHeight: 1.2, letterSpacing: -0.3, marginBottom: 7, textTransform: "uppercase" }}>{e.name}</p>
                     <p style={{ fontSize: 12.5, color: "#8b8b96", marginBottom: 12 }}>⌖ {e.city}, {e.state}</p>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, paddingTop: "max(6px, env(safe-area-inset-top))" }}>
                       <div style={{ minWidth: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ fontSize: 12, fontWeight: 900, color: "#e11d48" }}>▣ {e.date}</span>
                         <span style={{ width: 1, height: 14, background: "#333" }} />
@@ -2959,7 +2964,35 @@ function AppMain({ user, userName }) {
                         </div>
 
                         {p.text && <p style={{ fontSize: 14, color: "#f0f0f0", lineHeight: 1.55, marginBottom: 13 }}>{p.text}</p>}
-                        {p.photo_url && <div style={{ width: "100%", aspectRatio: "4/3", borderRadius: 16, overflow: "hidden", marginBottom: 13, background: "#0d0d18" }}><img src={p.photo_url} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
+                        {p.photo_url && (
+                          <button
+                            onClick={() => setSelectedPhotoPost(p)}
+                            style={{
+                              width: "100%",
+                              border: "none",
+                              padding: 0,
+                              marginBottom: 13,
+                              borderRadius: 16,
+                              overflow: "hidden",
+                              background: "#0d0d18",
+                              cursor: "pointer",
+                              display: "block"
+                            }}
+                          >
+                            <img
+                              src={p.photo_url}
+                              alt="post"
+                              style={{
+                                width: "100%",
+                                height: "auto",
+                                maxHeight: 520,
+                                objectFit: "contain",
+                                display: "block",
+                                background: "#0d0d18"
+                              }}
+                            />
+                          </button>
+                        )}
 
                         <div style={{ display: "flex", alignItems: "center", gap: 22, paddingTop: 10 }}>
                           <button className="lbtn" onClick={() => handleLikePost(p.id, p.user_id)} style={{ color: liked[p.id] ? "#e11d48" : "#8b8b96", fontWeight: 800 }}>
@@ -3870,7 +3903,7 @@ function AppMain({ user, userName }) {
 
               {hubScreen === "summary" && (
                 <div style={{ padding: "12px 0 20px" }}>
-                  <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 26, padding: 22, boxShadow: "0 24px 54px rgba(0,0,0,0.30)" }}>
+                  <div style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018))", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 28, padding: "max(22px, env(safe-area-inset-top)) 22px 22px", boxShadow: "0 20px 46px rgba(0,0,0,0.26)" }}>
                     <div style={{ textAlign: "center", marginBottom: 20 }}>
                       <p style={{ fontSize: 42, marginBottom: 8 }}>🏁</p>
                       <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 29, fontWeight: 900, marginBottom: 8 }}>Corrida concluída!</h2>
