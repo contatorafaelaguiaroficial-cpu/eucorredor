@@ -1398,7 +1398,11 @@ function AppMain({ user, userName }) {
     setPixPaymentData(null);
 
     try {
-      const response = await fetch("/api/criar-pagamento-pix", {
+      const pixApiUrl = Capacitor.isNativePlatform()
+        ? "https://app.eucorredor.com.br/api/criar-pagamento-pix"
+        : "/api/criar-pagamento-pix";
+
+      const response = await fetch(pixApiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
