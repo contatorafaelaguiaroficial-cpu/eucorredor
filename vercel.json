@@ -9,8 +9,9 @@
       "destination": "/termos.html"
     },
     {
-      "source": "/((?!privacidade|termos|.*\\.html|.*\\.css|.*\\.js|.*\\.ico).*)",
+      "source": "/((?!api|privacidade|termos|.*\\.html|.*\\.css|.*\\.js|.*\\.ico).*)",
       "destination": "/"
     }
   ]
 }
+
