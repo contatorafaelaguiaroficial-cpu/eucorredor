@@ -1430,8 +1430,9 @@ function AppMain({ user, userName }) {
     }
   };
 
-  const handleCheckPixPaymentStatus = async () => {
-    const registrationId = pendingRaceRegistration?.registration_id;
+  const handleCheckPixPaymentStatus = async (registrationIdFromCard = null) => {
+    const registrationId =
+      registrationIdFromCard || pendingRaceRegistration?.registration_id;
 
     if (!registrationId) {
       alert("Não foi possível identificar a inscrição.");
@@ -3494,7 +3495,7 @@ function AppMain({ user, userName }) {
                             {isPending && (
                               <button
                                 type="button"
-                                disabled
+                                onClick={() => handleCheckPixPaymentStatus(registration.id)}
                                 style={{
                                   width: "100%",
                                   border: "none",
@@ -3503,13 +3504,12 @@ function AppMain({ user, userName }) {
                                   fontSize: 13.5,
                                   fontWeight: 950,
                                   color: "#fff",
-                                  background: "linear-gradient(135deg, rgba(225,29,72,0.48), rgba(255,61,99,0.48))",
-                                  opacity: 0.78,
-                                  cursor: "not-allowed",
+                                  background: "linear-gradient(135deg, #e11d48, #ff3d63)",
+                                  cursor: "pointer",
                                   fontFamily: "inherit"
                                 }}
                               >
-                                Concluir pagamento em breve
+                                Acompanhar pagamento
                               </button>
                             )}
                           </div>
