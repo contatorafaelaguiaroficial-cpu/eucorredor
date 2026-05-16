@@ -1430,6 +1430,48 @@ function AppMain({ user, userName }) {
     }
   };
 
+  const handleCheckPixPaymentStatus = async () => {
+    const registrationId = pendingRaceRegistration?.registration_id;
+
+    if (!registrationId) {
+      alert("Não foi possível identificar a inscrição.");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("race_registrations")
+        .select("id, status, confirmed_at, payment_status, payment_status_detail")
+        .eq("id", registrationId)
+        .single();
+
+      if (error) throw error;
+
+      if (data?.status === "confirmed") {
+        setPendingRaceRegistration((current) => ({
+          ...current,
+          status: "confirmed",
+          confirmed_at: data.confirmed_at
+        }));
+
+        setPixPaymentData((current) => ({
+          ...current,
+          payment_confirmed: true,
+          payment_status: data.payment_status,
+          payment_status_detail: data.payment_status_detail
+        }));
+
+        await loadMyRaceRegistrations();
+        return;
+      }
+
+      alert("Pagamento ainda não identificado. Assim que for aprovado, sua inscrição será confirmada automaticamente.");
+    } catch (err) {
+      console.error("Erro ao verificar pagamento Pix:", err.message || err);
+      alert("Não foi possível verificar o pagamento agora.");
+    }
+  };
+
   const handleSaveEvent = async () => {
     if (!eventForm.name || !eventForm.date || !eventForm.distance) return alert("Preencha nome, data e distância.");
     setSavingEvent(true);
@@ -4474,9 +4516,68 @@ function AppMain({ user, userName }) {
                                         </a>
                                       ) : null}
 
-                                      <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 750 }}>
-                                        Status atual: {pixPaymentData?.status_detail || "aguardando pagamento"}.
-                                      </p>
+                                      {pixPaymentData?.payment_confirmed || pendingRaceRegistration?.status === "confirmed" ? (
+                                        <div
+                                          style={{
+                                            background: "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.06))",
+                                            border: "1px solid rgba(34,197,94,0.34)",
+                                            borderRadius: 18,
+                                            padding: 15,
+                                            marginTop: 6
+                                          }}
+                                        >
+                                          <p style={{ fontSize: 12, color: "#86efac", fontWeight: 950, marginBottom: 7 }}>
+                                            ✓ INSCRIÇÃO CONFIRMADA
+                                          </p>
+                                          <p style={{ fontSize: 13.5, color: "#dcfce7", lineHeight: 1.5, fontWeight: 800 }}>
+                                            Pagamento identificado. Sua vaga nesta prova está confirmada.
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <div
+                                            style={{
+                                              background: "rgba(255,255,255,0.04)",
+                                              border: "1px solid rgba(255,255,255,0.10)",
+                                              borderRadius: 18,
+                                              padding: 14,
+                                              marginTop: 6,
+                                              marginBottom: 10
+                                            }}
+                                          >
+                                            <p style={{ fontSize: 12, color: "#fda4af", fontWeight: 950, marginBottom: 7 }}>
+                                              AGUARDANDO PAGAMENTO
+                                            </p>
+                                            <p style={{ fontSize: 13.5, color: "#d2d2dc", lineHeight: 1.5, fontWeight: 780 }}>
+                                              Assim que o Pix for aprovado, sua inscrição será confirmada automaticamente.
+                                            </p>
+                                          </div>
+
+                                          <button
+                                            type="button"
+                                            onClick={handleCheckPixPaymentStatus}
+                                            style={{
+                                              width: "100%",
+                                              border: "1px solid rgba(255,255,255,0.14)",
+                                              borderRadius: 16,
+                                              padding: "14px 16px",
+                                              fontSize: 14,
+                                              fontWeight: 950,
+                                              color: "#fff",
+                                              background: "rgba(255,255,255,0.08)",
+                                              cursor: "pointer",
+                                              fontFamily: "inherit",
+                                              marginBottom: 10
+                                            }}
+                                          >
+                                            Já paguei, verificar status
+                                          </button>
+
+                                          <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 750 }}>
+                                            Status atual: {pixPaymentData?.status_detail || "aguardando pagamento"}.
+                                          </p>
+                                        </>
+                                      )}
                                     </div>
                                   )}
 
