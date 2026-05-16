@@ -1474,7 +1474,7 @@ function AppMain({ user, userName }) {
           paymentMethodId: formData?.payment_method_id,
           paymentTypeId: additionalData?.paymentTypeId,
           installments: formData?.installments,
-          payerEmail: formData?.payer?.email,
+          payerEmail: "test@testuser.com",
           identification: formData?.payer?.identification || null
         })
       });
@@ -4770,7 +4770,7 @@ function AppMain({ user, userName }) {
                                               initialization={{
                                                 amount: Number(((pendingRaceRegistration?.amount_cents || 0) / 100).toFixed(2)),
                                                 payer: {
-                                                  email: raceParticipantForm.email || user?.email || "",
+                                                  email: "test@testuser.com",
                                                   ...(raceParticipantForm.cpf
                                                     ? {
                                                         identification: {
