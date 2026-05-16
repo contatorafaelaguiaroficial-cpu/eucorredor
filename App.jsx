@@ -4,11 +4,18 @@ import { createClient } from "@supabase/supabase-js";
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import { PushNotifications } from "@capacitor/push-notifications";
+import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
 
 const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_ID = "7cdb56e9-0525-48ac-901f-1f5ac23fe009";
+
+const MERCADOPAGO_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
+
+if (MERCADOPAGO_PUBLIC_KEY) {
+  initMercadoPago(MERCADOPAGO_PUBLIC_KEY, { locale: "pt-BR" });
+}
 
 const LEVELS = [
   { name: "Iniciante", min: 0, max: 4, color: "#6ee7b7", icon: "🌱" },
@@ -392,6 +399,10 @@ function AppMain({ user, userName }) {
   const [creatingPixPayment, setCreatingPixPayment] = useState(false);
   const [pixPaymentData, setPixPaymentData] = useState(null);
   const [pixPaymentError, setPixPaymentError] = useState("");
+  const [selectedCheckoutPaymentMethod, setSelectedCheckoutPaymentMethod] = useState("pix");
+  const [creatingCardPayment, setCreatingCardPayment] = useState(false);
+  const [cardPaymentData, setCardPaymentData] = useState(null);
+  const [cardPaymentError, setCardPaymentError] = useState("");
   const [myRaceRegistrations, setMyRaceRegistrations] = useState([]);
   const [loadingMyRaceRegistrations, setLoadingMyRaceRegistrations] = useState(true);
   const [myRaceFilter, setMyRaceFilter] = useState("Todas");
@@ -1427,6 +1438,71 @@ function AppMain({ user, userName }) {
       setPixPaymentError(err.message || "Não foi possível gerar o Pix.");
     } finally {
       setCreatingPixPayment(false);
+    }
+  };
+
+  const handleCreateCardPayment = async (formData, additionalData) => {
+    const registrationId = pendingRaceRegistration?.registration_id;
+
+    if (!registrationId) {
+      setCardPaymentError("Não foi possível identificar a inscrição reservada.");
+      throw new Error("Inscrição reservada não identificada.");
+    }
+
+    if (!pendingRaceRegistration?.amount_cents) {
+      setCardPaymentError("Não foi possível identificar o valor da inscrição.");
+      throw new Error("Valor da inscrição não identificado.");
+    }
+
+    setCreatingCardPayment(true);
+    setCardPaymentError("");
+
+    try {
+      const cardApiUrl = Capacitor.isNativePlatform()
+        ? "https://app.eucorredor.com.br/api/criar-pagamento-cartao"
+        : "/api/criar-pagamento-cartao";
+
+      const response = await fetch(cardApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          registrationId,
+          amountCents: pendingRaceRegistration.amount_cents,
+          token: formData?.token,
+          paymentMethodId: formData?.payment_method_id,
+          paymentTypeId: additionalData?.paymentTypeId,
+          installments: formData?.installments,
+          payerEmail: formData?.payer?.email,
+          identification: formData?.payer?.identification || null
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.sucesso) {
+        throw new Error(data?.erro || "Não foi possível processar o cartão.");
+      }
+
+      setCardPaymentData(data);
+
+      if (data?.inscricao_confirmada) {
+        setPendingRaceRegistration((current) => ({
+          ...current,
+          status: "confirmed"
+        }));
+
+        await loadMyRaceRegistrations();
+      }
+
+      return data;
+    } catch (err) {
+      console.error("Erro ao processar pagamento com cartão:", err.message || err);
+      setCardPaymentError(err.message || "Não foi possível processar o cartão.");
+      throw err;
+    } finally {
+      setCreatingCardPayment(false);
     }
   };
 
@@ -4316,7 +4392,7 @@ function AppMain({ user, userName }) {
                                     </h3>
 
                                     <p style={{ fontSize: 14, lineHeight: 1.5, color: "#d2d2dc", fontWeight: 750 }}>
-                                      A vaga foi segurada por 15 minutos. Conclua o pagamento via Pix pelo Mercado Pago para confirmar sua inscrição.
+                                      A vaga foi segurada por 15 minutos. Conclua o pagamento via Pix ou cartão pelo Mercado Pago para confirmar sua inscrição.
                                     </p>
                                   </div>
 
@@ -4381,7 +4457,62 @@ function AppMain({ user, userName }) {
                                     </p>
                                   </div>
 
-                                  {!pixPaymentData ? (
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gridTemplateColumns: "1fr 1fr",
+                                      gap: 10,
+                                      marginBottom: 14
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedCheckoutPaymentMethod("pix")}
+                                      style={{
+                                        border: selectedCheckoutPaymentMethod === "pix"
+                                          ? "1px solid rgba(255,61,99,0.72)"
+                                          : "1px solid rgba(255,255,255,0.12)",
+                                        borderRadius: 16,
+                                        padding: "13px 14px",
+                                        fontSize: 13.5,
+                                        fontWeight: 950,
+                                        color: selectedCheckoutPaymentMethod === "pix" ? "#fff" : "#b9b9c5",
+                                        background: selectedCheckoutPaymentMethod === "pix"
+                                          ? "linear-gradient(135deg, rgba(225,29,72,0.24), rgba(255,61,99,0.12))"
+                                          : "rgba(255,255,255,0.04)",
+                                        cursor: "pointer",
+                                        fontFamily: "inherit"
+                                      }}
+                                    >
+                                      Pix
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedCheckoutPaymentMethod("card")}
+                                      style={{
+                                        border: selectedCheckoutPaymentMethod === "card"
+                                          ? "1px solid rgba(255,61,99,0.72)"
+                                          : "1px solid rgba(255,255,255,0.12)",
+                                        borderRadius: 16,
+                                        padding: "13px 14px",
+                                        fontSize: 13.5,
+                                        fontWeight: 950,
+                                        color: selectedCheckoutPaymentMethod === "card" ? "#fff" : "#b9b9c5",
+                                        background: selectedCheckoutPaymentMethod === "card"
+                                          ? "linear-gradient(135deg, rgba(225,29,72,0.24), rgba(255,61,99,0.12))"
+                                          : "rgba(255,255,255,0.04)",
+                                        cursor: "pointer",
+                                        fontFamily: "inherit"
+                                      }}
+                                    >
+                                      Cartão
+                                    </button>
+                                  </div>
+
+                                  {selectedCheckoutPaymentMethod === "pix" && (
+                                    <>
+                                      {!pixPaymentData ? (
                                     <>
                                       <button
                                         type="button"
@@ -4581,20 +4712,109 @@ function AppMain({ user, userName }) {
                                     </div>
                                   )}
 
-                                  {pixPaymentError ? (
-                                    <p
+                                      {pixPaymentError ? (
+                                        <p
+                                          style={{
+                                            marginTop: 12,
+                                            fontSize: 13,
+                                            color: "#fda4af",
+                                            lineHeight: 1.45,
+                                            textAlign: "center",
+                                            fontWeight: 850
+                                          }}
+                                        >
+                                          {pixPaymentError}
+                                        </p>
+                                      ) : null}
+                                    </>
+                                  )}
+
+                                  {selectedCheckoutPaymentMethod === "card" && (
+                                    <div
                                       style={{
-                                        marginTop: 12,
-                                        fontSize: 13,
-                                        color: "#fda4af",
-                                        lineHeight: 1.45,
-                                        textAlign: "center",
-                                        fontWeight: 850
+                                        background: "rgba(255,255,255,0.04)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 22,
+                                        padding: 16,
+                                        marginTop: 4
                                       }}
                                     >
-                                      {pixPaymentError}
-                                    </p>
-                                  ) : null}
+                                      {cardPaymentData?.inscricao_confirmada || pendingRaceRegistration?.status === "confirmed" ? (
+                                        <div
+                                          style={{
+                                            background: "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.06))",
+                                            border: "1px solid rgba(34,197,94,0.34)",
+                                            borderRadius: 18,
+                                            padding: 15
+                                          }}
+                                        >
+                                          <p style={{ fontSize: 12, color: "#86efac", fontWeight: 950, marginBottom: 7 }}>
+                                            ✓ INSCRIÇÃO CONFIRMADA
+                                          </p>
+                                          <p style={{ fontSize: 13.5, color: "#dcfce7", lineHeight: 1.5, fontWeight: 800 }}>
+                                            Pagamento aprovado. Sua vaga nesta prova está confirmada.
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 8 }}>
+                                            PAGAMENTO COM CARTÃO
+                                          </p>
+
+                                          <p style={{ fontSize: 14, color: "#fff", lineHeight: 1.45, fontWeight: 850, marginBottom: 14 }}>
+                                            Preencha os dados com segurança para confirmar sua inscrição.
+                                          </p>
+
+                                          {MERCADOPAGO_PUBLIC_KEY ? (
+                                            <CardPayment
+                                              initialization={{
+                                                amount: Number(((pendingRaceRegistration?.amount_cents || 0) / 100).toFixed(2)),
+                                                payer: {
+                                                  email: raceParticipantForm.email || user?.email || "",
+                                                  ...(raceParticipantForm.cpf
+                                                    ? {
+                                                        identification: {
+                                                          type: "CPF",
+                                                          number: raceParticipantForm.cpf.replace(/\D/g, "")
+                                                        }
+                                                      }
+                                                    : {})
+                                                }
+                                              }}
+                                              onSubmit={handleCreateCardPayment}
+                                              onReady={() => {}}
+                                              onError={(error) => {
+                                                console.error("Erro no formulário de cartão:", error);
+                                                setCardPaymentError("Não foi possível carregar ou processar o formulário de cartão.");
+                                              }}
+                                            />
+                                          ) : (
+                                            <p style={{ fontSize: 13, color: "#fda4af", lineHeight: 1.45, fontWeight: 850 }}>
+                                              Public Key do Mercado Pago não encontrada.
+                                            </p>
+                                          )}
+
+                                          {creatingCardPayment ? (
+                                            <p style={{ marginTop: 12, fontSize: 13, color: "#d2d2dc", lineHeight: 1.45, textAlign: "center", fontWeight: 850 }}>
+                                              Processando pagamento com cartão...
+                                            </p>
+                                          ) : null}
+
+                                          {cardPaymentData && !cardPaymentData?.inscricao_confirmada ? (
+                                            <p style={{ marginTop: 12, fontSize: 13, color: "#d2d2dc", lineHeight: 1.45, textAlign: "center", fontWeight: 850 }}>
+                                              Status do pagamento: {cardPaymentData?.status_detail || cardPaymentData?.status || "em análise"}.
+                                            </p>
+                                          ) : null}
+
+                                          {cardPaymentError ? (
+                                            <p style={{ marginTop: 12, fontSize: 13, color: "#fda4af", lineHeight: 1.45, textAlign: "center", fontWeight: 850 }}>
+                                              {cardPaymentError}
+                                            </p>
+                                          ) : null}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
                                 </>
                               );
                             })()}
