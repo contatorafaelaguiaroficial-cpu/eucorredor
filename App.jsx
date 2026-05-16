@@ -389,6 +389,9 @@ function AppMain({ user, userName }) {
   const [raceCheckoutStep, setRaceCheckoutStep] = useState("details");
   const [creatingRaceRegistration, setCreatingRaceRegistration] = useState(false);
   const [pendingRaceRegistration, setPendingRaceRegistration] = useState(null);
+  const [creatingPixPayment, setCreatingPixPayment] = useState(false);
+  const [pixPaymentData, setPixPaymentData] = useState(null);
+  const [pixPaymentError, setPixPaymentError] = useState("");
   const [myRaceRegistrations, setMyRaceRegistrations] = useState([]);
   const [loadingMyRaceRegistrations, setLoadingMyRaceRegistrations] = useState(true);
   const [myRaceFilter, setMyRaceFilter] = useState("Todas");
@@ -1376,6 +1379,50 @@ function AppMain({ user, userName }) {
       alert(err.message || "Não foi possível criar a reserva agora.");
     } finally {
       setCreatingRaceRegistration(false);
+    }
+  };
+
+  const handleCreatePixPayment = async () => {
+    if (!pendingRaceRegistration?.registration_id) {
+      alert("Não foi possível identificar a inscrição reservada.");
+      return;
+    }
+
+    if (!pendingRaceRegistration?.amount_cents) {
+      alert("Não foi possível identificar o valor da inscrição.");
+      return;
+    }
+
+    setCreatingPixPayment(true);
+    setPixPaymentError("");
+    setPixPaymentData(null);
+
+    try {
+      const response = await fetch("/api/criar-pagamento-pix", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          registrationId: pendingRaceRegistration.registration_id,
+          amountCents: pendingRaceRegistration.amount_cents,
+          participantEmail: raceParticipantForm.email,
+          participantName: raceParticipantForm.name
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.sucesso) {
+        throw new Error(data?.erro || "Não foi possível gerar o Pix.");
+      }
+
+      setPixPaymentData(data);
+    } catch (err) {
+      console.error("Erro ao gerar Pix da inscrição:", err.message || err);
+      setPixPaymentError(err.message || "Não foi possível gerar o Pix.");
+    } finally {
+      setCreatingPixPayment(false);
     }
   };
 
@@ -4223,7 +4270,7 @@ function AppMain({ user, userName }) {
                                     </h3>
 
                                     <p style={{ fontSize: 14, lineHeight: 1.5, color: "#d2d2dc", fontWeight: 750 }}>
-                                      A vaga foi segurada por 15 minutos. Quando o checkout for conectado ao Stripe, o corredor seguirá daqui para concluir via Pix ou cartão.
+                                      A vaga foi segurada por 15 minutos. Conclua o pagamento via Pix pelo Mercado Pago para confirmar sua inscrição.
                                     </p>
                                   </div>
 
@@ -4288,30 +4335,161 @@ function AppMain({ user, userName }) {
                                     </p>
                                   </div>
 
-                                  <button
-                                    type="button"
-                                    disabled
-                                    style={{
-                                      width: "100%",
-                                      border: "none",
-                                      borderRadius: 18,
-                                      padding: "16px 18px",
-                                      fontSize: 15,
-                                      fontWeight: 950,
-                                      color: "#fff",
-                                      background: "linear-gradient(135deg, rgba(225,29,72,0.45), rgba(255,61,99,0.45))",
-                                      opacity: 0.78,
-                                      cursor: "not-allowed",
-                                      fontFamily: "inherit",
-                                      marginBottom: 10
-                                    }}
-                                  >
-                                    Ir para pagamento
-                                  </button>
+                                  {!pixPaymentData ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={handleCreatePixPayment}
+                                        disabled={creatingPixPayment}
+                                        style={{
+                                          width: "100%",
+                                          border: "none",
+                                          borderRadius: 18,
+                                          padding: "16px 18px",
+                                          fontSize: 15,
+                                          fontWeight: 950,
+                                          color: "#fff",
+                                          background: "linear-gradient(135deg, #e11d48, #ff3d63)",
+                                          opacity: creatingPixPayment ? 0.75 : 1,
+                                          cursor: creatingPixPayment ? "wait" : "pointer",
+                                          fontFamily: "inherit",
+                                          marginBottom: 10
+                                        }}
+                                      >
+                                        {creatingPixPayment ? "Gerando Pix..." : "Pagar com Pix"}
+                                      </button>
 
-                                  <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 750 }}>
-                                    O botão será ativado quando conectarmos o checkout Stripe.
-                                  </p>
+                                      <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 750 }}>
+                                        Gere o QR Code para concluir a inscrição via Mercado Pago.
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <div
+                                      style={{
+                                        background: "rgba(255,255,255,0.04)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 22,
+                                        padding: 16,
+                                        marginTop: 4
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 8 }}>
+                                        PAGAMENTO PIX GERADO
+                                      </p>
+
+                                      <p style={{ fontSize: 14, color: "#fff", lineHeight: 1.45, fontWeight: 850, marginBottom: 14 }}>
+                                        Escaneie o QR Code ou copie o código Pix para concluir o pagamento.
+                                      </p>
+
+                                      {pixPaymentData?.pagamento?.qr_code_base64 ? (
+                                        <img
+                                          src={`data:image/png;base64,${pixPaymentData.pagamento.qr_code_base64}`}
+                                          alt="QR Code Pix"
+                                          style={{
+                                            display: "block",
+                                            width: "100%",
+                                            maxWidth: 260,
+                                            margin: "0 auto 14px",
+                                            borderRadius: 16,
+                                            background: "#fff",
+                                            padding: 10
+                                          }}
+                                        />
+                                      ) : null}
+
+                                      {pixPaymentData?.pagamento?.qr_code ? (
+                                        <>
+                                          <textarea
+                                            readOnly
+                                            value={pixPaymentData.pagamento.qr_code}
+                                            style={{
+                                              width: "100%",
+                                              minHeight: 92,
+                                              resize: "none",
+                                              border: "1px solid rgba(255,255,255,0.12)",
+                                              borderRadius: 16,
+                                              padding: 12,
+                                              fontSize: 12,
+                                              lineHeight: 1.45,
+                                              color: "#fff",
+                                              background: "rgba(255,255,255,0.05)",
+                                              fontFamily: "inherit",
+                                              marginBottom: 10
+                                            }}
+                                          />
+
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              try {
+                                                await navigator.clipboard.writeText(pixPaymentData.pagamento.qr_code);
+                                                alert("Código Pix copiado!");
+                                              } catch {
+                                                alert("Não foi possível copiar automaticamente. Selecione o código e copie manualmente.");
+                                              }
+                                            }}
+                                            style={{
+                                              width: "100%",
+                                              border: "1px solid rgba(255,255,255,0.14)",
+                                              borderRadius: 16,
+                                              padding: "14px 16px",
+                                              fontSize: 14,
+                                              fontWeight: 950,
+                                              color: "#fff",
+                                              background: "rgba(255,255,255,0.08)",
+                                              cursor: "pointer",
+                                              fontFamily: "inherit",
+                                              marginBottom: 10
+                                            }}
+                                          >
+                                            Copiar código Pix
+                                          </button>
+                                        </>
+                                      ) : null}
+
+                                      {pixPaymentData?.pagamento?.ticket_url ? (
+                                        <a
+                                          href={pixPaymentData.pagamento.ticket_url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          style={{
+                                            display: "block",
+                                            width: "100%",
+                                            textAlign: "center",
+                                            textDecoration: "none",
+                                            borderRadius: 16,
+                                            padding: "14px 16px",
+                                            fontSize: 14,
+                                            fontWeight: 950,
+                                            color: "#fff",
+                                            background: "linear-gradient(135deg, #e11d48, #ff3d63)",
+                                            marginBottom: 10
+                                          }}
+                                        >
+                                          Abrir pagamento Pix
+                                        </a>
+                                      ) : null}
+
+                                      <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 750 }}>
+                                        Status atual: {pixPaymentData?.status_detail || "aguardando pagamento"}.
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {pixPaymentError ? (
+                                    <p
+                                      style={{
+                                        marginTop: 12,
+                                        fontSize: 13,
+                                        color: "#fda4af",
+                                        lineHeight: 1.45,
+                                        textAlign: "center",
+                                        fontWeight: 850
+                                      }}
+                                    >
+                                      {pixPaymentError}
+                                    </p>
+                                  ) : null}
                                 </>
                               );
                             })()}
