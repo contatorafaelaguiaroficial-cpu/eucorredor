@@ -6,3 +6,7 @@ dist/
 .vercel
 
 android/.idea/
+
+.env
+.env.local
+.vercel
