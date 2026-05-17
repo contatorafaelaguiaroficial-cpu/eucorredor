@@ -68,7 +68,7 @@ export default async function handler(req, res) {
 
     const { data: registration, error: registrationError } = await supabaseAdmin
       .from("race_registrations")
-      .select("id, race_event_id, amount_cents, status")
+      .select("id, race_event_id, amount_cents, status, participant_cpf")
       .eq("id", registrationId)
       .maybeSingle();
 
@@ -93,6 +93,13 @@ export default async function handler(req, res) {
     }
 
     const amountCents = Number(registration.amount_cents || 0);
+    const participantCpf = String(registration.participant_cpf || "").replace(/\D/g, "");
+
+    if (!participantCpf || participantCpf.length !== 11) {
+      return res.status(400).json({
+        erro: "CPF do participante inválido para gerar o Pix."
+      });
+    }
 
     if (!Number.isInteger(amountCents) || amountCents <= 0) {
       return res.status(400).json({
@@ -157,7 +164,11 @@ export default async function handler(req, res) {
       notification_url: WEBHOOK_URL,
       payer: {
         email: "comprador@testuser.com",
-        first_name: participantName || "Corredor"
+        first_name: participantName || "Corredor",
+        identification: {
+          type: "CPF",
+          number: participantCpf
+        }
       },
       ...(applicationFee > 0 ? { application_fee: applicationFee } : {})
     };
