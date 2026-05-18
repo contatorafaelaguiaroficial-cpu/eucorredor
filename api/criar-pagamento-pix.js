@@ -163,7 +163,7 @@ export default async function handler(req, res) {
       external_reference: `race_registration_${registrationId}`,
       notification_url: WEBHOOK_URL,
       payer: {
-        email: "test@testuser.com",
+        email: participantEmail,
         first_name: participantName || "Corredor",
         identification: {
           type: "CPF",
