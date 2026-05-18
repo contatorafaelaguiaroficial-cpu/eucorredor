@@ -4875,52 +4875,6 @@ function AppMain({ user, userName }) {
                     {adminEventsView === "agenda" ? (
                       <>
                         <p style={{ fontSize: 12, color: "#555", marginBottom: 14, fontWeight: 700 }}>Adicionar novo evento</p>
-                        {lastSavedNativeOrganizer ? (
-                          <div
-                            style={{
-                              background: "linear-gradient(135deg, rgba(34,197,94,0.16), rgba(255,255,255,0.035))",
-                              border: "1px solid rgba(34,197,94,0.32)",
-                              borderRadius: 20,
-                              padding: 16,
-                              marginBottom: 16
-                            }}
-                          >
-                            <p style={{ fontSize: 12, color: "#86efac", fontWeight: 950, marginBottom: 8 }}>
-                              PROVA SALVA COM SUCESSO
-                            </p>
-
-                            <p style={{ fontSize: 16, lineHeight: 1.35, color: "#fff", fontWeight: 950, marginBottom: 8 }}>
-                              Conecte o Mercado Pago do organizador
-                            </p>
-
-                            <p style={{ fontSize: 13, lineHeight: 1.5, color: "#d1fae5", fontWeight: 750, marginBottom: 14 }}>
-                              A prova {lastSavedNativeOrganizer.raceName} foi cadastrada para {lastSavedNativeOrganizer.name}. Para habilitar recebimentos com split, conecte a conta Mercado Pago desse organizador.
-                            </p>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const oauthUrl = `/api/mercadopago/oauth/iniciar?organizerId=${encodeURIComponent(lastSavedNativeOrganizer.id)}`;
-                                window.open(oauthUrl, "_blank", "noopener,noreferrer");
-                              }}
-                              style={{
-                                width: "100%",
-                                border: "none",
-                                borderRadius: 14,
-                                padding: "15px 16px",
-                                fontSize: 14,
-                                fontWeight: 950,
-                                color: "#fff",
-                                background: "linear-gradient(135deg, #16a34a, #22c55e)",
-                                cursor: "pointer",
-                                fontFamily: "inherit"
-                              }}
-                            >
-                              Conectar Mercado Pago
-                            </button>
-                          </div>
-                        ) : null}
-
                         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                       <input className="tinput" placeholder="Nome do evento" value={eventForm.name} onChange={(e) => setEventForm(f => ({ ...f, name: e.target.value }))} />
                       <div style={{ display: "flex", gap: 8 }}>
@@ -4981,6 +4935,53 @@ function AppMain({ user, userName }) {
                             Primeiro definimos o evento e o organizador. Depois seguimos para kit, modalidades, lotes e vagas.
                           </p>
                         </div>
+
+                        {lastSavedNativeOrganizer ? (
+                          <div
+                            style={{
+                              background: "linear-gradient(135deg, rgba(34,197,94,0.16), rgba(255,255,255,0.035))",
+                              border: "1px solid rgba(34,197,94,0.32)",
+                              borderRadius: 20,
+                              padding: 16,
+                              marginBottom: 16
+                            }}
+                          >
+                            <p style={{ fontSize: 12, color: "#86efac", fontWeight: 950, marginBottom: 8 }}>
+                              PROVA SALVA COM SUCESSO
+                            </p>
+
+                            <p style={{ fontSize: 16, lineHeight: 1.35, color: "#fff", fontWeight: 950, marginBottom: 8 }}>
+                              Conecte o Mercado Pago do organizador
+                            </p>
+
+                            <p style={{ fontSize: 13, lineHeight: 1.5, color: "#d1fae5", fontWeight: 750, marginBottom: 14 }}>
+                              A prova {lastSavedNativeOrganizer.raceName} foi cadastrada para {lastSavedNativeOrganizer.name}. Para habilitar recebimentos com split, conecte a conta Mercado Pago desse organizador.
+                            </p>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const oauthUrl = `/api/mercadopago/oauth/iniciar?organizerId=${encodeURIComponent(lastSavedNativeOrganizer.id)}`;
+                                window.open(oauthUrl, "_blank", "noopener,noreferrer");
+                              }}
+                              style={{
+                                width: "100%",
+                                border: "none",
+                                borderRadius: 14,
+                                padding: "15px 16px",
+                                fontSize: 14,
+                                fontWeight: 950,
+                                color: "#fff",
+                                background: "linear-gradient(135deg, #16a34a, #22c55e)",
+                                cursor: "pointer",
+                                fontFamily: "inherit"
+                              }}
+                            >
+                              Conectar Mercado Pago
+                            </button>
+                          </div>
+                        ) : null}
+
 
                         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                           <input
