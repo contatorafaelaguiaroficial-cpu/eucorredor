@@ -192,7 +192,7 @@ export default async function handler(req, res) {
         code,
         redirect_uri: redirectUri,
         code_verifier: codeVerifier,
-        test_token: true
+        test_token: false
       })
     });
 
