@@ -3699,7 +3699,7 @@ function AppMain({ user, userName }) {
                             marginBottom: 12
                           }}
                         >
-                          TESTE · INSCRIÇÃO NATIVA
+                          INSCRIÇÃO EUCORREDOR
                         </span>
 
                         <h3 style={{ fontSize: 24, lineHeight: 1.08, letterSpacing: -0.7, fontWeight: 950, marginBottom: 8 }}>
