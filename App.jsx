@@ -3329,7 +3329,7 @@ function AppMain({ user, userName }) {
                           {user.id === ADMIN_ID && (
                             <button onClick={() => handleDeleteEvent(featuredEvent.id)} style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.12)", color: "#777", borderRadius: 12, width: 36, height: 36, cursor: "pointer", fontFamily: "inherit" }}>🗑️</button>
                           )}
-                          {featuredEvent.race_event && user.id === ADMIN_ID ? (
+                          {featuredEvent.race_event ? (
                             <button
                               onClick={() => openRaceEventDetails(featuredEvent)}
                               style={{
@@ -3346,7 +3346,7 @@ function AppMain({ user, userName }) {
                                 fontFamily: "inherit"
                               }}
                             >
-                              Testar inscrição
+                              {user.id === ADMIN_ID ? "Testar inscrição" : "Ver detalhes"}
                             </button>
                           ) : featuredEvent.link ? (
                             <a href={featuredEvent.link} target="_blank" rel="noopener noreferrer" style={{ background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", borderRadius: 14, padding: "12px 17px", fontSize: 13, fontWeight: 900, textDecoration: "none", whiteSpace: "nowrap", boxShadow: "0 12px 28px rgba(225,29,72,0.28)" }}>Inscrever</a>
@@ -3628,7 +3628,7 @@ function AppMain({ user, userName }) {
                         <span style={{ width: 1, height: 14, background: "#333" }} />
                         <span style={{ fontSize: 12, color: "#aaa", fontWeight: 800 }}>{e.distance}</span>
                       </div>
-                      {e.race_event && user.id === ADMIN_ID ? (
+                      {e.race_event ? (
                         <button
                           onClick={() => openRaceEventDetails(e)}
                           style={{
@@ -3644,7 +3644,7 @@ function AppMain({ user, userName }) {
                             fontFamily: "inherit"
                           }}
                         >
-                          Testar inscrição
+                          {user.id === ADMIN_ID ? "Testar inscrição" : "Ver detalhes"}
                         </button>
                       ) : e.link ? (
                         <a href={e.link} target="_blank" rel="noopener noreferrer" style={{ background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", borderRadius: 12, padding: "9px 12px", fontSize: 12, fontWeight: 900, textDecoration: "none", whiteSpace: "nowrap" }}>Inscrever</a>
