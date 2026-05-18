@@ -171,6 +171,16 @@ export default async function handler(req, res) {
     const transactionAmount = Number((amountCents / 100).toFixed(2));
     const applicationFee = Number((platformFeeCents / 100).toFixed(2));
 
+    console.log("DEBUG cartão EuCorredor:", {
+      token_presente: Boolean(token),
+      token_tipo: typeof token,
+      token_inicio: typeof token === "string" ? token.slice(0, 12) : null,
+      token_tamanho: typeof token === "string" ? token.length : null,
+      paymentMethodId,
+      paymentTypeId,
+      installments: Number(installments) || 1
+    });
+
     const body = {
       transaction_amount: transactionAmount,
       token,
