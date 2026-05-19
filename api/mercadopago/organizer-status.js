@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
+
 function configurarCors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -30,10 +32,9 @@ export default async function handler(req, res) {
       });
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseSecretKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 
-    if (!supabaseUrl || !supabaseSecretKey) {
+    if (!SUPABASE_URL || !supabaseSecretKey) {
       console.error("Supabase não configurado para consultar status do organizador.");
 
       return res.status(500).json({
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey);
+    const supabaseAdmin = createClient(SUPABASE_URL, supabaseSecretKey);
 
     const { data, error } = await supabaseAdmin
       .from("organizer_mercadopago_accounts")
