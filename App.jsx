@@ -383,6 +383,9 @@ function AppMain({ user, userName }) {
   const [nativeRaceModalities, setNativeRaceModalities] = useState([]);
   const [savingNativeRace, setSavingNativeRace] = useState(false);
   const [lastSavedNativeOrganizer, setLastSavedNativeOrganizer] = useState(null);
+  const [checkingNativeOrganizerMpStatus, setCheckingNativeOrganizerMpStatus] = useState(false);
+  const [nativeOrganizerMpStatus, setNativeOrganizerMpStatus] = useState(null);
+  const [nativeOrganizerMpStatusError, setNativeOrganizerMpStatusError] = useState("");
   const [nativeModalityDraft, setNativeModalityDraft] = useState({
     name: "",
     lotName: "1º lote",
@@ -1584,6 +1587,34 @@ function AppMain({ user, userName }) {
     setSavingEvent(false);
   };
 
+  const handleCheckNativeOrganizerMercadoPagoStatus = async (organizerId) => {
+    if (!organizerId) return;
+
+    setCheckingNativeOrganizerMpStatus(true);
+    setNativeOrganizerMpStatusError("");
+
+    try {
+      const response = await fetch(
+        `https://app.eucorredor.com.br/api/mercadopago/organizer-status?organizerId=${encodeURIComponent(organizerId)}`
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Não foi possível consultar a conexão do organizador.");
+      }
+
+      setNativeOrganizerMpStatus(data);
+    } catch (error) {
+      console.error("Erro ao verificar conexão Mercado Pago:", error);
+      setNativeOrganizerMpStatusError(
+        error.message || "Não foi possível verificar a conexão Mercado Pago."
+      );
+    } finally {
+      setCheckingNativeOrganizerMpStatus(false);
+    }
+  };
+
   const handleSaveNativeRace = async () => {
     if (
       !nativeRaceForm.name.trim() ||
@@ -1765,6 +1796,8 @@ function AppMain({ user, userName }) {
         name: nativeRaceForm.organizerName.trim(),
         raceName: nativeRaceForm.name.trim()
       });
+      setNativeOrganizerMpStatus(null);
+      setNativeOrganizerMpStatusError("");
 
       alert("Prova nativa salva com sucesso!");
 
@@ -4951,34 +4984,168 @@ function AppMain({ user, userName }) {
                             </p>
 
                             <p style={{ fontSize: 16, lineHeight: 1.35, color: "#fff", fontWeight: 950, marginBottom: 8 }}>
-                              Conecte o Mercado Pago do organizador
+                              Envie o link de conexão ao organizador
                             </p>
 
                             <p style={{ fontSize: 13, lineHeight: 1.5, color: "#d1fae5", fontWeight: 750, marginBottom: 14 }}>
-                              A prova {lastSavedNativeOrganizer.raceName} foi cadastrada para {lastSavedNativeOrganizer.name}. Para habilitar recebimentos com split, conecte a conta Mercado Pago desse organizador.
+                              A prova {lastSavedNativeOrganizer.raceName} foi cadastrada para {lastSavedNativeOrganizer.name}. Para habilitar os recebimentos com split, o responsável pela corrida precisa conectar a conta Mercado Pago dele por este link seguro.
                             </p>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const oauthUrl = `/api/mercadopago/oauth/iniciar?organizerId=${encodeURIComponent(lastSavedNativeOrganizer.id)}`;
-                                window.open(oauthUrl, "_blank", "noopener,noreferrer");
-                              }}
-                              style={{
-                                width: "100%",
-                                border: "none",
-                                borderRadius: 14,
-                                padding: "15px 16px",
-                                fontSize: 14,
-                                fontWeight: 950,
-                                color: "#fff",
-                                background: "linear-gradient(135deg, #16a34a, #22c55e)",
-                                cursor: "pointer",
-                                fontFamily: "inherit"
-                              }}
-                            >
-                              Conectar Mercado Pago
-                            </button>
+                            {(() => {
+                              const oauthPath = `/api/mercadopago/oauth/iniciar?organizerId=${encodeURIComponent(lastSavedNativeOrganizer.id)}`;
+                              const organizerConnectionUrl = `https://app.eucorredor.com.br${oauthPath}`;
+
+                              return (
+                                <>
+                                  <div
+                                    style={{
+                                      width: "100%",
+                                      background: "rgba(0,0,0,0.24)",
+                                      border: "1px solid rgba(255,255,255,0.12)",
+                                      borderRadius: 14,
+                                      padding: "13px 14px",
+                                      fontSize: 12,
+                                      lineHeight: 1.45,
+                                      color: "#ecfdf5",
+                                      fontWeight: 800,
+                                      wordBreak: "break-all",
+                                      marginBottom: 12
+                                    }}
+                                  >
+                                    {organizerConnectionUrl}
+                                  </div>
+
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          await navigator.clipboard.writeText(organizerConnectionUrl);
+                                          alert("Link copiado! Agora é só enviar ao responsável da corrida.");
+                                        } catch (error) {
+                                          window.prompt("Copie o link para enviar ao organizador:", organizerConnectionUrl);
+                                        }
+                                      }}
+                                      style={{
+                                        width: "100%",
+                                        border: "none",
+                                        borderRadius: 14,
+                                        padding: "15px 16px",
+                                        fontSize: 14,
+                                        fontWeight: 950,
+                                        color: "#fff",
+                                        background: "linear-gradient(135deg, #16a34a, #22c55e)",
+                                        cursor: "pointer",
+                                        fontFamily: "inherit"
+                                      }}
+                                    >
+                                      Copiar link para o organizador
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        window.open(organizerConnectionUrl, "_blank", "noopener,noreferrer");
+                                      }}
+                                      style={{
+                                        width: "100%",
+                                        border: "1px solid rgba(255,255,255,0.16)",
+                                        borderRadius: 14,
+                                        padding: "14px 16px",
+                                        fontSize: 14,
+                                        fontWeight: 950,
+                                        color: "#dcfce7",
+                                        background: "rgba(255,255,255,0.06)",
+                                        cursor: "pointer",
+                                        fontFamily: "inherit"
+                                      }}
+                                    >
+                                      Abrir link de conexão
+                                    </button>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      marginTop: 12,
+                                      padding: "13px 14px",
+                                      borderRadius: 14,
+                                      background: nativeOrganizerMpStatus?.connected
+                                        ? "rgba(34,197,94,0.15)"
+                                        : "rgba(255,255,255,0.06)",
+                                      border: nativeOrganizerMpStatus?.connected
+                                        ? "1px solid rgba(34,197,94,0.32)"
+                                        : "1px solid rgba(255,255,255,0.12)"
+                                    }}
+                                  >
+                                    <p
+                                      style={{
+                                        fontSize: 12,
+                                        color: nativeOrganizerMpStatus?.connected ? "#86efac" : "#fde68a",
+                                        fontWeight: 950,
+                                        marginBottom: 6
+                                      }}
+                                    >
+                                      {nativeOrganizerMpStatus?.connected
+                                        ? "MERCADO PAGO CONECTADO"
+                                        : "STATUS DA CONEXÃO"}
+                                    </p>
+
+                                    <p
+                                      style={{
+                                        fontSize: 13,
+                                        lineHeight: 1.45,
+                                        color: nativeOrganizerMpStatus?.connected ? "#dcfce7" : "#fef3c7",
+                                        fontWeight: 800,
+                                        marginBottom: 10
+                                      }}
+                                    >
+                                      {nativeOrganizerMpStatus?.connected
+                                        ? "A conta Mercado Pago deste organizador já está conectada e pronta para operar com split."
+                                        : "Envie o link ao responsável e, depois que ele autorizar, clique em verificar conexão."}
+                                    </p>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCheckNativeOrganizerMercadoPagoStatus(lastSavedNativeOrganizer.id)}
+                                      disabled={checkingNativeOrganizerMpStatus}
+                                      style={{
+                                        width: "100%",
+                                        border: "1px solid rgba(255,255,255,0.16)",
+                                        borderRadius: 12,
+                                        padding: "12px 14px",
+                                        fontSize: 13,
+                                        fontWeight: 950,
+                                        color: "#fff",
+                                        background: "rgba(255,255,255,0.08)",
+                                        cursor: checkingNativeOrganizerMpStatus ? "wait" : "pointer",
+                                        opacity: checkingNativeOrganizerMpStatus ? 0.72 : 1,
+                                        fontFamily: "inherit"
+                                      }}
+                                    >
+                                      {checkingNativeOrganizerMpStatus
+                                        ? "Verificando conexão..."
+                                        : "Verificar conexão Mercado Pago"}
+                                    </button>
+
+                                    {nativeOrganizerMpStatus?.connected_at ? (
+                                      <p style={{ fontSize: 12, lineHeight: 1.45, color: "#bbf7d0", fontWeight: 750, marginTop: 10, marginBottom: 0 }}>
+                                        Conectado em: {new Date(nativeOrganizerMpStatus.connected_at).toLocaleString("pt-BR")}
+                                      </p>
+                                    ) : null}
+
+                                    {nativeOrganizerMpStatusError ? (
+                                      <p style={{ fontSize: 12, lineHeight: 1.45, color: "#fecaca", fontWeight: 800, marginTop: 10, marginBottom: 0 }}>
+                                        {nativeOrganizerMpStatusError}
+                                      </p>
+                                    ) : null}
+                                  </div>
+
+                                  <p style={{ fontSize: 12, lineHeight: 1.5, color: "#bbf7d0", fontWeight: 750, marginTop: 12, marginBottom: 0 }}>
+                                    Mensagem sugerida: “Para habilitarmos o recebimento das inscrições da sua prova no EuCorredor, conecte sua conta Mercado Pago por este link seguro. Você não precisa enviar senha nem dados de acesso.”
+                                  </p>
+                                </>
+                              );
+                            })()}
                           </div>
                         ) : null}
 
