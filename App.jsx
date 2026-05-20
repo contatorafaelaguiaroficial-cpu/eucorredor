@@ -3715,7 +3715,7 @@ function AppMain({ user, userName }) {
                       padding: "22px 20px max(38px, env(safe-area-inset-bottom))"
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, marginBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, marginBottom: raceCheckoutStep === "details" ? 20 : 12 }}>
                       <div>
                         <span
                           style={{
@@ -3735,13 +3735,17 @@ function AppMain({ user, userName }) {
                           INSCRIÇÃO EUCORREDOR
                         </span>
 
-                        <h3 style={{ fontSize: 24, lineHeight: 1.08, letterSpacing: -0.7, fontWeight: 950, marginBottom: 8 }}>
-                          {selectedRaceEvent.name}
-                        </h3>
+                        {raceCheckoutStep !== "details" && (
+                          <>
+                            <h3 style={{ fontSize: 24, lineHeight: 1.08, letterSpacing: -0.7, fontWeight: 950, marginBottom: 8 }}>
+                              {selectedRaceEvent.name}
+                            </h3>
 
-                        <p style={{ color: "#9b9baa", fontSize: 13.5, lineHeight: 1.45 }}>
-                          ⌖ {selectedRaceEvent.city}, {selectedRaceEvent.state}
-                        </p>
+                            <p style={{ color: "#9b9baa", fontSize: 13.5, lineHeight: 1.45 }}>
+                              ⌖ {selectedRaceEvent.city}, {selectedRaceEvent.state}
+                            </p>
+                          </>
+                        )}
                       </div>
 
                       <button
@@ -3801,167 +3805,348 @@ function AppMain({ user, userName }) {
                       <>
                         {raceCheckoutStep === "details" ? (
                           <>
-                            <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
-                            gap: 10,
-                            marginBottom: 16
-                          }}
-                        >
-                          <div
-                            style={{
-                              background: "rgba(255,255,255,0.04)",
-                              border: "1px solid rgba(255,255,255,0.09)",
-                              borderRadius: 18,
-                              padding: 13
-                            }}
-                          >
-                            <p style={{ fontSize: 11, color: "#777787", fontWeight: 900, marginBottom: 5 }}>STATUS</p>
-                            <p style={{ fontSize: 14, fontWeight: 900, color: "#f4f4f7" }}>{raceEventDetails.sales_status}</p>
-                          </div>
+                            {(() => {
+                              const raceCoverImage =
+                                raceEventDetails?.cover_image_url ||
+                                raceEventDetails?.image_url ||
+                                raceEventDetails?.banner_url ||
+                                selectedRaceEvent?.cover_image_url ||
+                                selectedRaceEvent?.image_url ||
+                                selectedRaceEvent?.banner_url ||
+                                "/fallback-corrida-rua.jpg";
 
-                          <div
-                            style={{
-                              background: "rgba(255,255,255,0.04)",
-                              border: "1px solid rgba(255,255,255,0.09)",
-                              borderRadius: 18,
-                              padding: 13
-                            }}
-                          >
-                            <p style={{ fontSize: 11, color: "#777787", fontWeight: 900, marginBottom: 5 }}>ORGANIZADOR</p>
-                            <p style={{ fontSize: 14, fontWeight: 900, color: "#f4f4f7", lineHeight: 1.25 }}>
-                              {raceEventDetails.organizer?.name || "Não informado"}
-                            </p>
-                          </div>
-                        </div>
+                              const activeModalitiesCount = (raceEventDetails.modalities || []).filter((modality) =>
+                                (modality.lots || []).some((lot) => lot.is_active)
+                              ).length;
 
-                        <div
-                          style={{
-                            background: "linear-gradient(180deg, rgba(225,29,72,0.10), rgba(255,255,255,0.035))",
-                            border: "1px solid rgba(225,29,72,0.22)",
-                            borderRadius: 22,
-                            padding: 16,
-                            marginBottom: 16
-                          }}
-                        >
-                          <p style={{ fontSize: 12, color: "#ff6b86", fontWeight: 950, marginBottom: 8 }}>KIT DA PROVA</p>
-                          <p style={{ fontSize: 14, color: "#d4d4df", lineHeight: 1.5, marginBottom: 12 }}>
-                            {raceEventDetails.kit_description || "Nenhuma descrição de kit cadastrada."}
-                          </p>
-
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            {(Array.isArray(raceEventDetails.kit_items) ? raceEventDetails.kit_items : []).map((item, index) => (
-                              <div
-                                key={index}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 9,
-                                  padding: "9px 11px",
-                                  borderRadius: 14,
-                                  background: "rgba(0,0,0,0.22)",
-                                  border: "1px solid rgba(255,255,255,0.08)",
-                                  fontSize: 13,
-                                  color: "#f0f0f5",
-                                  fontWeight: 800
-                                }}
-                              >
-                                <span style={{ color: "#e11d48" }}>✓</span>
-                                {item}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div style={{ marginBottom: 16 }}>
-                          <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>MODALIDADES E LOTES</p>
-
-                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            {(raceEventDetails.modalities || []).map((modality) => {
-                              const activeLot = (modality.lots || []).find((lot) => lot.is_active);
-                              const activePrice = activeLot
-                                ? (activeLot.price_cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                                : null;
+                              const visualSalesStatus =
+                                raceEventDetails.sales_status === "open"
+                                  ? "Inscrições abertas"
+                                  : raceEventDetails.sales_status || "Status não informado";
 
                               return (
-                                <button
-                                  key={modality.id}
-                                  type="button"
-                                  onClick={() => {
-                                    if (activeLot) setSelectedRaceModalityId(modality.id);
-                                  }}
-                                  style={{
-                                    width: "100%",
-                                    background: selectedRaceModalityId === modality.id
-                                      ? "linear-gradient(135deg, rgba(225,29,72,0.22), rgba(255,61,99,0.10))"
-                                      : "rgba(255,255,255,0.04)",
-                                    border: selectedRaceModalityId === modality.id
-                                      ? "1px solid rgba(255,61,99,0.72)"
-                                      : "1px solid rgba(255,255,255,0.10)",
-                                    borderRadius: 20,
-                                    padding: 15,
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    gap: 12,
-                                    cursor: activeLot ? "pointer" : "not-allowed",
-                                    textAlign: "left",
-                                    color: "#fff",
-                                    fontFamily: "inherit",
-                                    boxShadow: selectedRaceModalityId === modality.id
-                                      ? "0 14px 28px rgba(225,29,72,0.18)"
-                                      : "none",
-                                    opacity: activeLot ? 1 : 0.62
-                                  }}
-                                >
-                                  <div>
-                                    <p style={{ fontSize: 17, fontWeight: 950, marginBottom: 4 }}>{modality.name}</p>
-                                    <p style={{ fontSize: 12.5, color: "#8f8f9d", fontWeight: 800 }}>
-                                      {activeLot ? `${activeLot.name} · ${activeLot.total_slots} vagas no lote` : "Sem lote ativo"}
-                                    </p>
+                                <>
+                                  <div
+                                    style={{
+                                      position: "relative",
+                                      minHeight: 340,
+                                      borderRadius: 30,
+                                      overflow: "hidden",
+                                      marginBottom: 16,
+                                      border: "1px solid rgba(255,255,255,0.12)",
+                                      backgroundImage: `linear-gradient(180deg, rgba(8,8,12,0.10) 0%, rgba(8,8,12,0.48) 46%, rgba(8,8,12,0.96) 100%), url("${raceCoverImage}")`,
+                                      backgroundSize: "cover",
+                                      backgroundPosition: "center"
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        background: "linear-gradient(135deg, rgba(225,29,72,0.22), transparent 48%)"
+                                      }}
+                                    />
+
+                                    <div
+                                      style={{
+                                        position: "relative",
+                                        minHeight: 340,
+                                        padding: 18,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        justifyContent: "space-between"
+                                      }}
+                                    >
+                                      <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
+                                        <span
+                                          style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            background: "linear-gradient(135deg, rgba(225,29,72,0.92), rgba(255,61,99,0.90))",
+                                            color: "#fff",
+                                            border: "1px solid rgba(255,255,255,0.18)",
+                                            borderRadius: 999,
+                                            padding: "9px 13px",
+                                            fontSize: 11.5,
+                                            fontWeight: 950,
+                                            boxShadow: "0 12px 24px rgba(225,29,72,0.24)"
+                                          }}
+                                        >
+                                          {visualSalesStatus}
+                                        </span>
+
+                                        <span
+                                          style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            background: "rgba(10,10,14,0.64)",
+                                            color: "#fff",
+                                            border: "1px solid rgba(255,255,255,0.16)",
+                                            borderRadius: 999,
+                                            padding: "9px 13px",
+                                            fontSize: 11.5,
+                                            fontWeight: 950,
+                                            backdropFilter: "blur(10px)"
+                                          }}
+                                        >
+                                          Corrida de rua
+                                        </span>
+                                      </div>
+
+                                      <div>
+                                        <h3
+                                          style={{
+                                            fontSize: 30,
+                                            lineHeight: 1.03,
+                                            letterSpacing: -1,
+                                            fontWeight: 950,
+                                            marginBottom: 11,
+                                            maxWidth: 340,
+                                            textShadow: "0 10px 24px rgba(0,0,0,0.34)"
+                                          }}
+                                        >
+                                          {selectedRaceEvent.name}
+                                        </h3>
+
+                                        <p
+                                          style={{
+                                            color: "#f5f5f7",
+                                            fontSize: 14.5,
+                                            lineHeight: 1.45,
+                                            fontWeight: 850,
+                                            textShadow: "0 6px 18px rgba(0,0,0,0.44)"
+                                          }}
+                                        >
+                                          ⌖ {selectedRaceEvent.city}, {selectedRaceEvent.state}
+                                        </p>
+                                      </div>
+                                    </div>
                                   </div>
 
-                                  <div style={{ textAlign: "right" }}>
-                                    <p style={{ fontSize: 18, fontWeight: 950, color: "#fff" }}>
-                                      {activePrice || "—"}
-                                    </p>
-                                    <p style={{ fontSize: 11, color: "#e11d48", fontWeight: 950 }}>
-                                      {activeLot ? "ATIVO" : "INDISPONÍVEL"}
-                                    </p>
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gridTemplateColumns: "1fr 1fr",
+                                      gap: 10,
+                                      marginBottom: 18
+                                    }}
+                                  >
+                                    {[
+                                      ["CIDADE", `${selectedRaceEvent.city || "—"} / ${selectedRaceEvent.state || "—"}`],
+                                      ["ORGANIZADOR", raceEventDetails.organizer?.name || "Não informado"],
+                                      ["STATUS", visualSalesStatus],
+                                      ["MODALIDADES", activeModalitiesCount ? `${activeModalitiesCount} ativas` : "Nenhuma ativa"]
+                                    ].map(([label, value]) => (
+                                      <div
+                                        key={label}
+                                        style={{
+                                          minHeight: 96,
+                                          background: "rgba(255,255,255,0.04)",
+                                          border: "1px solid rgba(255,255,255,0.10)",
+                                          borderRadius: 22,
+                                          padding: "15px 14px",
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          justifyContent: "space-between"
+                                        }}
+                                      >
+                                        <p style={{ fontSize: 11, color: "#9b9baa", fontWeight: 950 }}>
+                                          {label}
+                                        </p>
+                                        <p style={{ fontSize: 15, color: "#fff", fontWeight: 950, lineHeight: 1.3 }}>
+                                          {value}
+                                        </p>
+                                      </div>
+                                    ))}
                                   </div>
-                                </button>
+
+                                  <div
+                                    style={{
+                                      background: "rgba(255,255,255,0.035)",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      borderRadius: 26,
+                                      padding: 16,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        gap: 12,
+                                        marginBottom: 12
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 20, color: "#fff", fontWeight: 950 }}>
+                                        Escolha a modalidade
+                                      </p>
+
+                                      <p style={{ fontSize: 12, color: "#9b9baa", fontWeight: 900 }}>
+                                        opções disponíveis
+                                      </p>
+                                    </div>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                      {(raceEventDetails.modalities || []).map((modality) => {
+                                        const activeLot = (modality.lots || []).find((lot) => lot.is_active);
+                                        const activePrice = activeLot
+                                          ? (activeLot.price_cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                                          : null;
+
+                                        return (
+                                          <button
+                                            key={modality.id}
+                                            type="button"
+                                            onClick={() => {
+                                              if (activeLot) setSelectedRaceModalityId(modality.id);
+                                            }}
+                                            style={{
+                                              width: "100%",
+                                              background: selectedRaceModalityId === modality.id
+                                                ? "linear-gradient(135deg, rgba(225,29,72,0.26), rgba(255,61,99,0.10))"
+                                                : "rgba(255,255,255,0.04)",
+                                              border: selectedRaceModalityId === modality.id
+                                                ? "1px solid rgba(255,61,99,0.80)"
+                                                : "1px solid rgba(255,255,255,0.10)",
+                                              borderRadius: 22,
+                                              padding: 15,
+                                              display: "flex",
+                                              justifyContent: "space-between",
+                                              alignItems: "center",
+                                              gap: 12,
+                                              cursor: activeLot ? "pointer" : "not-allowed",
+                                              textAlign: "left",
+                                              color: "#fff",
+                                              fontFamily: "inherit",
+                                              boxShadow: selectedRaceModalityId === modality.id
+                                                ? "0 16px 32px rgba(225,29,72,0.20)"
+                                                : "none",
+                                              opacity: activeLot ? 1 : 0.62
+                                            }}
+                                          >
+                                            <div style={{ minWidth: 0 }}>
+                                              <p style={{ fontSize: 18, fontWeight: 950, marginBottom: 5 }}>
+                                                {modality.name}
+                                              </p>
+                                              <p style={{ fontSize: 12.5, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.4 }}>
+                                                {activeLot ? `${activeLot.name} · ${activeLot.total_slots} vagas no lote` : "Sem lote ativo"}
+                                              </p>
+                                            </div>
+
+                                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                              <p style={{ fontSize: 19, fontWeight: 950, color: "#fff", marginBottom: 5 }}>
+                                                {activePrice || "—"}
+                                              </p>
+                                              <span
+                                                style={{
+                                                  display: "inline-flex",
+                                                  borderRadius: 999,
+                                                  padding: "5px 9px",
+                                                  fontSize: 10.5,
+                                                  fontWeight: 950,
+                                                  color: activeLot ? "#ffb0c0" : "#9b9baa",
+                                                  background: activeLot ? "rgba(225,29,72,0.16)" : "rgba(255,255,255,0.05)",
+                                                  border: activeLot ? "1px solid rgba(255,87,120,0.30)" : "1px solid rgba(255,255,255,0.08)"
+                                                }}
+                                              >
+                                                {activeLot ? "ATIVO" : "INDISPONÍVEL"}
+                                              </span>
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      background: "linear-gradient(180deg, rgba(225,29,72,0.10), rgba(255,255,255,0.035))",
+                                      border: "1px solid rgba(225,29,72,0.22)",
+                                      borderRadius: 24,
+                                      padding: 16,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                                      <p style={{ fontSize: 12, color: "#ff6b86", fontWeight: 950 }}>
+                                        KIT DA PROVA
+                                      </p>
+
+                                      {(Array.isArray(raceEventDetails.kit_items) ? raceEventDetails.kit_items : []).length > 0 && (
+                                        <span
+                                          style={{
+                                            borderRadius: 999,
+                                            background: "rgba(255,255,255,0.07)",
+                                            border: "1px solid rgba(255,255,255,0.10)",
+                                            color: "#f4f4f7",
+                                            padding: "6px 10px",
+                                            fontSize: 11,
+                                            fontWeight: 950
+                                          }}
+                                        >
+                                          {(Array.isArray(raceEventDetails.kit_items) ? raceEventDetails.kit_items : []).length} itens
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <p style={{ fontSize: 14, color: "#d4d4df", lineHeight: 1.55, marginBottom: 12, fontWeight: 760 }}>
+                                      {raceEventDetails.kit_description || "Nenhuma descrição de kit cadastrada."}
+                                    </p>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                      {(Array.isArray(raceEventDetails.kit_items) ? raceEventDetails.kit_items : []).map((item, index) => (
+                                        <div
+                                          key={index}
+                                          style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 9,
+                                            padding: "10px 12px",
+                                            borderRadius: 15,
+                                            background: "rgba(0,0,0,0.22)",
+                                            border: "1px solid rgba(255,255,255,0.08)",
+                                            fontSize: 13,
+                                            color: "#f0f0f5",
+                                            fontWeight: 850
+                                          }}
+                                        >
+                                          <span style={{ color: "#ff5778", fontWeight: 950 }}>✓</span>
+                                          {item}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    disabled={!selectedRaceModalityId}
+                                    onClick={() => {
+                                      if (!selectedRaceModalityId) return;
+                                      setRaceCheckoutStep("participant");
+                                    }}
+                                    style={{
+                                      width: "100%",
+                                      border: "none",
+                                      borderRadius: 20,
+                                      padding: "17px 18px",
+                                      fontSize: 15,
+                                      fontWeight: 950,
+                                      color: "#fff",
+                                      background: selectedRaceModalityId
+                                        ? "linear-gradient(135deg, #e11d48, #ff3d63)"
+                                        : "linear-gradient(135deg, rgba(225,29,72,0.42), rgba(255,61,99,0.42))",
+                                      opacity: selectedRaceModalityId ? 1 : 0.72,
+                                      cursor: selectedRaceModalityId ? "pointer" : "not-allowed",
+                                      fontFamily: "inherit",
+                                      boxShadow: selectedRaceModalityId ? "0 18px 36px rgba(225,29,72,0.30)" : "none"
+                                    }}
+                                  >
+                                    {selectedRaceModalityId ? "Continuar inscrição" : "Selecione uma modalidade"}
+                                  </button>
+                                </>
                               );
-                            })}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          disabled={!selectedRaceModalityId}
-                          onClick={() => {
-                            if (!selectedRaceModalityId) return;
-                            setRaceCheckoutStep("participant");
-                          }}
-                          style={{
-                            width: "100%",
-                            border: "none",
-                            borderRadius: 18,
-                            padding: "16px 18px",
-                            fontSize: 15,
-                            fontWeight: 950,
-                            color: "#fff",
-                            background: selectedRaceModalityId
-                              ? "linear-gradient(135deg, #e11d48, #ff3d63)"
-                              : "linear-gradient(135deg, rgba(225,29,72,0.42), rgba(255,61,99,0.42))",
-                            opacity: selectedRaceModalityId ? 1 : 0.72,
-                            cursor: selectedRaceModalityId ? "pointer" : "not-allowed",
-                            fontFamily: "inherit",
-                            boxShadow: selectedRaceModalityId ? "0 16px 32px rgba(225,29,72,0.28)" : "none"
-                          }}
-                        >
-                          {selectedRaceModalityId ? "Continuar inscrição" : "Selecione uma modalidade"}
-                        </button>
+                            })()}
                           </>
                         ) : raceCheckoutStep === "participant" ? (
                           <>
@@ -3999,6 +4184,44 @@ function AppMain({ user, userName }) {
 
                               return (
                                 <>
+                                  <div
+                                    style={{
+                                      marginBottom: 16,
+                                      padding: "15px 16px",
+                                      borderRadius: 22,
+                                      background: "linear-gradient(135deg, rgba(225,29,72,0.12), rgba(255,255,255,0.025))",
+                                      border: "1px solid rgba(255,255,255,0.09)"
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                                      <p style={{ fontSize: 14, color: "#d2d2dc", fontWeight: 950 }}>
+                                        Etapa 1 de 3
+                                      </p>
+                                      <p style={{ fontSize: 14, color: "#d2d2dc", fontWeight: 950, textAlign: "right" }}>
+                                        Dados do atleta
+                                      </p>
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        width: "100%",
+                                        height: 9,
+                                        borderRadius: 999,
+                                        background: "rgba(255,255,255,0.07)",
+                                        overflow: "hidden"
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          width: "33.333%",
+                                          height: "100%",
+                                          borderRadius: 999,
+                                          background: "linear-gradient(135deg, #e11d48, #ff3d63)"
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
                                   <button
                                     type="button"
                                     onClick={() => setRaceCheckoutStep("details")}
@@ -4025,78 +4248,121 @@ function AppMain({ user, userName }) {
                                     style={{
                                       background: "linear-gradient(135deg, rgba(225,29,72,0.18), rgba(255,61,99,0.06))",
                                       border: "1px solid rgba(255,61,99,0.26)",
-                                      borderRadius: 22,
-                                      padding: 16,
+                                      borderRadius: 26,
+                                      padding: 17,
                                       marginBottom: 16
                                     }}
                                   >
-                                    <p style={{ fontSize: 12, color: "#ff6b86", fontWeight: 950, marginBottom: 8 }}>
-                                      SUA ESCOLHA
+                                    <p style={{ fontSize: 12, color: "#ff7d97", fontWeight: 950, marginBottom: 10 }}>
+                                      MODALIDADE SELECIONADA
                                     </p>
 
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        gap: 12
+                                      }}
+                                    >
                                       <div>
-                                        <p style={{ fontSize: 19, fontWeight: 950, marginBottom: 4 }}>
+                                        <p style={{ fontSize: 21, fontWeight: 950, marginBottom: 5 }}>
                                           {selectedModality?.name || "Modalidade"}
                                         </p>
-                                        <p style={{ fontSize: 12.5, color: "#ababba", fontWeight: 800 }}>
+                                        <p style={{ fontSize: 12.5, color: "#b8b8c4", fontWeight: 820 }}>
                                           {activeLot ? activeLot.name : "Lote não encontrado"}
                                         </p>
                                       </div>
 
-                                      <p style={{ fontSize: 21, fontWeight: 950, color: "#fff" }}>
+                                      <p style={{ fontSize: 24, fontWeight: 950, color: "#fff", whiteSpace: "nowrap" }}>
                                         {activePrice}
                                       </p>
                                     </div>
                                   </div>
 
-                                  <div style={{ marginBottom: 16 }}>
-                                    <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
-                                      DADOS DO PARTICIPANTE
-                                    </p>
+                                  <div
+                                    style={{
+                                      background: "rgba(255,255,255,0.035)",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      borderRadius: 28,
+                                      padding: 17,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <div style={{ marginBottom: 15 }}>
+                                      <p style={{ fontSize: 21, color: "#fff", fontWeight: 950, marginBottom: 6 }}>
+                                        Seus dados
+                                      </p>
+                                      <p style={{ fontSize: 13.5, color: "#a9a9b6", lineHeight: 1.5, fontWeight: 760 }}>
+                                        Preencha as informações do participante para reservar a inscrição.
+                                      </p>
+                                    </div>
 
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                      <input
-                                        className="tinput"
-                                        placeholder="Nome completo"
-                                        value={raceParticipantForm.name}
-                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, name: e.target.value }))}
-                                      />
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                                      <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                                        <span style={{ fontSize: 11.5, color: "#9898a7", fontWeight: 950 }}>NOME COMPLETO</span>
+                                        <input
+                                          className="tinput"
+                                          placeholder="Digite seu nome completo"
+                                          value={raceParticipantForm.name}
+                                          onChange={(e) => setRaceParticipantForm((form) => ({ ...form, name: e.target.value }))}
+                                        />
+                                      </label>
 
-                                      <input
-                                        className="tinput"
-                                        placeholder="CPF"
-                                        value={raceParticipantForm.cpf}
-                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, cpf: e.target.value }))}
-                                      />
+                                      <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                                        <span style={{ fontSize: 11.5, color: "#9898a7", fontWeight: 950 }}>CPF</span>
+                                        <input
+                                          className="tinput"
+                                          placeholder="Digite seu CPF"
+                                          value={raceParticipantForm.cpf}
+                                          onChange={(e) => setRaceParticipantForm((form) => ({ ...form, cpf: e.target.value }))}
+                                        />
+                                      </label>
 
-                                      <input
-                                        className="tinput"
-                                        type="date"
-                                        value={raceParticipantForm.birthDate}
-                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, birthDate: e.target.value }))}
-                                      />
+                                      <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                                        <span style={{ fontSize: 11.5, color: "#9898a7", fontWeight: 950 }}>DATA DE NASCIMENTO</span>
+                                        <input
+                                          className="tinput"
+                                          type="date"
+                                          value={raceParticipantForm.birthDate}
+                                          onChange={(e) => setRaceParticipantForm((form) => ({ ...form, birthDate: e.target.value }))}
+                                        />
+                                      </label>
 
-                                      <input
-                                        className="tinput"
-                                        placeholder="Telefone"
-                                        value={raceParticipantForm.phone}
-                                        onChange={(e) => setRaceParticipantForm((form) => ({ ...form, phone: e.target.value }))}
-                                      />
+                                      <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                                        <span style={{ fontSize: 11.5, color: "#9898a7", fontWeight: 950 }}>TELEFONE</span>
+                                        <input
+                                          className="tinput"
+                                          placeholder="Digite seu telefone"
+                                          value={raceParticipantForm.phone}
+                                          onChange={(e) => setRaceParticipantForm((form) => ({ ...form, phone: e.target.value }))}
+                                        />
+                                      </label>
 
-                                      <input
-                                        className="tinput"
-                                        placeholder="E-mail da conta"
-                                        value={raceParticipantForm.email}
-                                        readOnly
-                                      />
+                                      <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                                        <span style={{ fontSize: 11.5, color: "#9898a7", fontWeight: 950 }}>E-MAIL DA CONTA</span>
+                                        <input
+                                          className="tinput"
+                                          placeholder="E-mail da conta"
+                                          value={raceParticipantForm.email}
+                                          readOnly
+                                        />
+                                      </label>
                                     </div>
                                   </div>
 
                                   {requiresTshirt && (
-                                    <div style={{ marginBottom: 16 }}>
-                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
-                                        TAMANHO DA CAMISETA
+                                    <div
+                                      style={{
+                                        background: "rgba(255,255,255,0.035)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 24,
+                                        padding: 16,
+                                        marginBottom: 16
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 12, color: "#ff7d97", fontWeight: 950, marginBottom: 10 }}>
+                                        CAMISETA DO KIT
                                       </p>
 
                                       <select
@@ -4113,25 +4379,39 @@ function AppMain({ user, userName }) {
                                   )}
 
                                   {requiresEmergencyContact && (
-                                    <div style={{ marginBottom: 16 }}>
-                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
+                                    <div
+                                      style={{
+                                        background: "rgba(255,255,255,0.035)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 24,
+                                        padding: 16,
+                                        marginBottom: 16
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 12, color: "#ff7d97", fontWeight: 950, marginBottom: 10 }}>
                                         CONTATO DE EMERGÊNCIA
                                       </p>
 
-                                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                        <input
-                                          className="tinput"
-                                          placeholder="Nome do contato"
-                                          value={raceParticipantForm.emergencyContactName}
-                                          onChange={(e) => setRaceParticipantForm((form) => ({ ...form, emergencyContactName: e.target.value }))}
-                                        />
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                                        <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                                          <span style={{ fontSize: 11.5, color: "#9898a7", fontWeight: 950 }}>NOME DO CONTATO</span>
+                                          <input
+                                            className="tinput"
+                                            placeholder="Digite o nome do contato"
+                                            value={raceParticipantForm.emergencyContactName}
+                                            onChange={(e) => setRaceParticipantForm((form) => ({ ...form, emergencyContactName: e.target.value }))}
+                                          />
+                                        </label>
 
-                                        <input
-                                          className="tinput"
-                                          placeholder="Telefone do contato"
-                                          value={raceParticipantForm.emergencyContactPhone}
-                                          onChange={(e) => setRaceParticipantForm((form) => ({ ...form, emergencyContactPhone: e.target.value }))}
-                                        />
+                                        <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                                          <span style={{ fontSize: 11.5, color: "#9898a7", fontWeight: 950 }}>TELEFONE DO CONTATO</span>
+                                          <input
+                                            className="tinput"
+                                            placeholder="Digite o telefone do contato"
+                                            value={raceParticipantForm.emergencyContactPhone}
+                                            onChange={(e) => setRaceParticipantForm((form) => ({ ...form, emergencyContactPhone: e.target.value }))}
+                                          />
+                                        </label>
                                       </div>
                                     </div>
                                   )}
@@ -4146,8 +4426,8 @@ function AppMain({ user, userName }) {
                                     style={{
                                       width: "100%",
                                       border: "none",
-                                      borderRadius: 18,
-                                      padding: "16px 18px",
+                                      borderRadius: 20,
+                                      padding: "17px 18px",
                                       fontSize: 15,
                                       fontWeight: 950,
                                       color: "#fff",
@@ -4157,7 +4437,7 @@ function AppMain({ user, userName }) {
                                       opacity: participantFormIsValid ? 1 : 0.72,
                                       cursor: participantFormIsValid ? "pointer" : "not-allowed",
                                       fontFamily: "inherit",
-                                      boxShadow: participantFormIsValid ? "0 16px 32px rgba(225,29,72,0.28)" : "none"
+                                      boxShadow: participantFormIsValid ? "0 18px 36px rgba(225,29,72,0.30)" : "none"
                                     }}
                                   >
                                     {participantFormIsValid ? "Continuar para revisão" : "Preencha os dados obrigatórios"}
@@ -4187,6 +4467,44 @@ function AppMain({ user, userName }) {
 
                               return (
                                 <>
+                                  <div
+                                    style={{
+                                      marginBottom: 16,
+                                      padding: "15px 16px",
+                                      borderRadius: 22,
+                                      background: "linear-gradient(135deg, rgba(225,29,72,0.12), rgba(255,255,255,0.025))",
+                                      border: "1px solid rgba(255,255,255,0.09)"
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                                      <p style={{ fontSize: 14, color: "#d2d2dc", fontWeight: 950 }}>
+                                        Etapa 2 de 3
+                                      </p>
+                                      <p style={{ fontSize: 14, color: "#d2d2dc", fontWeight: 950, textAlign: "right" }}>
+                                        Revisão
+                                      </p>
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        width: "100%",
+                                        height: 9,
+                                        borderRadius: 999,
+                                        background: "rgba(255,255,255,0.07)",
+                                        overflow: "hidden"
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          width: "66.666%",
+                                          height: "100%",
+                                          borderRadius: 999,
+                                          background: "linear-gradient(135deg, #e11d48, #ff3d63)"
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
                                   <button
                                     type="button"
                                     onClick={() => setRaceCheckoutStep("participant")}
@@ -4213,59 +4531,87 @@ function AppMain({ user, userName }) {
                                     style={{
                                       background: "linear-gradient(135deg, rgba(225,29,72,0.18), rgba(255,61,99,0.06))",
                                       border: "1px solid rgba(255,61,99,0.26)",
-                                      borderRadius: 22,
-                                      padding: 16,
+                                      borderRadius: 28,
+                                      padding: 18,
                                       marginBottom: 16
                                     }}
                                   >
-                                    <p style={{ fontSize: 12, color: "#ff6b86", fontWeight: 950, marginBottom: 8 }}>
+                                    <p style={{ fontSize: 12, color: "#ff7d97", fontWeight: 950, marginBottom: 10 }}>
                                       REVISE SUA INSCRIÇÃO
                                     </p>
 
-                                    <p style={{ fontSize: 21, fontWeight: 950, lineHeight: 1.15, marginBottom: 6 }}>
+                                    <h3
+                                      style={{
+                                        fontSize: 24,
+                                        lineHeight: 1.08,
+                                        letterSpacing: -0.7,
+                                        fontWeight: 950,
+                                        marginBottom: 8
+                                      }}
+                                    >
                                       {selectedRaceEvent?.name}
-                                    </p>
+                                    </h3>
 
-                                    <p style={{ fontSize: 13, color: "#ababba", fontWeight: 800 }}>
+                                    <p style={{ fontSize: 13.5, color: "#d0d0da", fontWeight: 820, lineHeight: 1.45 }}>
                                       {selectedModality?.name || "Modalidade"} · {activeLot?.name || "Lote"}
                                     </p>
                                   </div>
 
                                   <div
                                     style={{
-                                      background: "rgba(255,255,255,0.04)",
+                                      background: "rgba(255,255,255,0.035)",
                                       border: "1px solid rgba(255,255,255,0.10)",
-                                      borderRadius: 22,
-                                      padding: 16,
+                                      borderRadius: 26,
+                                      padding: 17,
                                       marginBottom: 16
                                     }}
                                   >
-                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        gap: 12
+                                      }}
+                                    >
                                       <div>
-                                        <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 5 }}>
+                                        <p style={{ fontSize: 11.5, color: "#9898a7", fontWeight: 950, marginBottom: 7 }}>
                                           VALOR DA INSCRIÇÃO
                                         </p>
-                                        <p style={{ fontSize: 13, color: "#d4d4df", fontWeight: 800 }}>
-                                          Pagamento será conectado na próxima etapa técnica.
+                                        <p style={{ fontSize: 13.5, color: "#d4d4df", lineHeight: 1.45, fontWeight: 780 }}>
+                                          Após confirmar, você seguirá para escolher o pagamento.
                                         </p>
                                       </div>
 
-                                      <p style={{ fontSize: 24, fontWeight: 950, color: "#fff", whiteSpace: "nowrap" }}>
+                                      <p style={{ fontSize: 27, fontWeight: 950, color: "#fff", whiteSpace: "nowrap" }}>
                                         {activePrice}
                                       </p>
                                     </div>
                                   </div>
 
-                                  <div style={{ marginBottom: 16 }}>
-                                    <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
-                                      PARTICIPANTE
-                                    </p>
+                                  <div
+                                    style={{
+                                      background: "rgba(255,255,255,0.035)",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      borderRadius: 28,
+                                      padding: 17,
+                                      marginBottom: 16
+                                    }}
+                                  >
+                                    <div style={{ marginBottom: 13 }}>
+                                      <p style={{ fontSize: 20, color: "#fff", fontWeight: 950, marginBottom: 5 }}>
+                                        Participante
+                                      </p>
+                                      <p style={{ fontSize: 13.5, color: "#a9a9b6", lineHeight: 1.45, fontWeight: 760 }}>
+                                        Confira se os dados estão corretos antes de avançar.
+                                      </p>
+                                    </div>
 
                                     <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                                       {[
                                         ["Nome", raceParticipantForm.name],
                                         ["CPF", raceParticipantForm.cpf],
-                                        ["Nascimento", raceParticipantForm.birthDate],
+                                        ["Nascimento", raceParticipantForm.birthDate ? raceParticipantForm.birthDate.split("-").reverse().join("/") : ""],
                                         ["Telefone", raceParticipantForm.phone],
                                         ["E-mail", raceParticipantForm.email]
                                       ].map(([label, value]) => (
@@ -4275,29 +4621,41 @@ function AppMain({ user, userName }) {
                                             display: "flex",
                                             justifyContent: "space-between",
                                             gap: 12,
-                                            padding: "11px 12px",
-                                            borderRadius: 14,
+                                            padding: "12px 13px",
+                                            borderRadius: 16,
                                             background: "rgba(255,255,255,0.04)",
                                             border: "1px solid rgba(255,255,255,0.08)"
                                           }}
                                         >
-                                          <span style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 900 }}>{label}</span>
-                                          <span style={{ fontSize: 12.5, color: "#f0f0f5", fontWeight: 850, textAlign: "right" }}>{value || "—"}</span>
+                                          <span style={{ fontSize: 12, color: "#9797a5", fontWeight: 950 }}>
+                                            {label}
+                                          </span>
+                                          <span style={{ fontSize: 12.5, color: "#f4f4f7", fontWeight: 900, textAlign: "right" }}>
+                                            {value || "—"}
+                                          </span>
                                         </div>
                                       ))}
                                     </div>
                                   </div>
 
                                   {requiresTshirt && (
-                                    <div style={{ marginBottom: 16 }}>
-                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
-                                        CAMISETA
+                                    <div
+                                      style={{
+                                        background: "rgba(255,255,255,0.035)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 24,
+                                        padding: 16,
+                                        marginBottom: 16
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 12, color: "#ff7d97", fontWeight: 950, marginBottom: 10 }}>
+                                        CAMISETA DO KIT
                                       </p>
 
                                       <div
                                         style={{
                                           padding: "12px 13px",
-                                          borderRadius: 14,
+                                          borderRadius: 16,
                                           background: "rgba(255,255,255,0.04)",
                                           border: "1px solid rgba(255,255,255,0.08)",
                                           display: "flex",
@@ -4305,7 +4663,9 @@ function AppMain({ user, userName }) {
                                           gap: 12
                                         }}
                                       >
-                                        <span style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 900 }}>Tamanho</span>
+                                        <span style={{ fontSize: 12, color: "#9797a5", fontWeight: 950 }}>
+                                          Tamanho
+                                        </span>
                                         <span style={{ fontSize: 13, color: "#fff", fontWeight: 950 }}>
                                           {raceParticipantForm.tshirtSize || "—"}
                                         </span>
@@ -4314,8 +4674,16 @@ function AppMain({ user, userName }) {
                                   )}
 
                                   {requiresEmergencyContact && (
-                                    <div style={{ marginBottom: 16 }}>
-                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 10 }}>
+                                    <div
+                                      style={{
+                                        background: "rgba(255,255,255,0.035)",
+                                        border: "1px solid rgba(255,255,255,0.10)",
+                                        borderRadius: 24,
+                                        padding: 16,
+                                        marginBottom: 16
+                                      }}
+                                    >
+                                      <p style={{ fontSize: 12, color: "#ff7d97", fontWeight: 950, marginBottom: 10 }}>
                                         CONTATO DE EMERGÊNCIA
                                       </p>
 
@@ -4325,14 +4693,16 @@ function AppMain({ user, userName }) {
                                             display: "flex",
                                             justifyContent: "space-between",
                                             gap: 12,
-                                            padding: "11px 12px",
-                                            borderRadius: 14,
+                                            padding: "12px 13px",
+                                            borderRadius: 16,
                                             background: "rgba(255,255,255,0.04)",
                                             border: "1px solid rgba(255,255,255,0.08)"
                                           }}
                                         >
-                                          <span style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 900 }}>Nome</span>
-                                          <span style={{ fontSize: 12.5, color: "#f0f0f5", fontWeight: 850, textAlign: "right" }}>
+                                          <span style={{ fontSize: 12, color: "#9797a5", fontWeight: 950 }}>
+                                            Nome
+                                          </span>
+                                          <span style={{ fontSize: 12.5, color: "#f4f4f7", fontWeight: 900, textAlign: "right" }}>
                                             {raceParticipantForm.emergencyContactName || "—"}
                                           </span>
                                         </div>
@@ -4342,14 +4712,16 @@ function AppMain({ user, userName }) {
                                             display: "flex",
                                             justifyContent: "space-between",
                                             gap: 12,
-                                            padding: "11px 12px",
-                                            borderRadius: 14,
+                                            padding: "12px 13px",
+                                            borderRadius: 16,
                                             background: "rgba(255,255,255,0.04)",
                                             border: "1px solid rgba(255,255,255,0.08)"
                                           }}
                                         >
-                                          <span style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 900 }}>Telefone</span>
-                                          <span style={{ fontSize: 12.5, color: "#f0f0f5", fontWeight: 850, textAlign: "right" }}>
+                                          <span style={{ fontSize: 12, color: "#9797a5", fontWeight: 950 }}>
+                                            Telefone
+                                          </span>
+                                          <span style={{ fontSize: 12.5, color: "#f4f4f7", fontWeight: 900, textAlign: "right" }}>
                                             {raceParticipantForm.emergencyContactPhone || "—"}
                                           </span>
                                         </div>
@@ -4364,15 +4736,16 @@ function AppMain({ user, userName }) {
                                     style={{
                                       width: "100%",
                                       border: "none",
-                                      borderRadius: 18,
-                                      padding: "16px 18px",
+                                      borderRadius: 20,
+                                      padding: "17px 18px",
                                       fontSize: 15,
                                       fontWeight: 950,
                                       color: "#fff",
                                       background: "linear-gradient(135deg, #e11d48, #ff3d63)",
-                                      cursor: "pointer",
+                                      opacity: creatingRaceRegistration ? 0.76 : 1,
+                                      cursor: creatingRaceRegistration ? "wait" : "pointer",
                                       fontFamily: "inherit",
-                                      boxShadow: "0 16px 32px rgba(225,29,72,0.28)"
+                                      boxShadow: "0 18px 36px rgba(225,29,72,0.30)"
                                     }}
                                   >
                                     {creatingRaceRegistration ? "Criando reserva..." : "Confirmar dados e seguir para pagamento"}
@@ -4402,9 +4775,47 @@ function AppMain({ user, userName }) {
                                 <>
                                   <div
                                     style={{
+                                      marginBottom: 16,
+                                      padding: "15px 16px",
+                                      borderRadius: 22,
+                                      background: "linear-gradient(135deg, rgba(225,29,72,0.12), rgba(255,255,255,0.025))",
+                                      border: "1px solid rgba(255,255,255,0.09)"
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                                      <p style={{ fontSize: 14, color: "#d2d2dc", fontWeight: 950 }}>
+                                        Etapa 3 de 3
+                                      </p>
+                                      <p style={{ fontSize: 14, color: "#d2d2dc", fontWeight: 950, textAlign: "right" }}>
+                                        Pagamento
+                                      </p>
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        width: "100%",
+                                        height: 9,
+                                        borderRadius: 999,
+                                        background: "rgba(255,255,255,0.07)",
+                                        overflow: "hidden"
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          borderRadius: 999,
+                                          background: "linear-gradient(135deg, #e11d48, #ff3d63)"
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div
+                                    style={{
                                       background: "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.05))",
                                       border: "1px solid rgba(34,197,94,0.32)",
-                                      borderRadius: 24,
+                                      borderRadius: 28,
                                       padding: 18,
                                       marginBottom: 16
                                     }}
@@ -4427,12 +4838,20 @@ function AppMain({ user, userName }) {
                                       ✓ VAGA RESERVADA
                                     </span>
 
-                                    <h3 style={{ fontSize: 24, lineHeight: 1.08, letterSpacing: -0.7, fontWeight: 950, marginBottom: 9 }}>
-                                      Sua inscrição está aguardando pagamento.
+                                    <h3
+                                      style={{
+                                        fontSize: 24,
+                                        lineHeight: 1.08,
+                                        letterSpacing: -0.7,
+                                        fontWeight: 950,
+                                        marginBottom: 9
+                                      }}
+                                    >
+                                      Agora falta concluir o pagamento.
                                     </h3>
 
-                                    <p style={{ fontSize: 14, lineHeight: 1.5, color: "#d2d2dc", fontWeight: 750 }}>
-                                      A vaga foi segurada por 15 minutos. Conclua o pagamento via Pix ou cartão pelo Mercado Pago para confirmar sua inscrição.
+                                    <p style={{ fontSize: 14, lineHeight: 1.5, color: "#d2d2dc", fontWeight: 760 }}>
+                                      Sua vaga foi segurada por 15 minutos. Escolha Pix ou cartão para confirmar a inscrição.
                                     </p>
                                   </div>
 
@@ -4448,7 +4867,7 @@ function AppMain({ user, userName }) {
                                       style={{
                                         background: "rgba(255,255,255,0.04)",
                                         border: "1px solid rgba(255,255,255,0.10)",
-                                        borderRadius: 18,
+                                        borderRadius: 20,
                                         padding: 14
                                       }}
                                     >
@@ -4464,7 +4883,7 @@ function AppMain({ user, userName }) {
                                       style={{
                                         background: "rgba(255,255,255,0.04)",
                                         border: "1px solid rgba(255,255,255,0.10)",
-                                        borderRadius: 18,
+                                        borderRadius: 20,
                                         padding: 14
                                       }}
                                     >
@@ -4479,278 +4898,299 @@ function AppMain({ user, userName }) {
 
                                   <div
                                     style={{
-                                      background: "rgba(255,255,255,0.04)",
+                                      background: "rgba(255,255,255,0.035)",
                                       border: "1px solid rgba(255,255,255,0.10)",
-                                      borderRadius: 20,
-                                      padding: 15,
+                                      borderRadius: 26,
+                                      padding: 16,
                                       marginBottom: 16
                                     }}
                                   >
                                     <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 8 }}>
                                       STATUS DA INSCRIÇÃO
                                     </p>
-                                    <p style={{ fontSize: 15, color: "#fff", fontWeight: 950, marginBottom: 4 }}>
+
+                                    <p style={{ fontSize: 16, color: "#fff", fontWeight: 950, marginBottom: 5 }}>
                                       Pagamento pendente
                                     </p>
-                                    <p style={{ fontSize: 13, color: "#b8b8c4", lineHeight: 1.45, fontWeight: 750 }}>
-                                      A inscrição já existe no banco com status <strong>pending_payment</strong> e a vaga está reservada no lote.
+
+                                    <p style={{ fontSize: 13.5, color: "#b8b8c4", lineHeight: 1.5, fontWeight: 760 }}>
+                                      A reserva foi criada e será confirmada automaticamente assim que o pagamento for aprovado.
                                     </p>
                                   </div>
 
                                   <div
                                     style={{
-                                      display: "grid",
-                                      gridTemplateColumns: "1fr 1fr",
-                                      gap: 10,
-                                      marginBottom: 14
+                                      background: "rgba(255,255,255,0.035)",
+                                      border: "1px solid rgba(255,255,255,0.10)",
+                                      borderRadius: 28,
+                                      padding: 16,
+                                      marginBottom: 16
                                     }}
                                   >
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedCheckoutPaymentMethod("pix")}
-                                      style={{
-                                        border: selectedCheckoutPaymentMethod === "pix"
-                                          ? "1px solid rgba(255,61,99,0.72)"
-                                          : "1px solid rgba(255,255,255,0.12)",
-                                        borderRadius: 16,
-                                        padding: "13px 14px",
-                                        fontSize: 13.5,
-                                        fontWeight: 950,
-                                        color: selectedCheckoutPaymentMethod === "pix" ? "#fff" : "#b9b9c5",
-                                        background: selectedCheckoutPaymentMethod === "pix"
-                                          ? "linear-gradient(135deg, rgba(225,29,72,0.24), rgba(255,61,99,0.12))"
-                                          : "rgba(255,255,255,0.04)",
-                                        cursor: "pointer",
-                                        fontFamily: "inherit"
-                                      }}
-                                    >
-                                      Pix
-                                    </button>
+                                    <div style={{ marginBottom: 13 }}>
+                                      <p style={{ fontSize: 20, color: "#fff", fontWeight: 950, marginBottom: 5 }}>
+                                        Escolha como pagar
+                                      </p>
+                                      <p style={{ fontSize: 13.5, color: "#a9a9b6", lineHeight: 1.45, fontWeight: 760 }}>
+                                        O pagamento é processado com segurança pelo Mercado Pago.
+                                      </p>
+                                    </div>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedCheckoutPaymentMethod("card")}
+                                    <div
                                       style={{
-                                        border: selectedCheckoutPaymentMethod === "card"
-                                          ? "1px solid rgba(255,61,99,0.72)"
-                                          : "1px solid rgba(255,255,255,0.12)",
-                                        borderRadius: 16,
-                                        padding: "13px 14px",
-                                        fontSize: 13.5,
-                                        fontWeight: 950,
-                                        color: selectedCheckoutPaymentMethod === "card" ? "#fff" : "#b9b9c5",
-                                        background: selectedCheckoutPaymentMethod === "card"
-                                          ? "linear-gradient(135deg, rgba(225,29,72,0.24), rgba(255,61,99,0.12))"
-                                          : "rgba(255,255,255,0.04)",
-                                        cursor: "pointer",
-                                        fontFamily: "inherit"
+                                        display: "grid",
+                                        gridTemplateColumns: "1fr 1fr",
+                                        gap: 10
                                       }}
                                     >
-                                      Cartão
-                                    </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedCheckoutPaymentMethod("pix")}
+                                        style={{
+                                          border: selectedCheckoutPaymentMethod === "pix"
+                                            ? "1px solid rgba(255,61,99,0.78)"
+                                            : "1px solid rgba(255,255,255,0.12)",
+                                          borderRadius: 18,
+                                          padding: "15px 14px",
+                                          fontSize: 14,
+                                          fontWeight: 950,
+                                          color: selectedCheckoutPaymentMethod === "pix" ? "#fff" : "#b9b9c5",
+                                          background: selectedCheckoutPaymentMethod === "pix"
+                                            ? "linear-gradient(135deg, rgba(225,29,72,0.26), rgba(255,61,99,0.12))"
+                                            : "rgba(255,255,255,0.04)",
+                                          cursor: "pointer",
+                                          fontFamily: "inherit"
+                                        }}
+                                      >
+                                        Pix
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedCheckoutPaymentMethod("card")}
+                                        style={{
+                                          border: selectedCheckoutPaymentMethod === "card"
+                                            ? "1px solid rgba(255,61,99,0.78)"
+                                            : "1px solid rgba(255,255,255,0.12)",
+                                          borderRadius: 18,
+                                          padding: "15px 14px",
+                                          fontSize: 14,
+                                          fontWeight: 950,
+                                          color: selectedCheckoutPaymentMethod === "card" ? "#fff" : "#b9b9c5",
+                                          background: selectedCheckoutPaymentMethod === "card"
+                                            ? "linear-gradient(135deg, rgba(225,29,72,0.26), rgba(255,61,99,0.12))"
+                                            : "rgba(255,255,255,0.04)",
+                                          cursor: "pointer",
+                                          fontFamily: "inherit"
+                                        }}
+                                      >
+                                        Cartão
+                                      </button>
+                                    </div>
                                   </div>
 
                                   {selectedCheckoutPaymentMethod === "pix" && (
                                     <>
                                       {!pixPaymentData ? (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={handleCreatePixPayment}
-                                        disabled={creatingPixPayment}
-                                        style={{
-                                          width: "100%",
-                                          border: "none",
-                                          borderRadius: 18,
-                                          padding: "16px 18px",
-                                          fontSize: 15,
-                                          fontWeight: 950,
-                                          color: "#fff",
-                                          background: "linear-gradient(135deg, #e11d48, #ff3d63)",
-                                          opacity: creatingPixPayment ? 0.75 : 1,
-                                          cursor: creatingPixPayment ? "wait" : "pointer",
-                                          fontFamily: "inherit",
-                                          marginBottom: 10
-                                        }}
-                                      >
-                                        {creatingPixPayment ? "Gerando Pix..." : "Pagar com Pix"}
-                                      </button>
-
-                                      <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 750 }}>
-                                        Gere o QR Code para concluir a inscrição via Mercado Pago.
-                                      </p>
-                                    </>
-                                  ) : (
-                                    <div
-                                      style={{
-                                        background: "rgba(255,255,255,0.04)",
-                                        border: "1px solid rgba(255,255,255,0.10)",
-                                        borderRadius: 22,
-                                        padding: 16,
-                                        marginTop: 4
-                                      }}
-                                    >
-                                      <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 8 }}>
-                                        PAGAMENTO PIX GERADO
-                                      </p>
-
-                                      <p style={{ fontSize: 14, color: "#fff", lineHeight: 1.45, fontWeight: 850, marginBottom: 14 }}>
-                                        Escaneie o QR Code ou copie o código Pix para concluir o pagamento.
-                                      </p>
-
-                                      {pixPaymentData?.pagamento?.qr_code_base64 ? (
-                                        <img
-                                          src={`data:image/png;base64,${pixPaymentData.pagamento.qr_code_base64}`}
-                                          alt="QR Code Pix"
-                                          style={{
-                                            display: "block",
-                                            width: "100%",
-                                            maxWidth: 260,
-                                            margin: "0 auto 14px",
-                                            borderRadius: 16,
-                                            background: "#fff",
-                                            padding: 10
-                                          }}
-                                        />
-                                      ) : null}
-
-                                      {pixPaymentData?.pagamento?.qr_code ? (
                                         <>
-                                          <textarea
-                                            readOnly
-                                            value={pixPaymentData.pagamento.qr_code}
-                                            style={{
-                                              width: "100%",
-                                              minHeight: 92,
-                                              resize: "none",
-                                              border: "1px solid rgba(255,255,255,0.12)",
-                                              borderRadius: 16,
-                                              padding: 12,
-                                              fontSize: 12,
-                                              lineHeight: 1.45,
-                                              color: "#fff",
-                                              background: "rgba(255,255,255,0.05)",
-                                              fontFamily: "inherit",
-                                              marginBottom: 10
-                                            }}
-                                          />
-
                                           <button
                                             type="button"
-                                            onClick={async () => {
-                                              try {
-                                                await navigator.clipboard.writeText(pixPaymentData.pagamento.qr_code);
-                                                alert("Código Pix copiado!");
-                                              } catch {
-                                                alert("Não foi possível copiar automaticamente. Selecione o código e copie manualmente.");
-                                              }
-                                            }}
+                                            onClick={handleCreatePixPayment}
+                                            disabled={creatingPixPayment}
                                             style={{
                                               width: "100%",
-                                              border: "1px solid rgba(255,255,255,0.14)",
-                                              borderRadius: 16,
-                                              padding: "14px 16px",
-                                              fontSize: 14,
+                                              border: "none",
+                                              borderRadius: 20,
+                                              padding: "17px 18px",
+                                              fontSize: 15,
                                               fontWeight: 950,
                                               color: "#fff",
-                                              background: "rgba(255,255,255,0.08)",
-                                              cursor: "pointer",
+                                              background: "linear-gradient(135deg, #e11d48, #ff3d63)",
+                                              opacity: creatingPixPayment ? 0.75 : 1,
+                                              cursor: creatingPixPayment ? "wait" : "pointer",
                                               fontFamily: "inherit",
-                                              marginBottom: 10
+                                              marginBottom: 10,
+                                              boxShadow: creatingPixPayment ? "none" : "0 18px 36px rgba(225,29,72,0.30)"
                                             }}
                                           >
-                                            Copiar código Pix
+                                            {creatingPixPayment ? "Gerando Pix..." : "Pagar com Pix"}
                                           </button>
+
+                                          <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 760 }}>
+                                            Gere o QR Code para concluir a inscrição via Mercado Pago.
+                                          </p>
                                         </>
-                                      ) : null}
-
-                                      {pixPaymentData?.pagamento?.ticket_url ? (
-                                        <a
-                                          href={pixPaymentData.pagamento.ticket_url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          style={{
-                                            display: "block",
-                                            width: "100%",
-                                            textAlign: "center",
-                                            textDecoration: "none",
-                                            borderRadius: 16,
-                                            padding: "14px 16px",
-                                            fontSize: 14,
-                                            fontWeight: 950,
-                                            color: "#fff",
-                                            background: "linear-gradient(135deg, #e11d48, #ff3d63)",
-                                            marginBottom: 10
-                                          }}
-                                        >
-                                          Abrir pagamento Pix
-                                        </a>
-                                      ) : null}
-
-                                      {pixPaymentData?.payment_confirmed || pendingRaceRegistration?.status === "confirmed" ? (
+                                      ) : (
                                         <div
                                           style={{
-                                            background: "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.06))",
-                                            border: "1px solid rgba(34,197,94,0.34)",
-                                            borderRadius: 18,
-                                            padding: 15,
-                                            marginTop: 6
+                                            background: "rgba(255,255,255,0.035)",
+                                            border: "1px solid rgba(255,255,255,0.10)",
+                                            borderRadius: 28,
+                                            padding: 16,
+                                            marginTop: 4
                                           }}
                                         >
-                                          <p style={{ fontSize: 12, color: "#86efac", fontWeight: 950, marginBottom: 7 }}>
-                                            ✓ INSCRIÇÃO CONFIRMADA
+                                          <p style={{ fontSize: 12, color: "#ff7d97", fontWeight: 950, marginBottom: 8 }}>
+                                            PAGAMENTO PIX GERADO
                                           </p>
-                                          <p style={{ fontSize: 13.5, color: "#dcfce7", lineHeight: 1.5, fontWeight: 800 }}>
-                                            Pagamento identificado. Sua vaga nesta prova está confirmada.
+
+                                          <p style={{ fontSize: 14, color: "#fff", lineHeight: 1.45, fontWeight: 850, marginBottom: 14 }}>
+                                            Escaneie o QR Code ou copie o código Pix para concluir o pagamento.
                                           </p>
+
+                                          {pixPaymentData?.pagamento?.qr_code_base64 ? (
+                                            <img
+                                              src={`data:image/png;base64,${pixPaymentData.pagamento.qr_code_base64}`}
+                                              alt="QR Code Pix"
+                                              style={{
+                                                display: "block",
+                                                width: "100%",
+                                                maxWidth: 260,
+                                                margin: "0 auto 14px",
+                                                borderRadius: 18,
+                                                background: "#fff",
+                                                padding: 10
+                                              }}
+                                            />
+                                          ) : null}
+
+                                          {pixPaymentData?.pagamento?.qr_code ? (
+                                            <>
+                                              <textarea
+                                                readOnly
+                                                value={pixPaymentData.pagamento.qr_code}
+                                                style={{
+                                                  width: "100%",
+                                                  minHeight: 92,
+                                                  resize: "none",
+                                                  border: "1px solid rgba(255,255,255,0.12)",
+                                                  borderRadius: 18,
+                                                  padding: 12,
+                                                  fontSize: 12,
+                                                  lineHeight: 1.45,
+                                                  color: "#fff",
+                                                  background: "rgba(255,255,255,0.05)",
+                                                  fontFamily: "inherit",
+                                                  marginBottom: 10
+                                                }}
+                                              />
+
+                                              <button
+                                                type="button"
+                                                onClick={async () => {
+                                                  try {
+                                                    await navigator.clipboard.writeText(pixPaymentData.pagamento.qr_code);
+                                                    alert("Código Pix copiado!");
+                                                  } catch {
+                                                    alert("Não foi possível copiar automaticamente. Selecione o código e copie manualmente.");
+                                                  }
+                                                }}
+                                                style={{
+                                                  width: "100%",
+                                                  border: "1px solid rgba(255,255,255,0.14)",
+                                                  borderRadius: 18,
+                                                  padding: "14px 16px",
+                                                  fontSize: 14,
+                                                  fontWeight: 950,
+                                                  color: "#fff",
+                                                  background: "rgba(255,255,255,0.08)",
+                                                  cursor: "pointer",
+                                                  fontFamily: "inherit",
+                                                  marginBottom: 10
+                                                }}
+                                              >
+                                                Copiar código Pix
+                                              </button>
+                                            </>
+                                          ) : null}
+
+                                          {pixPaymentData?.pagamento?.ticket_url ? (
+                                            <a
+                                              href={pixPaymentData.pagamento.ticket_url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              style={{
+                                                display: "block",
+                                                width: "100%",
+                                                textAlign: "center",
+                                                textDecoration: "none",
+                                                borderRadius: 18,
+                                                padding: "14px 16px",
+                                                fontSize: 14,
+                                                fontWeight: 950,
+                                                color: "#fff",
+                                                background: "linear-gradient(135deg, #e11d48, #ff3d63)",
+                                                marginBottom: 10
+                                              }}
+                                            >
+                                              Abrir pagamento Pix
+                                            </a>
+                                          ) : null}
+
+                                          {pixPaymentData?.payment_confirmed || pendingRaceRegistration?.status === "confirmed" ? (
+                                            <div
+                                              style={{
+                                                background: "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.06))",
+                                                border: "1px solid rgba(34,197,94,0.34)",
+                                                borderRadius: 20,
+                                                padding: 15,
+                                                marginTop: 6
+                                              }}
+                                            >
+                                              <p style={{ fontSize: 12, color: "#86efac", fontWeight: 950, marginBottom: 7 }}>
+                                                ✓ INSCRIÇÃO CONFIRMADA
+                                              </p>
+                                              <p style={{ fontSize: 13.5, color: "#dcfce7", lineHeight: 1.5, fontWeight: 800 }}>
+                                                Pagamento identificado. Sua vaga nesta prova está confirmada.
+                                              </p>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <div
+                                                style={{
+                                                  background: "rgba(255,255,255,0.04)",
+                                                  border: "1px solid rgba(255,255,255,0.10)",
+                                                  borderRadius: 20,
+                                                  padding: 14,
+                                                  marginTop: 6,
+                                                  marginBottom: 10
+                                                }}
+                                              >
+                                                <p style={{ fontSize: 12, color: "#fda4af", fontWeight: 950, marginBottom: 7 }}>
+                                                  AGUARDANDO PAGAMENTO
+                                                </p>
+                                                <p style={{ fontSize: 13.5, color: "#d2d2dc", lineHeight: 1.5, fontWeight: 780 }}>
+                                                  Assim que o Pix for aprovado, sua inscrição será confirmada automaticamente.
+                                                </p>
+                                              </div>
+
+                                              <button
+                                                type="button"
+                                                onClick={handleCheckPixPaymentStatus}
+                                                style={{
+                                                  width: "100%",
+                                                  border: "1px solid rgba(255,255,255,0.14)",
+                                                  borderRadius: 18,
+                                                  padding: "14px 16px",
+                                                  fontSize: 14,
+                                                  fontWeight: 950,
+                                                  color: "#fff",
+                                                  background: "rgba(255,255,255,0.08)",
+                                                  cursor: "pointer",
+                                                  fontFamily: "inherit",
+                                                  marginBottom: 10
+                                                }}
+                                              >
+                                                Já paguei, verificar status
+                                              </button>
+
+                                              <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 760 }}>
+                                                Status atual: {pixPaymentData?.status_detail || "aguardando pagamento"}.
+                                              </p>
+                                            </>
+                                          )}
                                         </div>
-                                      ) : (
-                                        <>
-                                          <div
-                                            style={{
-                                              background: "rgba(255,255,255,0.04)",
-                                              border: "1px solid rgba(255,255,255,0.10)",
-                                              borderRadius: 18,
-                                              padding: 14,
-                                              marginTop: 6,
-                                              marginBottom: 10
-                                            }}
-                                          >
-                                            <p style={{ fontSize: 12, color: "#fda4af", fontWeight: 950, marginBottom: 7 }}>
-                                              AGUARDANDO PAGAMENTO
-                                            </p>
-                                            <p style={{ fontSize: 13.5, color: "#d2d2dc", lineHeight: 1.5, fontWeight: 780 }}>
-                                              Assim que o Pix for aprovado, sua inscrição será confirmada automaticamente.
-                                            </p>
-                                          </div>
-
-                                          <button
-                                            type="button"
-                                            onClick={handleCheckPixPaymentStatus}
-                                            style={{
-                                              width: "100%",
-                                              border: "1px solid rgba(255,255,255,0.14)",
-                                              borderRadius: 16,
-                                              padding: "14px 16px",
-                                              fontSize: 14,
-                                              fontWeight: 950,
-                                              color: "#fff",
-                                              background: "rgba(255,255,255,0.08)",
-                                              cursor: "pointer",
-                                              fontFamily: "inherit",
-                                              marginBottom: 10
-                                            }}
-                                          >
-                                            Já paguei, verificar status
-                                          </button>
-
-                                          <p style={{ fontSize: 12.5, color: "#8f8f9d", lineHeight: 1.45, textAlign: "center", fontWeight: 750 }}>
-                                            Status atual: {pixPaymentData?.status_detail || "aguardando pagamento"}.
-                                          </p>
-                                        </>
                                       )}
-                                    </div>
-                                  )}
 
                                       {pixPaymentError ? (
                                         <p
@@ -4772,9 +5212,9 @@ function AppMain({ user, userName }) {
                                   {selectedCheckoutPaymentMethod === "card" && (
                                     <div
                                       style={{
-                                        background: "rgba(255,255,255,0.04)",
+                                        background: "rgba(255,255,255,0.035)",
                                         border: "1px solid rgba(255,255,255,0.10)",
-                                        borderRadius: 22,
+                                        borderRadius: 28,
                                         padding: 16,
                                         marginTop: 4
                                       }}
@@ -4784,7 +5224,7 @@ function AppMain({ user, userName }) {
                                           style={{
                                             background: "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.06))",
                                             border: "1px solid rgba(34,197,94,0.34)",
-                                            borderRadius: 18,
+                                            borderRadius: 20,
                                             padding: 15
                                           }}
                                         >
@@ -4797,7 +5237,7 @@ function AppMain({ user, userName }) {
                                         </div>
                                       ) : (
                                         <>
-                                          <p style={{ fontSize: 12, color: "#8f8f9d", fontWeight: 950, marginBottom: 8 }}>
+                                          <p style={{ fontSize: 12, color: "#ff7d97", fontWeight: 950, marginBottom: 8 }}>
                                             PAGAMENTO COM CARTÃO
                                           </p>
 
