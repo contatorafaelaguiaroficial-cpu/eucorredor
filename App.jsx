@@ -3220,6 +3220,218 @@ function AppMain({ user, userName }) {
           </div>
         </div>
 
+        {showSearch && (
+          <div style={{
+            padding: "0 20px 16px",
+            background: "linear-gradient(180deg, #0a0a0f 0%, #08080c 100%)",
+            position: "sticky",
+            top: 74,
+            zIndex: 49,
+            borderBottom: "1px solid rgba(255,255,255,0.06)"
+          }}>
+            <div style={{
+              background: "#13131a",
+              border: "1px solid #252538",
+              borderRadius: 18,
+              padding: 12,
+              boxShadow: "0 18px 40px rgba(0,0,0,0.28)"
+            }}>
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(event) => {
+                  if (tab === "eventos") {
+                    setSearchQuery(event.target.value);
+                  } else {
+                    handleSearch(event.target.value);
+                  }
+                }}
+                placeholder={tab === "eventos" ? "Buscar prova, cidade ou distância" : "Buscar corredores ou usuários"}
+                style={{
+                  width: "100%",
+                  height: 46,
+                  border: "1px solid #2a2a3a",
+                  borderRadius: 14,
+                  background: "#090910",
+                  color: "#fff",
+                  padding: "0 14px",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  fontFamily: "inherit",
+                  outline: "none",
+                  boxSizing: "border-box"
+                }}
+              />
+
+              {tab === "eventos" ? (
+                searchQuery.trim() ? (
+                  <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                    {dbEvents
+                      .filter((event) => {
+                        const query = searchQuery.trim().toLowerCase();
+                        const searchable = [
+                          event.name,
+                          event.city,
+                          event.state,
+                          event.distance,
+                          event.category
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                          .toLowerCase();
+
+                        return searchable.includes(query);
+                      })
+                      .slice(0, 8)
+                      .map((event) => (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={() => {
+                            setTab("eventos");
+                            setShowSearch(false);
+                            setSearchQuery("");
+
+                            if (event.race_event?.id) {
+                              openRaceEventDetails(event);
+                              return;
+                            }
+
+                            if (event.link) {
+                              window.open(event.link, "_blank", "noopener,noreferrer");
+                            }
+                          }}
+                          style={{
+                            width: "100%",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            borderRadius: 14,
+                            background: "rgba(255,255,255,0.04)",
+                            padding: "12px 13px",
+                            textAlign: "left",
+                            color: "#fff",
+                            fontFamily: "inherit",
+                            cursor: "pointer"
+                          }}
+                        >
+                          <strong style={{ display: "block", fontSize: 14, marginBottom: 4 }}>
+                            {event.name}
+                          </strong>
+                          <span style={{ display: "block", color: "#9a9aaa", fontSize: 12, fontWeight: 800 }}>
+                            {event.city || "Cidade não informada"}
+                            {event.state ? `, ${event.state}` : ""}
+                            {event.distance ? ` · ${event.distance}` : ""}
+                          </span>
+                        </button>
+                      ))}
+
+                    {dbEvents.filter((event) => {
+                      const query = searchQuery.trim().toLowerCase();
+                      const searchable = [
+                        event.name,
+                        event.city,
+                        event.state,
+                        event.distance,
+                        event.category
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
+                        .toLowerCase();
+
+                      return searchable.includes(query);
+                    }).length === 0 ? (
+                      <p style={{ margin: "10px 2px 2px", color: "#8f8f9b", fontSize: 13, fontWeight: 800 }}>
+                        Nenhuma prova encontrada.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p style={{ margin: "10px 2px 0", color: "#777787", fontSize: 12.5, fontWeight: 800 }}>
+                    Digite o nome da prova, cidade ou distância.
+                  </p>
+                )
+              ) : (
+                searchQuery.trim() ? (
+                  <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                    {searchResults.map((result) => (
+                      <button
+                        key={result.id}
+                        type="button"
+                        onClick={() => {
+                          setShowSearch(false);
+                          setSearchQuery("");
+                          setSearchResults([]);
+                          openProfile(result.id);
+                        }}
+                        style={{
+                          width: "100%",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 14,
+                          background: "rgba(255,255,255,0.04)",
+                          padding: "12px 13px",
+                          textAlign: "left",
+                          color: "#fff",
+                          fontFamily: "inherit",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10
+                        }}
+                      >
+                        {result.avatar_url ? (
+                          <img
+                            src={result.avatar_url}
+                            alt={result.name || "Usuário"}
+                            style={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: "50%",
+                              objectFit: "cover"
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: "50%",
+                            background: "#1e1e2e",
+                            color: "#fff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 14,
+                            fontWeight: 900
+                          }}>
+                            {(result.name || "C").charAt(0).toUpperCase()}
+                          </div>
+                        )}
+
+                        <div style={{ minWidth: 0 }}>
+                          <strong style={{ display: "block", fontSize: 14, marginBottom: 3 }}>
+                            {result.name || "Corredor"}
+                          </strong>
+                          <span style={{ display: "block", color: "#9a9aaa", fontSize: 12, fontWeight: 800 }}>
+                            @{result.handle || "usuario"} · {result.level || "Iniciante"}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+
+                    {searchResults.length === 0 ? (
+                      <p style={{ margin: "10px 2px 2px", color: "#8f8f9b", fontSize: 13, fontWeight: 800 }}>
+                        Nenhum usuário encontrado.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p style={{ margin: "10px 2px 0", color: "#777787", fontSize: 12.5, fontWeight: 800 }}>
+                    Digite o nome ou @ do corredor.
+                  </p>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Bottom nav */}
         <nav className="bnav">
           {[
