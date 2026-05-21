@@ -3442,10 +3442,37 @@ function AppMain({ user, userName }) {
             { id: "perfil", label: "Perfil", svg: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
           ].map((t) => (
             <button key={t.id} className="nbtn"
-              onClick={() => t.special ? setShowPublish(true) : setTab(t.id)}
-              style={{ background: t.special ? "#e11d48" : "none", borderRadius: t.special ? "50%" : 0, width: t.special ? 54 : "100%", height: t.special ? 54 : "auto", marginTop: t.special ? -12 : 0, boxShadow: t.special ? "0 8px 24px rgba(225,29,72,0.38)" : "none", justifyContent: "center", justifySelf: "center", border: "none" }}>
+              onClick={() => {
+                setShowSearch(false);
+                setSearchQuery("");
+                setSearchResults([]);
+
+                if (t.special) {
+                  setTab("comunidade");
+                  setPublishType(null);
+                  setShowPublish(true);
+                  return;
+                }
+
+                setShowPublish(false);
+                setPublishType(null);
+                setTab(t.id);
+              }}
+              aria-label={t.special ? "Criar publicação" : t.label}
+              style={{
+                background: "none",
+                borderRadius: 0,
+                width: "100%",
+                height: "auto",
+                marginTop: 0,
+                boxShadow: "none",
+                justifyContent: "center",
+                justifySelf: "center",
+                border: "none",
+                touchAction: "manipulation"
+              }}>
               {t.special
-                ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><polygon points="12 4 22 20 2 20"/></svg>
+                ? <><span style={{ color: "#e11d48", fontSize: 28, fontWeight: 900, lineHeight: 1 }}>+</span><span style={{ fontSize: 10, fontWeight: 700, color: "#e11d48" }}>Criar</span></>
                 : <><span style={{ color: tab === t.id ? "#e11d48" : "#555" }}>{t.svg}</span><span style={{ fontSize: 10, fontWeight: 700, color: tab === t.id ? "#e11d48" : "#555" }}>{t.label}</span></>
               }
             </button>
@@ -7527,7 +7554,7 @@ function AppMain({ user, userName }) {
                           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                             <textarea className="tinput" rows={5} placeholder="Compartilhe uma ideia, conquista ou relato..." value={newPost} onChange={(e) => setNewPost(e.target.value)} style={{ minHeight: 128, resize: "vertical" }} />
                             <div style={{ display: "flex", gap: 10 }}>
-                              <button onClick={() => { setPublishType(null); setNewPost(""); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 14, padding: 14, fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Voltar</button>
+                              <button onClick={() => { setShowPublish(false); setPublishType(null); setNewPost(""); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 14, padding: 14, fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Voltar</button>
                               <button onClick={async () => { await handlePost(); setShowPublish(false); setPublishType(null); }} disabled={loadingPost || !newPost.trim()} style={{ flex: 1, background: "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", border: "none", borderRadius: 14, padding: 14, fontSize: 13, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", opacity: loadingPost || !newPost.trim() ? 0.5 : 1, boxShadow: loadingPost || !newPost.trim() ? "none" : "0 16px 30px rgba(225,29,72,0.22)" }}>Publicar</button>
                             </div>
                           </div>
@@ -7541,7 +7568,7 @@ function AppMain({ user, userName }) {
                             </label>
                             <textarea className="tinput" rows={3} placeholder="Escreva uma legenda..." value={newPost} onChange={(e) => setNewPost(e.target.value)} />
                             <div style={{ display: "flex", gap: 10 }}>
-                              <button onClick={() => { setPublishType(null); setPhotoFile(null); setPhotoPreview(null); setNewPost(""); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 14, padding: 14, fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Voltar</button>
+                              <button onClick={() => { setShowPublish(false); setPublishType(null); setPhotoFile(null); setPhotoPreview(null); setNewPost(""); }} style={{ flex: 1, background: "none", border: "1px solid #1e1e2e", color: "#888", borderRadius: 14, padding: 14, fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>Voltar</button>
                               <button onClick={async () => {
                                 if (!photoFile) return alert("Selecione uma foto.");
                                 setLoadingPost(true);
@@ -7595,7 +7622,7 @@ function AppMain({ user, userName }) {
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 999, padding: "7px 11px", color: "#d9d9df", fontSize: 12, fontWeight: 800, marginBottom: 18 }}>
                         <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#6ee7b7", boxShadow: "0 0 14px #6ee7b7" }} /> GPS disponível
                       </span>
-                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 36, lineHeight: 1.02, letterSpacing: -1.5, marginBottom: 10 }}>Pronto para correr?</h2>
+                      <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 34, lineHeight: 1.02, letterSpacing: -1.5, marginBottom: 10 }}>Pronto para correr?</h2>
                       <p style={{ color: "#b9b9c3", fontSize: 15, lineHeight: 1.55, maxWidth: 245, marginBottom: 18 }}>Registre sua corrida, acompanhe seu desempenho e transforme cada treino em evolução.</p>
                       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", color: "#aaa", fontSize: 12, fontWeight: 800, marginBottom: 22 }}>
                         <span>⌖ GPS</span><span>◷ pace</span><span>▥ rota</span>
