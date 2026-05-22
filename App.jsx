@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Capacitor } from "@capacitor/core";
+import { App as CapacitorApp } from "@capacitor/app";
 import { Geolocation } from "@capacitor/geolocation";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
@@ -60,6 +61,72 @@ function AuthScreen({ onLogin }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const getAuthRedirectUrl = () =>
+    Capacitor.isNativePlatform()
+      ? "com.eucorredor.app://auth-callback"
+      : `${window.location.origin}`;
+
+  const finishOAuthFromUrl = async (url) => {
+    try {
+      const parsedUrl = new URL(url);
+      const queryParams = new URLSearchParams(parsedUrl.search || "");
+      const hashParams = new URLSearchParams((parsedUrl.hash || "").replace(/^#/, ""));
+
+      const code = queryParams.get("code") || hashParams.get("code");
+
+      if (code) {
+        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (exchangeError) {
+          console.error("Erro ao finalizar login OAuth:", exchangeError.message || exchangeError);
+          setError("Não foi possível concluir o login com Apple.");
+          return;
+        }
+
+        if (data?.user) {
+          onLogin(
+            data.user,
+            data.user.user_metadata?.full_name ||
+              data.user.user_metadata?.name ||
+              data.user.email?.split("@")[0] ||
+              "Corredor"
+          );
+        }
+
+        return;
+      }
+
+      const access_token = hashParams.get("access_token") || queryParams.get("access_token");
+      const refresh_token = hashParams.get("refresh_token") || queryParams.get("refresh_token");
+
+      if (access_token && refresh_token) {
+        const { data, error: sessionError } = await supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
+
+        if (sessionError) {
+          console.error("Erro ao definir sessão OAuth:", sessionError.message || sessionError);
+          setError("Não foi possível concluir o login com Apple.");
+          return;
+        }
+
+        if (data?.user) {
+          onLogin(
+            data.user,
+            data.user.user_metadata?.full_name ||
+              data.user.user_metadata?.name ||
+              data.user.email?.split("@")[0] ||
+              "Corredor"
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Erro inesperado no retorno OAuth:", err.message || err);
+      setError("Não foi possível concluir o login com Apple.");
+    }
+  };
+
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes("type=recovery") || hash.includes("access_token")) {
@@ -69,17 +136,37 @@ function AuthScreen({ onLogin }) {
     }
   }, []);
 
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let listener;
+
+    const setupDeepLinkListener = async () => {
+      listener = await CapacitorApp.addListener("appUrlOpen", async (event) => {
+        if (event?.url?.startsWith("com.eucorredor.app://auth-callback")) {
+          await finishOAuthFromUrl(event.url);
+        }
+      });
+    };
+
+    setupDeepLinkListener();
+
+    return () => {
+      listener?.remove();
+    };
+  }, []);
+
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}` },
+      options: { redirectTo: getAuthRedirectUrl() },
     });
   };
 
   const handleAppleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "apple",
-      options: { redirectTo: `${window.location.origin}` },
+      options: { redirectTo: getAuthRedirectUrl() },
     });
   };
 
