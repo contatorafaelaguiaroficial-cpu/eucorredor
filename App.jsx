@@ -76,6 +76,13 @@ function AuthScreen({ onLogin }) {
     });
   };
 
+  const handleAppleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: { redirectTo: `${window.location.origin}` },
+    });
+  };
+
   const handleForgot = async () => {
     setError(""); setSuccess("");
     if (!form.email.includes("@")) return setError("Informe um e-mail válido.");
@@ -234,6 +241,11 @@ function AuthScreen({ onLogin }) {
                 <path fill="none" d="M0 0h48v48H0z"/>
               </svg>
               Continuar com Google
+            </button>
+
+            <button onClick={handleAppleLogin} style={{ width: "100%", background: "#000", color: "#fff", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 12, padding: "13px 0", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 10 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.42 2.13-1.25 2.98-.9.91-1.98 1.43-3.04 1.33-.13-1.09.32-2.25 1.14-3.1.86-.9 2.24-1.54 3.15-1.21ZM20.72 17.18c-.54 1.25-.8 1.8-1.5 2.9-.98 1.5-2.36 3.37-4.07 3.39-1.52.01-1.91-.99-3.98-.98-2.06.01-2.49 1-4 .99-1.72-.02-3.03-1.7-4.01-3.2-2.74-4.2-3.03-9.13-1.34-11.75 1.2-1.86 3.1-2.95 4.89-2.95 1.82 0 2.96 1 4.46 1 1.46 0 2.35-1 4.46-1 1.6 0 3.29.87 4.48 2.37-3.94 2.16-3.3 7.79.61 9.23Z"/></svg>
+              Continuar com Apple
             </button>
             {mode === "login" && (
               <div style={{ textAlign: "center", marginTop: 12 }}>
@@ -516,9 +528,36 @@ function AppMain({ user, userName }) {
 
     const setupPushNotifications = async () => {
       try {
-        registrationListener = await PushNotifications.addListener("registration", (token) => {
+        registrationListener = await PushNotifications.addListener("registration", async (token) => {
           console.info("Token de push recebido:", token.value);
           window.localStorage?.setItem("eucorredor_push_token", token.value);
+
+          try {
+            if (user?.id && token?.value) {
+              const { error } = await supabase
+                .from("mobile_push_tokens")
+                .upsert(
+                  {
+                    user_id: user.id,
+                    token: token.value,
+                    platform: "ios",
+                    is_active: true,
+                    updated_at: new Date().toISOString(),
+                  },
+                  {
+                    onConflict: "user_id,token",
+                  }
+                );
+
+              if (error) {
+                console.error("Erro ao salvar token de push no Supabase:", error.message || error);
+              } else {
+                console.info("Token de push salvo no Supabase.");
+              }
+            }
+          } catch (err) {
+            console.error("Erro inesperado ao salvar token de push:", err.message || err);
+          }
         });
 
         registrationErrorListener = await PushNotifications.addListener("registrationError", (error) => {
