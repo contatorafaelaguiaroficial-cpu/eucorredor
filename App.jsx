@@ -6994,8 +6994,8 @@ function AppMain({ user, userName }) {
                           icon={commFeed === "amigos" ? "👥" : "💬"}
                           title={commFeed === "amigos" ? "Seu feed de amigos está começando" : "A comunidade ainda está quieta"}
                           description={commFeed === "amigos" ? "Siga corredores para ver publicações só de quem você acompanha." : "Publique uma foto ou escreva algo para abrir a conversa."}
-                          actionLabel={commFeed === "amigos" ? "Ver comunidade" : "Criar publicação"}
-                          onAction={() => commFeed === "amigos" ? setCommFeed("todos") : setShowPublish(true)}
+                          actionLabel={commFeed === "amigos" ? "Ver comunidade" : undefined}
+                          onAction={commFeed === "amigos" ? () => setCommFeed("todos") : undefined}
                         />
                       );
                     }
@@ -8526,8 +8526,6 @@ function AppMain({ user, userName }) {
                         icon="📸"
                         title="Sua galeria ainda está vazia"
                         description="Publique uma foto de treino, prova ou conquista para ela aparecer aqui."
-                        actionLabel="Publicar foto"
-                        onAction={() => { setPublishType("foto"); setShowPublish(true); }}
                       />
                     </div>
                   )}
@@ -8609,8 +8607,6 @@ function AppMain({ user, userName }) {
                       icon="✍️"
                       title="Você ainda não publicou textos"
                       description="Compartilhe uma reflexão, treino ou conquista com a comunidade."
-                      actionLabel="Escrever post"
-                      onAction={() => { setPublishType("post"); setShowPublish(true); }}
                     />
                   )}
                 </div>
