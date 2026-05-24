@@ -2643,7 +2643,8 @@ function AppMain({ user, userName }) {
     return haystack.includes(normalizeEventText(filter));
   };
 
-  const filteredEvents = dbEvents.filter((event) => eventMatchesFilter(event, eventFilter));
+  const publicEvents = dbEvents.filter((event) => event?.race_event?.sales_status === "open");
+  const filteredEvents = publicEvents.filter((event) => eventMatchesFilter(event, eventFilter));
   const sortedFilteredEvents = [...filteredEvents].sort((a, b) => {
     if (!!a.featured === !!b.featured) return 0;
     return a.featured ? -1 : 1;
@@ -3668,7 +3669,7 @@ function AppMain({ user, userName }) {
 
               {loadingSections.events && <EventSkeleton />}
 
-              {!loadingSections.events && dbEvents.length === 0 && (
+              {!loadingSections.events && publicEvents.length === 0 && (
                 <EmptyState
                   icon="📅"
                   title="Ainda não há eventos cadastrados"
@@ -3676,7 +3677,7 @@ function AppMain({ user, userName }) {
                 />
               )}
 
-              {!loadingSections.events && dbEvents.length > 0 && filteredEvents.length === 0 && (
+              {!loadingSections.events && publicEvents.length > 0 && filteredEvents.length === 0 && (
                 <EmptyState
                   icon="⌕"
                   title="Nenhuma prova neste filtro"
