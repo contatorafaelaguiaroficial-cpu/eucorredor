@@ -7,6 +7,7 @@ import { Geolocation } from "@capacitor/geolocation";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
 
+
 const SUPABASE_URL = "https://atzbgyjenhfgrnwdstnl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);

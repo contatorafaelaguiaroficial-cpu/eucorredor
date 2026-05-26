@@ -35,10 +35,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>O EuCorredor usa a câmera para permitir que você tire fotos para perfil, publicações e stories.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>O EuCorredor usa sua localização para registrar treinos, calcular distância, pace e exibir o percurso durante a corrida.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>O EuCorredor usa sua localização para registrar distância, ritmo e percurso durante a corrida.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O EuCorredor usa sua biblioteca de fotos para permitir que você escolha imagens para perfil, publicações e stories.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
