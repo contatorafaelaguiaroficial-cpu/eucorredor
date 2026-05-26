@@ -1472,6 +1472,11 @@ function AppMain({ user, userName }) {
   };
 
   const handleCreatePendingRaceRegistration = async () => {
+    if (raceEventDetails?.sales_status === "coming_soon") {
+      alert("As inscrições dessa prova abrem em breve.");
+      return;
+    }
+
     if (!raceEventDetails?.id || !selectedRaceModalityId) {
       alert("Selecione uma modalidade antes de continuar.");
       return;
@@ -2644,7 +2649,7 @@ function AppMain({ user, userName }) {
     return haystack.includes(normalizeEventText(filter));
   };
 
-  const publicEvents = dbEvents.filter((event) => event?.race_event?.sales_status === "open");
+  const publicEvents = dbEvents.filter((event) => ["open", "coming_soon"].includes(event?.race_event?.sales_status));
   const filteredEvents = publicEvents.filter((event) => eventMatchesFilter(event, eventFilter));
   const sortedFilteredEvents = [...filteredEvents].sort((a, b) => {
     if (!!a.featured === !!b.featured) return 0;
@@ -4189,6 +4194,8 @@ function AppMain({ user, userName }) {
                               const visualSalesStatus =
                                 raceEventDetails.sales_status === "open"
                                   ? "Inscrições abertas"
+                                  : raceEventDetails.sales_status === "coming_soon"
+                                  ? "Inscrições em breve"
                                   : raceEventDetails.sales_status || "Status não informado";
 
                               return (
@@ -6001,6 +6008,7 @@ function AppMain({ user, userName }) {
                               onChange={(e) => setNativeRaceForm((form) => ({ ...form, salesStatus: e.target.value }))}
                             >
                               <option value="open">Vendas abertas</option>
+                              <option value="coming_soon">Em breve</option>
                               <option value="draft">Rascunho</option>
                               <option value="closed">Vendas encerradas</option>
                             </select>
@@ -6630,7 +6638,7 @@ function AppMain({ user, userName }) {
                                 Organizador: {nativeRaceForm.organizerName}
                               </p>
                               <p style={{ fontSize: 13, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.5 }}>
-                                Status: {nativeRaceForm.salesStatus === "open" ? "Vendas abertas" : nativeRaceForm.salesStatus === "closed" ? "Vendas encerradas" : "Rascunho"}
+                                Status: {nativeRaceForm.salesStatus === "open" ? "Vendas abertas" : nativeRaceForm.salesStatus === "coming_soon" ? "Em breve" : nativeRaceForm.salesStatus === "closed" ? "Vendas encerradas" : "Rascunho"}
                               </p>
                             </div>
 
