@@ -310,7 +310,7 @@ function AuthScreen({ onLogin }) {
                   {acceptedTerms && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
                 </div>
                 <p style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>
-                  Li e aceito os <a href="/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a> e a <a href="/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
+                  Li e aceito os <a href="https://app.eucorredor.com.br/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a> e a <a href="https://app.eucorredor.com.br/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
                 </p>
               </div>
             )}
@@ -3082,7 +3082,7 @@ function AppMain({ user, userName }) {
                   {onboardingForm.terms && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
                 </div>
                 <p style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>
-                  Li e aceito os <a href="/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a> e a <a href="/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
+                  Li e aceito os <a href="https://app.eucorredor.com.br/termos" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Termos de uso</a> e a <a href="https://app.eucorredor.com.br/privacidade" target="_blank" style={{ color: "#e11d48", textDecoration: "none" }}>Política de privacidade</a>
                 </p>
               </div>
               <button onClick={handleOnboarding} style={{ width: "100%", background: "#e11d48", color: "#fff", border: "none", borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: 16 }}>
