@@ -8905,7 +8905,7 @@ function AppMain({ user, userName }) {
                 </div>
                 {viewTab === "fotos" && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, marginTop: 2 }}>
-                    {viewPosts.filter(p => p.photo_url).map((p) => <div key={p.id} style={{ aspectRatio: "1", overflow: "hidden" }}><img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}
+                    {viewPosts.filter(p => p.photo_url).map((p) => <div key={p.id} onClick={() => setSelectedPhotoPost(p)} style={{ aspectRatio: "1", overflow: "hidden", cursor: "pointer" }}><img src={p.photo_url} alt="foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}
                     {viewPosts.filter(p => p.photo_url).length === 0 && (
                       <div style={{ gridColumn: "1/-1" }}>
                         <EmptyState
@@ -8921,7 +8921,7 @@ function AppMain({ user, userName }) {
                 {viewTab === "posts_v" && (
                   <div>
                     {viewPosts.filter(p => p.text).map((p) => (
-                      <div key={p.id} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e" }}>
+                      <div key={p.id} onClick={() => setSelectedPhotoPost(p)} style={{ padding: "16px 0", borderBottom: "1px solid #1e1e2e", cursor: "pointer" }}>
                         {p.photo_url && <div style={{ aspectRatio: "4/5", borderRadius: 12, overflow: "hidden", marginBottom: 10 }}><img src={p.photo_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>}
                         <p style={{ fontSize: 14, color: "#ccc", lineHeight: 1.6 }}>{p.text}</p>
                         <span style={{ fontSize: 11, color: "#555", marginTop: 6, display: "block" }}>❤️ {p.likes || 0}</span>
