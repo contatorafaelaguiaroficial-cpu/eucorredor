@@ -1148,7 +1148,7 @@ function AppMain({ user, userName }) {
     if (profileId === user.id) return;
     const { data: p } = await supabase.from("profiles").select("*").eq("id", profileId).single();
     if (!p) return;
-    const { data: posts } = await supabase.from("posts").select("*").eq("user_id", profileId).order("created_at", { ascending: false });
+    const { data: posts } = await supabase.from("posts").select("*, profiles(id, name, level, avatar_url, handle)").eq("user_id", profileId).order("created_at", { ascending: false });
     const { data: acts } = await supabase.from("activities").select("*").eq("user_id", profileId).order("created_at", { ascending: false });
     const { count: fc } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", profileId);
     const { count: ing } = await supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profileId);
@@ -9087,10 +9087,10 @@ function AppMain({ user, userName }) {
               >
                 <div style={{ position: "sticky", top: 0, zIndex: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 18px", background: "rgba(16,16,24,0.94)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    {getAvatar(profile, 38)}
+                    {getAvatar(modalPost.profiles || profile, 38)}
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profile?.name || userName}</p>
-                      <p style={{ color: "#777", fontSize: 11 }}>@{profile?.handle || "corredor"} · {timeAgo(modalPost.created_at)}</p>
+                      <p style={{ color: "#fff", fontSize: 14, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{modalPost.profiles?.name || profile?.name || userName}</p>
+                      <p style={{ color: "#777", fontSize: 11 }}>@{modalPost.profiles?.handle || profile?.handle || "corredor"} · {timeAgo(modalPost.created_at)}</p>
                     </div>
                   </div>
                   <button onClick={() => { setSelectedPhotoPost(null); setOpenComments(null); setNewComment(""); }} style={{ width: 38, height: 38, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.05)", color: "#aaa", fontSize: 20, cursor: "pointer" }}>✕</button>
