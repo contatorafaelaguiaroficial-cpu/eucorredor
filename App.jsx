@@ -1,9 +1,11 @@
 // eucorredor v3.4 — hub com análise automática + percurso no feed
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Geolocation } from "@capacitor/geolocation";
+
+const BackgroundGeolocation = registerPlugin("BackgroundGeolocation");
 import { PushNotifications } from "@capacitor/push-notifications";
 import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
 
@@ -444,6 +446,7 @@ function AppMain({ user, userName }) {
   const [goalDraft, setGoalDraft] = useState(String(monthGoal));
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const gpsIntervalRef = useRef(null);
+  const gpsRunStartedAtRef = useRef(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsView, setSettingsView] = useState("menu");
@@ -2253,7 +2256,14 @@ function AppMain({ user, userName }) {
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   };
 
+  const updateGpsElapsedFromClock = () => {
+    if (!gpsRunStartedAtRef.current) return;
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - gpsRunStartedAtRef.current) / 1000));
+    setGpsElapsed(elapsedSeconds);
+  };
+
   const beginGpsRun = () => {
+    gpsRunStartedAtRef.current = Date.now();
     setGpsElapsed(0);
     setGpsDistance(0);
     setGpsRoute([{ x: 195, y: 300 }]);
@@ -2323,7 +2333,9 @@ function AppMain({ user, userName }) {
   };
 
   const finishGpsRun = async () => {
+    updateGpsElapsedFromClock();
     setGpsRunActive(false);
+    gpsRunStartedAtRef.current = null;
     clearInterval(gpsIntervalRef.current);
     const finalRoute = [...leafletCoordsRef.current];
     setCompletedRunRoute(finalRoute);
@@ -2413,7 +2425,7 @@ function AppMain({ user, userName }) {
       leafletMapRef.current = map; leafletMarkerRef.current = marker; leafletPolylineRef.current = polyline; leafletCoordsRef.current = [];
       setTimeout(() => { map.invalidateSize(); }, 300);
       gpsIntervalRef.current = setInterval(() => {
-        setGpsElapsed(e => e + 1);
+        updateGpsElapsedFromClock();
         setGpsHR(h => Math.max(135, Math.min(175, h + (Math.random() > 0.5 ? 1 : -1))));
       }, 1000);
       let lastCoord = null;
@@ -2470,18 +2482,38 @@ function AppMain({ user, userName }) {
           .then((pos) => handleGpsPosition(pos, false))
           .catch(handleGpsError);
 
-        Geolocation.watchPosition(gpsOptions, (pos, err) => {
-          if (err) {
-            handleGpsError(err);
-            return;
-          }
+        BackgroundGeolocation.addWatcher(
+          {
+            backgroundTitle: "Corrida em andamento",
+            backgroundMessage: "O EuCorredor está registrando sua corrida.",
+            requestPermissions: false,
+            stale: false,
+            distanceFilter: 5,
+          },
+          (location, err) => {
+            if (err) {
+              handleGpsError(err);
+              return;
+            }
 
-          if (!pos) return;
-          handleGpsPosition(pos, true);
-        }).then((watchId) => {
+            if (!location) return;
+
+            handleGpsPosition(
+              {
+                coords: {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  accuracy: location.accuracy,
+                  speed: location.speed,
+                },
+              },
+              true
+            );
+          }
+        ).then((watchId) => {
           if (leafletMapRef.current) {
             leafletMapRef.current._watchId = watchId;
-            leafletMapRef.current._watchMode = "capacitor";
+            leafletMapRef.current._watchMode = "background";
           }
         });
       } else if (navigator.geolocation) {
@@ -2508,7 +2540,9 @@ function AppMain({ user, userName }) {
         if (leafletMapRef.current._watchId !== undefined) {
           const watchId = leafletMapRef.current._watchId;
 
-          if (leafletMapRef.current._watchMode === "capacitor") {
+          if (leafletMapRef.current._watchMode === "background") {
+            BackgroundGeolocation.removeWatcher({ id: watchId }).catch(() => {});
+          } else if (leafletMapRef.current._watchMode === "capacitor") {
             Geolocation.clearWatch({ id: watchId }).catch(() => {});
           } else if (navigator.geolocation) {
             navigator.geolocation.clearWatch(watchId);
@@ -2524,7 +2558,7 @@ function AppMain({ user, userName }) {
       if (gpsPaused) clearInterval(gpsIntervalRef.current);
       else {
         gpsIntervalRef.current = setInterval(() => {
-          setGpsElapsed(e => e + 1);
+          updateGpsElapsedFromClock();
           setGpsHR(h => Math.max(135, Math.min(175, h + (Math.random() > 0.5 ? 1 : -1))));
         }, 1000);
       }
