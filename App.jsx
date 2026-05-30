@@ -10011,6 +10011,11 @@ export default function App() {
   const [publicHandle, setPublicHandle] = useState(null);
 
   useEffect(() => {
+    if (window.location.pathname.startsWith("/prova/")) {
+      setLoading(false);
+      return;
+    }
+
     const path = window.location.pathname.replace("/", "").replace("@", "").toLowerCase();
     const reserved = ["privacidade", "termos", "privacy", "terms", "sobre", "contato", "favicon.ico"];
     if (path && path !== "" && !reserved.includes(path)) setPublicHandle(path);
