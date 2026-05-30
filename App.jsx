@@ -8825,7 +8825,7 @@ function AppMain({ user, userName }) {
           const vNext = getNextLevel(viewingProfile.races_count || 0);
           const vProgress = vNext ? ((viewingProfile.races_count - vLevel.min) / (vNext.min - vLevel.min)) * 100 : 100;
           return (
-            <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 400, overflowY: "auto" }}>
+            <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 400, overflowY: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
               <div style={{ padding: "52px 20px 16px", background: "linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%)", position: "sticky", top: 0, zIndex: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                   <button onClick={() => setViewingProfile(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 22, cursor: "pointer" }}>←</button>
