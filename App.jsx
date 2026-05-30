@@ -713,6 +713,43 @@ function AppMain({ user, userName }) {
   useEffect(() => { loadProfile(); loadPosts(); loadActivities(); loadFollowCounts(); loadNotifications(); loadRealFollowingList(); loadBlockedUsers(); loadEvents(); loadMyRaceRegistrations(); loadStories(); loadSuggestions(); loadRankingUsers(); loadMyClubs(); loadAllClubs(); loadClubMembership(); }, []);
 
   useEffect(() => {
+    const openSharedRaceFromUrl = async () => {
+      const match = window.location.pathname.match(/^\/prova\/([^/]+)/);
+      const slug = match?.[1] ? decodeURIComponent(match[1]) : null;
+      if (!slug) return;
+
+      try {
+        const { data: raceEventData, error: raceEventError } = await supabase
+          .from("race_events")
+          .select("id, event_id, slug, sales_status, native_registration_enabled")
+          .eq("slug", slug)
+          .maybeSingle();
+
+        if (raceEventError) throw raceEventError;
+        if (!raceEventData?.event_id) return;
+
+        const { data: eventData, error: eventError } = await supabase
+          .from("events")
+          .select("*")
+          .eq("id", raceEventData.event_id)
+          .maybeSingle();
+
+        if (eventError) throw eventError;
+        if (!eventData?.id) return;
+
+        await openRaceEventDetails({
+          ...eventData,
+          race_event: raceEventData,
+        });
+      } catch (err) {
+        console.error("Erro ao abrir prova compartilhada:", err.message || err);
+      }
+    };
+
+    openSharedRaceFromUrl();
+  }, []);
+
+  useEffect(() => {
     if (!user?.id) return;
 
     const presenceChannel = supabase.channel("eucorredor-online-users", {
@@ -2857,6 +2894,42 @@ function AppMain({ user, userName }) {
     }
   };
 
+  const shareRaceEventLink = async () => {
+    const slug = selectedRaceEvent?.race_event?.slug || raceEventDetails?.slug;
+    if (!slug) {
+      alert("Esta prova ainda não tem link de compartilhamento.");
+      return;
+    }
+
+    const raceUrl = `https://app.eucorredor.com.br/prova/${slug}`;
+    const raceName = selectedRaceEvent?.name || "prova";
+    const text = `Confira a ${raceName} no eucorredor.`;
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({
+          title: raceName,
+          text,
+          url: raceUrl,
+          dialogTitle: "Compartilhar prova",
+        });
+        return;
+      }
+
+      const shareData = { title: raceName, text, url: raceUrl };
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(raceUrl);
+        alert("Link da prova copiado!");
+      } else {
+        prompt("Copie o link da prova:", raceUrl);
+      }
+    } catch (err) {
+      console.error("Erro ao compartilhar prova:", err.message || err);
+    }
+  };
+
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Excluir esta publicação?")) return;
     await supabase.from("posts").delete().eq("id", postId);
@@ -4567,6 +4640,27 @@ function AppMain({ user, userName }) {
                         >
                           INSCRIÇÃO EUCORREDOR
                         </span>
+
+                        {raceCheckoutStep === "details" && (
+                          <div style={{ marginTop: 12 }}>
+                            <button
+                              onClick={shareRaceEventLink}
+                              style={{
+                                background: "rgba(255,255,255,0.06)",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                color: "#fff",
+                                borderRadius: 12,
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                fontFamily: "inherit"
+                              }}
+                            >
+                              🔗 Compartilhar prova
+                            </button>
+                          </div>
+                        )}
 
                         {raceCheckoutStep !== "details" && (
                           <>
