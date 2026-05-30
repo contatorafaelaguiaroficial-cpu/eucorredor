@@ -7,6 +7,8 @@ import { Geolocation } from "@capacitor/geolocation";
 
 const BackgroundGeolocation = registerPlugin("BackgroundGeolocation");
 import { PushNotifications } from "@capacitor/push-notifications";
+import { Share } from "@capacitor/share";
+import { Filesystem, Directory } from "@capacitor/filesystem";
 import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
 
 
@@ -2519,38 +2521,18 @@ function AppMain({ user, userName }) {
           .then((pos) => handleGpsPosition(pos, false))
           .catch(handleGpsError);
 
-        BackgroundGeolocation.addWatcher(
-          {
-            backgroundTitle: "Corrida em andamento",
-            backgroundMessage: "O EuCorredor está registrando sua corrida.",
-            requestPermissions: false,
-            stale: false,
-            distanceFilter: 5,
-          },
-          (location, err) => {
-            if (err) {
-              handleGpsError(err);
-              return;
-            }
-
-            if (!location) return;
-
-            handleGpsPosition(
-              {
-                coords: {
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                  accuracy: location.accuracy,
-                  speed: location.speed,
-                },
-              },
-              true
-            );
+        Geolocation.watchPosition(gpsOptions, (pos, err) => {
+          if (err) {
+            handleGpsError(err);
+            return;
           }
-        ).then((watchId) => {
+
+          if (!pos) return;
+          handleGpsPosition(pos, true);
+        }).then((watchId) => {
           if (leafletMapRef.current) {
             leafletMapRef.current._watchId = watchId;
-            leafletMapRef.current._watchMode = "background";
+            leafletMapRef.current._watchMode = "capacitor";
           }
         });
       } else if (navigator.geolocation) {
@@ -2602,9 +2584,262 @@ function AppMain({ user, userName }) {
     }
   }, [gpsPaused]);
 
-  const handleShare = (type = "perfil", data = {}) => {
+  const formatStoryTime = (seconds = 0) => {
+    const total = Math.max(0, Math.floor(Number(seconds || 0)));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+
+    if (h > 0) return `${h}h ${m}min`;
+    if (m > 0) return `${m}min ${s}s`;
+    return `${s}s`;
+  };
+
+  const normalizeRoutePoints = (route = []) => {
+    return (route || [])
+      .map((point) => {
+        if (!point) return null;
+
+        if (Array.isArray(point) && point.length >= 2) {
+          return { x: Number(point[1]), y: Number(point[0]) };
+        }
+
+        if (typeof point === "object") {
+          const lat = Number(point.lat ?? point.latitude ?? point.coords?.latitude);
+          const lng = Number(point.lng ?? point.lon ?? point.longitude ?? point.coords?.longitude);
+
+          if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+            return { x: lng, y: lat };
+          }
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+  };
+
+  const drawCenteredText = (ctx, text, x, y, options = {}) => {
+    const {
+      font = "bold 40px Arial",
+      color = "#ffffff",
+      shadowColor = "rgba(0,0,0,0.24)",
+      shadowBlur = 20,
+      align = "center",
+    } = options;
+
+    ctx.save();
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = shadowBlur;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  };
+
+  const createRunStoryImage = async ({ distance, elapsed, pace, route }) => {
+    const width = 1080;
+    const height = 1920;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, width, height);
+
+    const distanceLabel = `${Number(distance || 0).toFixed(2).replace(".", ",")} km`;
+    const paceLabel = pace || formatGpsPace(distance || 0, elapsed || 0);
+    const timeLabel = formatStoryTime(elapsed || 0);
+
+    drawCenteredText(ctx, "Distância", width / 2, 120, {
+      font: "700 52px Arial",
+      color: "rgba(255,255,255,0.96)",
+      shadowBlur: 26,
+    });
+
+    drawCenteredText(ctx, distanceLabel, width / 2, 235, {
+      font: "900 122px Arial",
+      color: "#ffffff",
+      shadowBlur: 32,
+    });
+
+    drawCenteredText(ctx, "Ritmo", width / 2, 430, {
+      font: "700 52px Arial",
+      color: "rgba(255,255,255,0.96)",
+      shadowBlur: 26,
+    });
+
+    drawCenteredText(ctx, paceLabel, width / 2, 545, {
+      font: "900 112px Arial",
+      color: "#ffffff",
+      shadowBlur: 32,
+    });
+
+    const points = normalizeRoutePoints(route);
+
+    if (points.length >= 2) {
+      const box = { x: 230, y: 665, w: 620, h: 610 };
+      const xs = points.map((p) => p.x);
+      const ys = points.map((p) => p.y);
+
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      const rangeX = Math.max(maxX - minX, 0.000001);
+      const rangeY = Math.max(maxY - minY, 0.000001);
+      const padding = 42;
+
+      const scale = Math.min(
+        (box.w - padding * 2) / rangeX,
+        (box.h - padding * 2) / rangeY
+      );
+
+      const routeWidth = rangeX * scale;
+      const routeHeight = rangeY * scale;
+      const offsetX = box.x + (box.w - routeWidth) / 2;
+      const offsetY = box.y + (box.h - routeHeight) / 2;
+
+      const mapped = points.map((p) => ({
+        x: offsetX + (p.x - minX) * scale,
+        y: offsetY + (p.y - minY) * scale,
+      }));
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.lineWidth = 16;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "#ff1028";
+      ctx.shadowColor = "rgba(255,16,40,0.32)";
+      ctx.shadowBlur = 20;
+
+      mapped.forEach((p, index) => {
+        if (index === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+
+      ctx.stroke();
+      ctx.restore();
+
+      const start = mapped[0];
+      const end = mapped[mapped.length - 1];
+
+      [start, end].forEach((p) => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = "#ff1028";
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+
+    drawCenteredText(ctx, "Tempo", width / 2, 1425, {
+      font: "700 52px Arial",
+      color: "rgba(255,255,255,0.96)",
+      shadowBlur: 26,
+    });
+
+    drawCenteredText(ctx, timeLabel, width / 2, 1545, {
+      font: "900 110px Arial",
+      color: "#ffffff",
+      shadowBlur: 32,
+    });
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.22)";
+    ctx.shadowBlur = 18;
+    ctx.font = "italic 900 74px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const logoY = 1755;
+    ctx.fillStyle = "#ff1028";
+    ctx.fillText("eu", width / 2 - 100, logoY);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("corredor", width / 2 + 100, logoY);
+    ctx.restore();
+
+    return canvas.toDataURL("image/png");
+  };
+
+  const shareRunStoryImage = async ({ distance, elapsed, route }) => {
+    try {
+      console.log("Story share iniciado", { distance, elapsed, routeLength: route?.length || 0 });
+      alert("Gerando imagem do story...");
+
+      const pace = formatGpsPace(distance || 0, elapsed || 0);
+      const dataUrl = await createRunStoryImage({ distance, elapsed, pace, route });
+
+      if (Capacitor.isNativePlatform()) {
+        const fileName = `eucorredor-story-${Date.now()}.png`;
+        const base64Data = dataUrl.replace(/^data:image\/png;base64,/, "");
+
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache,
+        });
+
+        const fileUri = await Filesystem.getUri({
+          path: fileName,
+          directory: Directory.Cache,
+        });
+
+        console.log("Arquivo do story criado", fileUri);
+        alert("Imagem criada. Abrindo compartilhamento...");
+
+        await Share.share({
+          title: "Minha corrida",
+          text: `Finalizei ${Number(distance || 0).toFixed(2).replace(".", ",")} km no EuCorredor`,
+          files: [fileUri.uri],
+          dialogTitle: "Compartilhar corrida",
+        });
+
+        return;
+      }
+
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], "eucorredor-story.png", { type: "image/png" });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: "Minha corrida",
+          files: [file],
+        });
+      } else {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = "eucorredor-story.png";
+        a.click();
+      }
+    } catch (err) {
+      console.error("Erro ao compartilhar story:", err);
+      alert(`Erro ao compartilhar story: ${err?.message || JSON.stringify(err) || err}`);
+    }
+  };
+
+  const handleShare = async (type = "perfil", data = {}) => {
     const handle = profile?.handle || (profile?.name || userName).toLowerCase().replace(/\s/g, "");
     const url = `https://app.eucorredor.com.br/@${handle}`;
+
+    if (type === "resumo_gps_story") {
+      await shareRunStoryImage({
+        distance: data.distance ?? gpsDistance,
+        elapsed: data.elapsed ?? gpsElapsed,
+        route: data.route || (completedRunRoute?.length ? completedRunRoute : gpsRoute),
+      });
+      return;
+    }
+
     let text = "";
     if (type === "atividade") text = `Acabei de correr ${data.distance} km em ${data.duration} com pace de ${data.pace}! 🏃`;
     else if (type === "perfil") text = `Me siga no eucorredor! Estou no nível ${level.name} com ${races} corridas. 🏃`;
@@ -8257,6 +8492,20 @@ function AppMain({ user, userName }) {
                       {!isSummaryTooShortForFeed && (
                         <button onClick={handlePublishRunSummary} disabled={publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim()} style={{ width: "100%", height: 52, border: "none", borderRadius: 16, background: publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim() ? "#3a1a22" : "linear-gradient(135deg, #e11d48, #ff3d63)", color: "#fff", fontWeight: 900, fontFamily: "inherit", cursor: publishingRunSummary || !(runSummary?.feedText || summaryPostText).trim() ? "not-allowed" : "pointer" }}>{publishingRunSummary ? "Publicando..." : "Publicar no feed"}</button>
                       )}
+
+                      <button
+                        onClick={() =>
+                          handleShare("resumo_gps_story", {
+                            distance: gpsDistance,
+                            elapsed: gpsElapsed,
+                            route: completedRunRoute?.length ? completedRunRoute : gpsRoute,
+                          })
+                        }
+                        style={{ width: "100%", height: 52, border: "1px solid rgba(225,29,72,0.34)", borderRadius: 16, background: "rgba(225,29,72,0.12)", color: "#fff", fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}
+                      >
+                        📲 Compartilhar no story
+                      </button>
+
                       <button onClick={() => { setRunSummary(null); setCompletedRunRoute([]); setSummaryPostText(""); setHubScreen("hub"); }} style={{ width: "100%", height: 48, border: "1px solid rgba(255,255,255,0.10)", borderRadius: 16, background: "rgba(255,255,255,0.035)", color: "#ddd", fontWeight: 900, fontFamily: "inherit", cursor: "pointer" }}>{isSummaryTooShortForFeed ? "Voltar ao Hub" : "Salvar sem publicar"}</button>
                     </div>
                   </div>
