@@ -423,6 +423,7 @@ function AppMain({ user, userName }) {
   const [gpsDistance, setGpsDistance] = useState(0);
   const [gpsRoute, setGpsRoute] = useState([]);
   const [gpsPaused, setGpsPaused] = useState(false);
+  const [gpsRunActive, setGpsRunActive] = useState(false);
   const [gpsHR, setGpsHR] = useState(142);
   const [gpsLocated, setGpsLocated] = useState(false);
   const [gpsError, setGpsError] = useState("");
@@ -2264,6 +2265,7 @@ function AppMain({ user, userName }) {
     setGpsHR(142);
     setGpsLocated(false);
     setGpsError("");
+    setGpsRunActive(true);
     setShowGpsPermissionModal(false);
     setHubScreen("tracking");
   };
@@ -2321,6 +2323,7 @@ function AppMain({ user, userName }) {
   };
 
   const finishGpsRun = async () => {
+    setGpsRunActive(false);
     clearInterval(gpsIntervalRef.current);
     const finalRoute = [...leafletCoordsRef.current];
     setCompletedRunRoute(finalRoute);
@@ -3423,7 +3426,14 @@ function AppMain({ user, userName }) {
                   </span>
                 )}
               </button>
-              <button onClick={() => setTab("perfil")} title="Ver perfil" style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", padding: 0, cursor: "pointer", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <button onClick={() => {
+                if (gpsRunActive) {
+                  setTab("hub");
+                  setHubScreen("tracking");
+                  return;
+                }
+                setTab("perfil");
+              }} title="Ver perfil" style={{ width: 36, height: 36, borderRadius: "50%", background: "#13131a", border: "1px solid #1e1e2e", padding: 0, cursor: "pointer", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt="Foto de perfil" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: `2px solid ${level.color}` }} />
                 ) : (
@@ -3663,6 +3673,14 @@ function AppMain({ user, userName }) {
                 setShowSearch(false);
                 setSearchQuery("");
                 setSearchResults([]);
+
+                if (gpsRunActive) {
+                  setShowPublish(false);
+                  setPublishType(null);
+                  setTab("hub");
+                  setHubScreen("tracking");
+                  return;
+                }
 
                 if (t.special) {
                   setTab("comunidade");
@@ -7900,7 +7918,7 @@ function AppMain({ user, userName }) {
                         title="Nenhuma atividade recente"
                         description="Quando você registrar uma corrida no Hub, ela aparece aqui."
                         actionLabel="Iniciar corrida"
-                        onAction={() => setHubScreen("hub")}
+                        onAction={() => setHubScreen(gpsRunActive ? "tracking" : "hub")}
                       />}
                     </div>
                   </div>
