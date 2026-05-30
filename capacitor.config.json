@@ -1,5 +1,9 @@
 {
   "appId": "com.eucorredor.app",
   "appName": "EuCorredor",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "hostname": "app.eucorredor.com.br",
+    "iosScheme": "https"
+  }
 }

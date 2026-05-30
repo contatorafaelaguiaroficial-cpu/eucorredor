@@ -2324,7 +2324,15 @@ function AppMain({ user, userName }) {
     clearInterval(gpsIntervalRef.current);
     const finalRoute = [...leafletCoordsRef.current];
     setCompletedRunRoute(finalRoute);
-    if (leafletMapRef.current?._watchId !== undefined) navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
+    if (leafletMapRef.current?._watchId !== undefined) {
+      const watchId = leafletMapRef.current._watchId;
+
+      if (leafletMapRef.current._watchMode === "capacitor") {
+        Geolocation.clearWatch({ id: watchId }).catch(() => {});
+      } else if (navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    }
     if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; }
 
     const pace = formatGpsPace(gpsDistance, gpsElapsed);
@@ -2407,31 +2415,102 @@ function AppMain({ user, userName }) {
       }, 1000);
       let lastCoord = null;
       const gpsOptions = { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 };
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-          const { latitude: lat, longitude: lng } = pos.coords;
-          marker.setLatLng([lat, lng]); map.setView([lat, lng], 17); setGpsLocated(true); lastCoord = [lat, lng];
-        }, (err) => { const msgs = { 1: "Permissão negada. Ative a localização do navegador para registrar sua corrida.", 2: "GPS indisponível", 3: "Tempo esgotado" }; setGpsError(msgs[err.code] || "Erro GPS"); if (err.code === 1) setShowGpsPermissionModal(true); }, gpsOptions);
-        const watchId = navigator.geolocation.watchPosition((pos) => {
-          const { latitude: lat, longitude: lng } = pos.coords;
-          const latlng = [lat, lng];
-          marker.setLatLng(latlng); map.setView(latlng, 17); setGpsLocated(true);
-          if (lastCoord) {
-            const R = 6371, dLat = (lat - lastCoord[0]) * Math.PI / 180, dLng = (lng - lastCoord[1]) * Math.PI / 180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(lastCoord[0]*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLng/2)**2;
-            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            if (dist > 0.003 && dist < 0.5) { setGpsDistance(d => d + dist); leafletCoordsRef.current.push(latlng); polyline.setLatLngs(leafletCoordsRef.current); }
-          } else { leafletCoordsRef.current = [latlng]; }
-          map.setView(latlng, 17); lastCoord = latlng;
-        }, (err) => { const msgs = { 1: "Permissão negada. Ative a localização do navegador para registrar sua corrida.", 2: "GPS indisponível", 3: "Tempo esgotado" }; setGpsError(msgs[err.code] || "Erro GPS"); if (err.code === 1) setShowGpsPermissionModal(true); }, gpsOptions);
+
+      const handleGpsError = (err) => {
+        const code = err?.code;
+        const msgs = {
+          1: Capacitor.isNativePlatform()
+            ? "Permissão negada. Ative a localização do EuCorredor nos Ajustes do iPhone."
+            : "Permissão negada. Ative a localização do navegador para registrar sua corrida.",
+          2: "GPS indisponível",
+          3: "Tempo esgotado",
+        };
+
+        setGpsError(msgs[code] || "Erro GPS");
+        if (code === 1) setShowGpsPermissionModal(true);
+      };
+
+      const handleGpsPosition = (pos, shouldTrackDistance = false) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const latlng = [lat, lng];
+
+        marker.setLatLng(latlng);
+        map.setView(latlng, 17);
+        setGpsLocated(true);
+
+        if (shouldTrackDistance && lastCoord) {
+          const R = 6371;
+          const dLat = (lat - lastCoord[0]) * Math.PI / 180;
+          const dLng = (lng - lastCoord[1]) * Math.PI / 180;
+          const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(lastCoord[0] * Math.PI / 180) *
+              Math.cos(lat * Math.PI / 180) *
+              Math.sin(dLng / 2) ** 2;
+
+          const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+          if (dist > 0.003 && dist < 0.5) {
+            setGpsDistance((d) => d + dist);
+            leafletCoordsRef.current.push(latlng);
+            polyline.setLatLngs(leafletCoordsRef.current);
+          }
+        } else if (!lastCoord) {
+          leafletCoordsRef.current = [latlng];
+        }
+
+        lastCoord = latlng;
+      };
+
+      if (Capacitor.isNativePlatform()) {
+        Geolocation.getCurrentPosition(gpsOptions)
+          .then((pos) => handleGpsPosition(pos, false))
+          .catch(handleGpsError);
+
+        Geolocation.watchPosition(gpsOptions, (pos, err) => {
+          if (err) {
+            handleGpsError(err);
+            return;
+          }
+
+          if (!pos) return;
+          handleGpsPosition(pos, true);
+        }).then((watchId) => {
+          if (leafletMapRef.current) {
+            leafletMapRef.current._watchId = watchId;
+            leafletMapRef.current._watchMode = "capacitor";
+          }
+        });
+      } else if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => handleGpsPosition(pos, false),
+          handleGpsError,
+          gpsOptions
+        );
+
+        const watchId = navigator.geolocation.watchPosition(
+          (pos) => handleGpsPosition(pos, true),
+          handleGpsError,
+          gpsOptions
+        );
+
         leafletMapRef.current._watchId = watchId;
+        leafletMapRef.current._watchMode = "browser";
       }
     };
     loadLeaflet();
     return () => {
       clearInterval(gpsIntervalRef.current);
       if (leafletMapRef.current) {
-        if (leafletMapRef.current._watchId !== undefined) navigator.geolocation.clearWatch(leafletMapRef.current._watchId);
+        if (leafletMapRef.current._watchId !== undefined) {
+          const watchId = leafletMapRef.current._watchId;
+
+          if (leafletMapRef.current._watchMode === "capacitor") {
+            Geolocation.clearWatch({ id: watchId }).catch(() => {});
+          } else if (navigator.geolocation) {
+            navigator.geolocation.clearWatch(watchId);
+          }
+        }
         leafletMapRef.current.remove(); leafletMapRef.current = null; leafletMarkerRef.current = null; leafletPolylineRef.current = null;
       }
     };
@@ -3295,16 +3374,21 @@ function AppMain({ user, userName }) {
                 Permita o GPS para iniciar sua corrida
               </h2>
 
-              <p style={{ color: "#b9b9c3", fontSize: 14, lineHeight: 1.55, marginBottom: 16 }}>
-                O eucorredor precisa da sua localização para medir distância, tempo, pace e desenhar o percurso no mapa.
-              </p>
+    <p style={{ color: "#b9b9c3", fontSize: 14, lineHeight: 1.55, marginBottom: 16 }}>
+  O eucorredor precisa da sua localização para medir distância, tempo, pace e desenhar o percurso no mapa.
+</p>
 
-              <div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 14, marginBottom: 16 }}>
-                <p style={{ color: "#fff", fontSize: 13, fontWeight: 900, marginBottom: 8 }}>No iPhone, se aparecer permissão negada:</p>
-                <p style={{ color: "#8f8f9b", fontSize: 12.5, lineHeight: 1.55 }}>
-                  Ajustes → Safari ou Chrome → Localização → Permitir. Depois volte aqui e toque em tentar novamente.
-                </p>
-              </div>
+<div style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: 14, marginBottom: 16 }}>
+  <p style={{ color: "#fff", fontSize: 13, fontWeight: 900, marginBottom: 8 }}>
+    No iPhone, se aparecer permissão negada:
+  </p>
+
+  <p style={{ color: "#8f8f9b", fontSize: 12.5, lineHeight: 1.55 }}>
+    {Capacitor.isNativePlatform()
+      ? "Ajustes → EuCorredor → Localização → Permitir Durante o Uso do App. Depois volte aqui e toque em tentar novamente."
+      : "Ajustes → Safari ou Chrome → Localização → Permitir. Depois volte aqui e toque em tentar novamente."}
+  </p>
+</div>
 
               {gpsError && (
                 <p style={{ color: "#ff4d6d", background: "rgba(225,29,72,0.10)", border: "1px solid rgba(225,29,72,0.22)", borderRadius: 14, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.45, marginBottom: 14 }}>
