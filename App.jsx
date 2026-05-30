@@ -2601,6 +2601,43 @@ function AppMain({ user, userName }) {
     setCommentsLoading((prev) => ({ ...prev, [postId]: false }));
   };
 
+  const sendNotificationPush = async (notificationId) => {
+    try {
+      if (!notificationId) return;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        console.warn("Push automático não enviado: sessão ausente.");
+        return;
+      }
+
+      const pushUrl = Capacitor.isNativePlatform()
+        ? "https://app.eucorredor.com.br/api/send-notification-push"
+        : "/api/send-notification-push";
+
+      const response = await fetch(pushUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ notificationId }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      console.log("Resposta do push automático:", {
+        status: response.status,
+        ok: response.ok,
+        result,
+      });
+    } catch (err) {
+      console.warn("Não foi possível enviar push da notificação:", err?.message || err);
+    }
+  };
+
   const handleComment = async (postId) => {
     if (!newComment.trim()) return;
     const commentText = newComment.trim();
@@ -2620,7 +2657,7 @@ function AppMain({ user, userName }) {
         .single();
 
       if (notificationData?.id) {
-        sendNotificationPush(notificationData.id);
+        await sendNotificationPush(notificationData.id);
       }
     }
     setNewComment("");
