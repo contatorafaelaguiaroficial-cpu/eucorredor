@@ -1086,7 +1086,26 @@ function AppMain({ user, userName }) {
       setRealFollowing(f => ({ ...f, [targetId]: false }));
     } else {
       await supabase.from("follows").insert({ follower_id: user.id, following_id: targetId });
-      await supabase.from("notifications").insert({ user_id: targetId, from_user_id: user.id, type: "follow" });
+
+      const notificationId = window.crypto?.randomUUID?.();
+
+      if (notificationId) {
+        const { error: notificationError } = await supabase
+          .from("notifications")
+          .insert({
+            id: notificationId,
+            user_id: targetId,
+            from_user_id: user.id,
+            type: "follow",
+          });
+
+        if (notificationError) {
+          console.warn("Erro ao criar notificação de novo seguidor:", notificationError.message || notificationError);
+        } else {
+          await sendNotificationPush(notificationId);
+        }
+      }
+
       setRealFollowing(f => ({ ...f, [targetId]: true }));
     }
     await loadFollowCounts();
