@@ -2773,7 +2773,6 @@ function AppMain({ user, userName }) {
   const shareRunStoryImage = async ({ distance, elapsed, route }) => {
     try {
       console.log("Story share iniciado", { distance, elapsed, routeLength: route?.length || 0 });
-      alert("Gerando imagem do story...");
 
       const pace = formatGpsPace(distance || 0, elapsed || 0);
       const dataUrl = await createRunStoryImage({ distance, elapsed, pace, route });
@@ -2785,20 +2784,18 @@ function AppMain({ user, userName }) {
         await Filesystem.writeFile({
           path: fileName,
           data: base64Data,
-          directory: Directory.Cache,
+          directory: Directory.Documents,
         });
 
         const fileUri = await Filesystem.getUri({
           path: fileName,
-          directory: Directory.Cache,
+          directory: Directory.Documents,
         });
 
         console.log("Arquivo do story criado", fileUri);
-        alert("Imagem criada. Abrindo compartilhamento...");
 
         await Share.share({
           title: "Minha corrida",
-          text: `Finalizei ${Number(distance || 0).toFixed(2).replace(".", ",")} km no EuCorredor`,
           files: [fileUri.uri],
           dialogTitle: "Compartilhar corrida",
         });
@@ -2822,8 +2819,14 @@ function AppMain({ user, userName }) {
         a.click();
       }
     } catch (err) {
+      const message = err?.message || err?.errorMessage || "";
+      if (String(message).toLowerCase().includes("cancel")) {
+        console.log("Compartilhamento cancelado pelo usuário.");
+        return;
+      }
+
       console.error("Erro ao compartilhar story:", err);
-      alert(`Erro ao compartilhar story: ${err?.message || JSON.stringify(err) || err}`);
+      alert("Não foi possível abrir o compartilhamento. Tente novamente em alguns segundos.");
     }
   };
 
