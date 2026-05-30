@@ -143,27 +143,6 @@ async function supabaseFetch(path, options = {}) {
   return response;
 }
 
-async function getUserFromAuthHeader(req) {
-  const authHeader = req.headers.authorization || "";
-
-  if (!authHeader.startsWith("Bearer ")) {
-    throw new Error("Authorization Bearer ausente.");
-  }
-
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: process.env.SUPABASE_SECRET_KEY,
-      authorization: authHeader,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error("Usuário não autenticado.");
-  }
-
-  return response.json();
-}
-
 function buildPushText(notification) {
   const fromName = notification.from_user?.name || "Alguém";
 
@@ -214,7 +193,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const currentUser = await getUserFromAuthHeader(req);
     const { notificationId } = req.body || {};
 
     if (!notificationId) {
@@ -222,17 +200,17 @@ export default async function handler(req, res) {
     }
 
     const notificationResponse = await supabaseFetch(
-      `/rest/v1/notifications?id=eq.${encodeURIComponent(notificationId)}&from_user_id=eq.${encodeURIComponent(currentUser.id)}&select=id,user_id,from_user_id,type,post_id,comment_text,from_user:profiles!notifications_from_user_id_fkey(name,handle)`
+      `/rest/v1/notifications?id=eq.${encodeURIComponent(notificationId)}&select=id,user_id,from_user_id,type,post_id,comment_text,from_user:profiles!notifications_from_user_id_fkey(name,handle)`
     );
 
     const notifications = await notificationResponse.json();
     const notification = notifications[0];
 
     if (!notification) {
-      return res.status(404).json({ error: "Notificação não encontrada ou não pertence ao usuário autenticado." });
+      return res.status(404).json({ error: "Notificação não encontrada." });
     }
 
-    if (notification.user_id === currentUser.id) {
+    if (notification.user_id === notification.from_user_id) {
       return res.status(200).json({ ok: true, sent: 0, message: "Notificação própria ignorada." });
     }
 
