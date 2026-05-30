@@ -1100,7 +1100,25 @@ function AppMain({ user, userName }) {
     if (!isLiked) {
       await supabase.from("posts").update({ likes: (posts.find(p => p.id === postId)?.likes || 0) + 1 }).eq("id", postId);
       if (postOwnerId !== user.id) {
-        await supabase.from("notifications").insert({ user_id: postOwnerId, from_user_id: user.id, type: "like", post_id: postId });
+        const notificationId = window.crypto?.randomUUID?.();
+
+        if (notificationId) {
+          const { error: notificationError } = await supabase
+            .from("notifications")
+            .insert({
+              id: notificationId,
+              user_id: postOwnerId,
+              from_user_id: user.id,
+              type: "like",
+              post_id: postId,
+            });
+
+          if (notificationError) {
+            console.warn("Erro ao criar notificação de curtida:", notificationError.message || notificationError);
+          } else {
+            await sendNotificationPush(notificationId);
+          }
+        }
       }
     } else {
       await supabase.from("posts").update({ likes: Math.max((posts.find(p => p.id === postId)?.likes || 1) - 1, 0) }).eq("id", postId);
