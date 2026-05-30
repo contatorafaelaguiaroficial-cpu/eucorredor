@@ -2644,20 +2644,25 @@ function AppMain({ user, userName }) {
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: commentText });
     const post = posts.find(p => p.id === postId);
     if (post && post.user_id !== user.id) {
-      const { data: notificationData } = await supabase
-        .from("notifications")
-        .insert({
-          user_id: post.user_id,
-          from_user_id: user.id,
-          type: "comment",
-          post_id: postId,
-          comment_text: commentText,
-        })
-        .select("id")
-        .single();
+      const notificationId = window.crypto?.randomUUID?.();
 
-      if (notificationData?.id) {
-        await sendNotificationPush(notificationData.id);
+      if (notificationId) {
+        const { error: notificationError } = await supabase
+          .from("notifications")
+          .insert({
+            id: notificationId,
+            user_id: post.user_id,
+            from_user_id: user.id,
+            type: "comment",
+            post_id: postId,
+            comment_text: commentText,
+          });
+
+        if (notificationError) {
+          console.warn("Erro ao criar notificação de comentário:", notificationError.message || notificationError);
+        } else {
+          await sendNotificationPush(notificationId);
+        }
       }
     }
     setNewComment("");
