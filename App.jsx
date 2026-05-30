@@ -2607,13 +2607,21 @@ function AppMain({ user, userName }) {
     await supabase.from("comments").insert({ post_id: postId, user_id: user.id, text: commentText });
     const post = posts.find(p => p.id === postId);
     if (post && post.user_id !== user.id) {
-      await supabase.from("notifications").insert({
-        user_id: post.user_id,
-        from_user_id: user.id,
-        type: "comment",
-        post_id: postId,
-        comment_text: commentText,
-      });
+      const { data: notificationData } = await supabase
+        .from("notifications")
+        .insert({
+          user_id: post.user_id,
+          from_user_id: user.id,
+          type: "comment",
+          post_id: postId,
+          comment_text: commentText,
+        })
+        .select("id")
+        .single();
+
+      if (notificationData?.id) {
+        sendNotificationPush(notificationData.id);
+      }
     }
     setNewComment("");
     await loadComments(postId);
