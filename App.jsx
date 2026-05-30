@@ -37,7 +37,7 @@ function calcPace(km, secs) {
   const mPerKm = secs / 60 / km;
   const min = Math.floor(mPerKm);
   const sec = Math.round((mPerKm - min) * 60);
-  return min + "'" + String(sec).padStart(2,"0") + "/km";
+  return min + ":" + String(sec).padStart(2,"0") + "/km";
 }
 
 const getLevel = (n) => LEVELS.find((l) => n >= l.min && n <= l.max) || LEVELS[0];
@@ -2143,7 +2143,7 @@ function AppMain({ user, userName }) {
     const sec = Math.round((minPerKm - min) * 60);
     const adjMin = sec >= 60 ? min + 1 : min;
     const adjSec = sec >= 60 ? 0 : sec;
-    return adjMin + "min" + String(adjSec).padStart(2, "0") + "s/km";
+    return adjMin + ":" + String(adjSec).padStart(2, "0") + "/km";
   };
 
   const getRunSummary = (distanceKm, elapsedSeconds) => {
@@ -2841,7 +2841,7 @@ function AppMain({ user, userName }) {
   const monthProgress = Math.min(100, (monthKm / monthGoal) * 100);
   const bestDistance = myActivities.length ? Math.max(...myActivities.map(a => Number(a.distance || 0))) : 0;
   const bestPaceSeconds = myActivities.map(a => parsePaceToSeconds(a.pace)).filter(Boolean).sort((a, b) => a - b)[0] || 0;
-  const bestPaceLabel = bestPaceSeconds ? `${Math.floor(bestPaceSeconds / 60)}'${String(bestPaceSeconds % 60).padStart(2, "0")}/km` : "--";
+  const bestPaceLabel = bestPaceSeconds ? `${Math.floor(bestPaceSeconds / 60)}:${String(bestPaceSeconds % 60).padStart(2, "0")}/km` : "--";
   const dayLabels = ["S", "T", "Q", "Q", "S", "S", "D"];
   const weekBars = dayLabels.map((_, idx) => {
     const d = new Date(weekStart);
