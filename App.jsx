@@ -2873,7 +2873,7 @@ function AppMain({ user, userName }) {
   const weekKm = weekActivities.reduce((sum, a) => sum + Number(a.distance || 0), 0);
   const weekSeconds = weekActivities.reduce((sum, a) => sum + parseDurationToSeconds(a.duration), 0);
   const weekPace = weekKm > 0 ? calcPace(weekKm, weekSeconds) : "--";
-  const lastActivity = myActivities[0] || activities[0];
+  const lastActivity = myActivities.find((a) => Number(a.distance || 0) >= 0.05) || null;
   const monthKm = Number(profile?.total_km || 0);
   const monthProgress = Math.min(100, (monthKm / monthGoal) * 100);
   const bestDistance = myActivities.length ? Math.max(...myActivities.map(a => Number(a.distance || 0))) : 0;
@@ -7951,8 +7951,6 @@ function AppMain({ user, userName }) {
                         icon="⌁"
                         title="Nenhuma atividade recente"
                         description="Quando você registrar uma corrida no Hub, ela aparece aqui."
-                        actionLabel="Iniciar corrida"
-                        onAction={() => setHubScreen(gpsRunActive ? "tracking" : "hub")}
                       />}
                     </div>
                   </div>
@@ -7960,10 +7958,10 @@ function AppMain({ user, userName }) {
                   <div style={{ background: "#13131a", border: "1px solid #1e1e2e", borderRadius: 22, padding: 16 }}>
                     <p style={{ color: "#fff", fontSize: 16, fontWeight: 900, marginBottom: 14 }}>🏆 Seus melhores números</p>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#e11d48", fontSize: 19, fontWeight: 900 }}>5K</p><p style={{ color: "#aaa", fontSize: 12 }}>{bestPaceLabel}</p></div>
-                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{bestDistance.toFixed(1).replace(".", ",")}</p><p style={{ color: "#aaa", fontSize: 12 }}>maior km</p></div>
-                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{bestPaceLabel}</p><p style={{ color: "#aaa", fontSize: 12 }}>melhor pace</p></div>
-                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{races}</p><p style={{ color: "#aaa", fontSize: 12 }}>corridas</p></div>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#e11d48", fontSize: 19, fontWeight: 900 }}>{lastActivity ? "5K" : "--"}</p><p style={{ color: "#aaa", fontSize: 12 }}>{lastActivity ? bestPaceLabel : "sem dados"}</p></div>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{lastActivity ? bestDistance.toFixed(1).replace(".", ",") : "--"}</p><p style={{ color: "#aaa", fontSize: 12 }}>maior km</p></div>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{lastActivity ? bestPaceLabel : "--"}</p><p style={{ color: "#aaa", fontSize: 12 }}>melhor pace</p></div>
+                      <div style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 8px", textAlign: "center" }}><p style={{ color: "#fff", fontSize: 19, fontWeight: 900 }}>{lastActivity ? races : 0}</p><p style={{ color: "#aaa", fontSize: 12 }}>corridas</p></div>
                     </div>
                   </div>
 
@@ -8357,12 +8355,12 @@ function AppMain({ user, userName }) {
                     </button>
 
                     <div style={{ padding: "15px 4px", textAlign: "center", borderRight: "1px solid rgba(255,255,255,0.10)" }}>
-                      <p style={{ color: "#fff", fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{races}</p>
+                      <p style={{ color: "#fff", fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{lastActivity ? races : 0}</p>
                       <p style={{ color: "#8f8f99", fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 6 }}>corridas</p>
                     </div>
 
                     <div style={{ padding: "15px 4px", textAlign: "center" }}>
-                      <p style={{ color: "#ff4b6d", fontSize: 20, fontWeight: 900, lineHeight: 1 }}>{Number(profile?.total_km || 0).toFixed(1)} km</p>
+                      <p style={{ color: "#ff4b6d", fontSize: 20, fontWeight: 900, lineHeight: 1 }}>{lastActivity ? Number(profile?.total_km || 0).toFixed(1) : "0.0"} km</p>
                       <p style={{ color: "#8f8f99", fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 6 }}>distância</p>
                     </div>
                   </div>
@@ -8382,7 +8380,7 @@ function AppMain({ user, userName }) {
                     <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", gap: 10, borderRight: "1px solid rgba(255,255,255,0.10)" }}>
                       <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(225,29,72,0.14)", border: "1px solid rgba(225,29,72,0.35)", color: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>◷</div>
                       <div>
-                        <p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>5'18&quot;</p>
+                        <p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>{lastActivity ? (weekPace !== "--" ? weekPace : lastActivity.pace || "--") : "—"}</p>
                         <p style={{ color: "#777", fontSize: 11, fontWeight: 700 }}>pace médio</p>
                       </div>
                     </div>
@@ -8390,7 +8388,7 @@ function AppMain({ user, userName }) {
                     <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(225,29,72,0.14)", border: "1px solid rgba(225,29,72,0.35)", color: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⏱</div>
                       <div>
-                        <p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>00:42:34</p>
+                        <p style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>{lastActivity ? (lastActivity.duration || "--") : "—"}</p>
                         <p style={{ color: "#777", fontSize: 11, fontWeight: 700 }}>tempo total</p>
                       </div>
                     </div>
@@ -8399,7 +8397,7 @@ function AppMain({ user, userName }) {
                   <div style={{ marginBottom: 4 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                       <span style={{ fontSize: 11, color: "#777", fontWeight: 700 }}>Próximo: {next?.name || "nível máximo"}</span>
-                      <span style={{ fontSize: 11, color: level.color, fontWeight: 900 }}>{races}/{next?.min || races} corridas</span>
+                      <span style={{ fontSize: 11, color: level.color, fontWeight: 900 }}>{lastActivity ? races : 0}/{next?.min || races} corridas</span>
                     </div>
                     <div style={{ background: "rgba(255,255,255,0.10)", borderRadius: 99, height: 5 }}>
                       <div style={{ background: level.color, width: `${progress}%`, height: 5, borderRadius: 99 }} />
