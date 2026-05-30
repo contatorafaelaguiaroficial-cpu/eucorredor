@@ -14,9 +14,11 @@ function base64url(input) {
 function createApnsJwt() {
   const keyId = process.env.APNS_KEY_ID;
   const teamId = process.env.APNS_TEAM_ID;
-  const privateKey = process.env.APNS_PRIVATE_KEY
-    ?.replace(/\\n/g, "\n")
-    ?.trim();
+  const privateKey = process.env.APNS_PRIVATE_KEY_BASE64
+    ? Buffer.from(process.env.APNS_PRIVATE_KEY_BASE64, "base64").toString("utf8").trim()
+    : process.env.APNS_PRIVATE_KEY
+      ?.replace(/\\n/g, "\n")
+      ?.trim();
 
   if (!keyId || !teamId || !privateKey) {
     throw new Error("Variáveis APNs ausentes.");
