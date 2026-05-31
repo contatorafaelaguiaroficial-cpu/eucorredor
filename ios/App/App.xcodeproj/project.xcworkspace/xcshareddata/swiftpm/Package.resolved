@@ -1,5 +1,5 @@
 {
-  "originHash" : "3439982c1c7cd90afd83b61459e3c746bfd1066ba2fe8e11e9da939a507913f6",
+  "originHash" : "f7ddb8ec1e72fb43993fab02ec6f3c4c77ae5e8f92fcdaa500c1822ab97c213b",
   "pins" : [
     {
       "identity" : "capacitor-swift-pm",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "992959f0467c781eb6a1637e69d87481238c3672",
         "version" : "8.3.4"
+      }
+    },
+    {
+      "identity" : "facebook-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/facebook/facebook-ios-sdk",
+      "state" : {
+        "revision" : "8c90832bf2302d9ecd0d23cb63b81f1fb9a36497",
+        "version" : "18.0.3"
       }
     },
     {

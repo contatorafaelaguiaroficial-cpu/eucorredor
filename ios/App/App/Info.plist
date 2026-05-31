@@ -30,9 +30,23 @@
 				<string>com.eucorredor.app</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>facebook</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb1410281674467952</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>FacebookAppID</key>
+	<string>1410281674467952</string>
+	<key>FacebookClientToken</key>
+	<string>1f938db2edf54700fb4896c5420a09ca</string>
+	<key>FacebookDisplayName</key>
+	<string>EuCorredor</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
