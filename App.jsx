@@ -1493,7 +1493,7 @@ function AppMain({ user, userName }) {
     if (eventIds.length > 0) {
       const { data: raceEventsData, error: raceEventsError } = await supabase
         .from("race_events")
-        .select("id, event_id, slug, sales_status, native_registration_enabled")
+        .select("id, event_id, slug, sales_status, native_registration_enabled, banner_image_url")
         .in("event_id", eventIds);
 
       if (raceEventsError) {
