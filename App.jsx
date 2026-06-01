@@ -779,7 +779,7 @@ function AppMain({ user, userName }) {
       try {
         const { data: raceEventData, error: raceEventError } = await supabase
           .from("race_events")
-          .select("id, event_id, slug, sales_status, native_registration_enabled")
+          .select("id, event_id, slug, sales_status, native_registration_enabled, banner_image_url")
           .eq("slug", slug)
           .maybeSingle();
 
@@ -3255,6 +3255,18 @@ function AppMain({ user, userName }) {
   });
 
   const getEventImage = (event) => {
+    const customImage =
+      event?.race_event?.banner_image_url ||
+      event?.banner_image_url ||
+      event?.cover_image_url ||
+      event?.image_url ||
+      event?.banner_url ||
+      "";
+
+    if (customImage) {
+      return customImage;
+    }
+
     const text = normalizeEventText(`${event?.name || ""} ${event?.category || ""} ${event?.distance || ""} ${event?.city || ""}`);
 
     if (text.includes("night") || text.includes("noite")) {
@@ -4792,9 +4804,11 @@ function AppMain({ user, userName }) {
                           <>
                             {(() => {
                               const raceCoverImage =
+                                raceEventDetails?.banner_image_url ||
                                 raceEventDetails?.cover_image_url ||
                                 raceEventDetails?.image_url ||
                                 raceEventDetails?.banner_url ||
+                                selectedRaceEvent?.race_event?.banner_image_url ||
                                 selectedRaceEvent?.cover_image_url ||
                                 selectedRaceEvent?.image_url ||
                                 selectedRaceEvent?.banner_url ||
