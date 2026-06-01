@@ -68,7 +68,7 @@ export default async function handler(req, res) {
 
     const { data: registration, error: registrationError } = await supabaseAdmin
       .from("race_registrations")
-      .select("id, race_event_id, amount_cents, status, participant_cpf")
+      .select("id, race_event_id, amount_cents, base_amount_cents, platform_fee_cents, status, participant_cpf")
       .eq("id", registrationId)
       .maybeSingle();
 
@@ -147,11 +147,17 @@ export default async function handler(req, res) {
       });
     }
 
-    const platformFeeCents = calcularPlatformFeeCents(
-      amountCents,
-      raceEvent.platform_fee_type,
-      raceEvent.platform_fee_value
-    );
+    const storedPlatformFeeCents = Number(registration.platform_fee_cents || 0);
+    const baseAmountCents = Number(registration.base_amount_cents || registration.amount_cents || 0);
+
+    const platformFeeCents =
+      Number.isInteger(storedPlatformFeeCents) && storedPlatformFeeCents > 0
+        ? Math.min(storedPlatformFeeCents, amountCents)
+        : calcularPlatformFeeCents(
+            baseAmountCents,
+            raceEvent.platform_fee_type,
+            raceEvent.platform_fee_value
+          );
 
     const transactionAmount = Number((amountCents / 100).toFixed(2));
     const applicationFee = Number((platformFeeCents / 100).toFixed(2));
