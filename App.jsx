@@ -17,6 +17,64 @@ const SUPABASE_KEY = "sb_publishable_WB5ILhYe5FqHaPjHChWH1A_5fNq2_KI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_ID = "7cdb56e9-0525-48ac-901f-1f5ac23fe009";
 
+
+function formatCentsBRL(cents) {
+  const numericCents = Number(cents || 0);
+
+  if (!Number.isFinite(numericCents)) {
+    return "R$ 0,00";
+  }
+
+  return (numericCents / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function calculateServiceFeeCents(baseAmountCents, feeType, feeValue) {
+  const amount = Number(baseAmountCents || 0);
+  const value = Number(feeValue || 0);
+
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+
+  if (feeType === "percentage") {
+    return Math.max(0, Math.round((amount * value) / 100));
+  }
+
+  return Math.max(0, Math.round(value * 100));
+}
+
+function getRaceCheckoutAmounts({ lot, raceEvent, registration }) {
+  const baseAmountCents = Number(
+    registration?.base_amount_cents ||
+    lot?.price_cents ||
+    registration?.amount_cents ||
+    0
+  );
+
+  const serviceFeeCents = Number(
+    registration?.platform_fee_cents ||
+    calculateServiceFeeCents(
+      baseAmountCents,
+      raceEvent?.platform_fee_type,
+      raceEvent?.platform_fee_value
+    )
+  );
+
+  const totalAmountCents = Number(
+    registration?.amount_cents ||
+    baseAmountCents + serviceFeeCents
+  );
+
+  return {
+    baseAmountCents,
+    serviceFeeCents,
+    totalAmountCents,
+  };
+}
+
 const MERCADOPAGO_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 
 if (MERCADOPAGO_PUBLIC_KEY) {
@@ -4919,8 +4977,21 @@ function AppMain({ user, userName }) {
                                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                       {(raceEventDetails.modalities || []).map((modality) => {
                                         const activeLot = (modality.lots || []).find((lot) => lot.is_active);
+                                        const checkoutAmounts = getRaceCheckoutAmounts({
+                                          lot: activeLot,
+                                          raceEvent: raceEventDetails,
+                                        });
+
                                         const activePrice = activeLot
-                                          ? (activeLot.price_cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                                          ? formatCentsBRL(checkoutAmounts.totalAmountCents)
+                                          : null;
+
+                                        const basePrice = activeLot
+                                          ? formatCentsBRL(checkoutAmounts.baseAmountCents)
+                                          : null;
+
+                                        const serviceFee = activeLot
+                                          ? formatCentsBRL(checkoutAmounts.serviceFeeCents)
                                           : null;
 
                                         return (
@@ -4961,6 +5032,11 @@ function AppMain({ user, userName }) {
                                               <p style={{ fontSize: 12.5, color: "#a4a4b2", fontWeight: 800, lineHeight: 1.4 }}>
                                                 {activeLot ? `${activeLot.name} · ${activeLot.total_slots} vagas no lote` : "Sem lote ativo"}
                                               </p>
+                                              {activeLot ? (
+                                                <p style={{ fontSize: 11.5, color: "#c9c9d4", fontWeight: 800, lineHeight: 1.4, marginTop: 4 }}>
+                                                  Inscrição {basePrice} + taxa de serviço {serviceFee}
+                                                </p>
+                                              ) : null}
                                             </div>
 
                                             <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -5086,12 +5162,22 @@ function AppMain({ user, userName }) {
 
                               const activeLot = (selectedModality?.lots || []).find((lot) => lot.is_active);
 
+                              const checkoutAmounts = getRaceCheckoutAmounts({
+                                lot: activeLot,
+                                raceEvent: raceEventDetails,
+                              });
+
                               const activePrice = activeLot
-                                ? (activeLot.price_cents / 100).toLocaleString("pt-BR", {
-                                    style: "currency",
-                                    currency: "BRL"
-                                  })
+                                ? formatCentsBRL(checkoutAmounts.totalAmountCents)
                                 : "—";
+
+                              const basePrice = activeLot
+                                ? formatCentsBRL(checkoutAmounts.baseAmountCents)
+                                : "—";
+
+                              const serviceFee = activeLot
+                                ? formatCentsBRL(checkoutAmounts.serviceFeeCents)
+                                : "R$ 0,00";
 
                               const requiresTshirt = !!raceEventDetails.has_tshirt;
                               const requiresEmergencyContact = !!raceEventDetails.checkout_settings?.requires_emergency_contact;
@@ -5693,11 +5779,21 @@ function AppMain({ user, userName }) {
                                   })
                                 : null;
 
-                              const reservedAmount = pendingRaceRegistration?.amount_cents
-                                ? (pendingRaceRegistration.amount_cents / 100).toLocaleString("pt-BR", {
-                                    style: "currency",
-                                    currency: "BRL"
-                                  })
+                              const reservedCheckoutAmounts = getRaceCheckoutAmounts({
+                                raceEvent: raceEventDetails,
+                                registration: pendingRaceRegistration,
+                              });
+
+                              const reservedBaseAmount = pendingRaceRegistration
+                                ? formatCentsBRL(reservedCheckoutAmounts.baseAmountCents)
+                                : "—";
+
+                              const reservedServiceFee = pendingRaceRegistration
+                                ? formatCentsBRL(reservedCheckoutAmounts.serviceFeeCents)
+                                : "R$ 0,00";
+
+                              const reservedAmount = pendingRaceRegistration
+                                ? formatCentsBRL(reservedCheckoutAmounts.totalAmountCents)
                                 : "—";
 
                               return (
@@ -5816,12 +5912,46 @@ function AppMain({ user, userName }) {
                                         padding: 14
                                       }}
                                     >
-                                      <p style={{ fontSize: 11, color: "#8f8f9d", fontWeight: 950, marginBottom: 6 }}>
-                                        VALOR
+                                      <p style={{ fontSize: 11, color: "#8f8f9d", fontWeight: 950, marginBottom: 8 }}>
+                                        RESUMO
                                       </p>
-                                      <p style={{ fontSize: 18, color: "#fff", fontWeight: 950 }}>
-                                        {reservedAmount}
-                                      </p>
+
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                          <span style={{ fontSize: 12, color: "#b8b8c4", fontWeight: 850 }}>
+                                            Inscrição
+                                          </span>
+                                          <span style={{ fontSize: 12.5, color: "#f4f4f7", fontWeight: 950, textAlign: "right" }}>
+                                            {reservedBaseAmount}
+                                          </span>
+                                        </div>
+
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                          <span style={{ fontSize: 12, color: "#b8b8c4", fontWeight: 850 }}>
+                                            Taxa de serviço
+                                          </span>
+                                          <span style={{ fontSize: 12.5, color: "#f4f4f7", fontWeight: 950, textAlign: "right" }}>
+                                            {reservedServiceFee}
+                                          </span>
+                                        </div>
+
+                                        <div
+                                          style={{
+                                            height: 1,
+                                            background: "rgba(255,255,255,0.10)",
+                                            margin: "2px 0"
+                                          }}
+                                        />
+
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                          <span style={{ fontSize: 12.5, color: "#fff", fontWeight: 950 }}>
+                                            Total
+                                          </span>
+                                          <span style={{ fontSize: 16, color: "#fff", fontWeight: 950, textAlign: "right" }}>
+                                            {reservedAmount}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
 
